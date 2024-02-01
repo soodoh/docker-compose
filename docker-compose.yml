@@ -14,6 +14,7 @@ services:
       - 8388:8388/tcp # Shadowsocks
       - 8388:8388/udp # Shadowsocks
       - 4567:4567 # Tachidesk
+      - 5055:5055 # Overseerr
       - 7878:7878 # Radarr
       - 8989:8989 # Sonarr
       - 9091:9091 # Transmission
@@ -58,8 +59,7 @@ services:
     image: linuxserver/overseerr:latest
     container_name: overseerr
     restart: always
-    ports:
-      - 5055:5055
+    network_mode: service:vpn
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
