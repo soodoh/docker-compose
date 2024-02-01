@@ -6,13 +6,13 @@ services:
     container_name: plex
     restart: always
     ports:
-      - "1900:1900"
-      - "3005:3005"
-      - "9324:9324"
-      - "32400:32400"
-      - "32410:32410"
-      - "32412-32414:32412-32414"
-      - "32469:32469"
+      - 1900:1900
+      - 3005:3005
+      - 9324:9324
+      - 32400:32400
+      - 32410:32410
+      - 32412-32414:32412-32414
+      - 32469:32469
     environment:
       - ADVERTISE_IP=http://192.168.0.100:32400/
       - TZ=America/Los_Angeles
@@ -27,8 +27,21 @@ services:
       - /mnt/media/tv_shows:/tv_shows
       - /mnt/media/audiobooks:/audiobooks
 
+  overseerr:
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    restart: always
+    ports:
+      - 5055:5055
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - overseerr:/config
+
   sonarr:
-    image: linuxserver/sonarr:latest
+    image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     restart: always
     environment:
@@ -36,14 +49,14 @@ services:
       - PUID=1000
       - PGID=1000
     ports:
-      - "8989:8989"
+      - 8989:8989
     volumes:
       - sonarr:/config
       - /mnt/media/tv_shows:/tv_shows
       - /mnt/media/transmission:/downloads
 
   radarr:
-    image: linuxserver/radarr:latest
+    image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     restart: always
     environment:
@@ -51,14 +64,14 @@ services:
       - PUID=1000
       - PGID=1000
     ports:
-      - "7878:7878"
+      - 7878:7878
     volumes:
       - radarr:/config
       - /mnt/media/transmission:/downloads
       - /mnt/media/movies:/movies
 
   prowlarr:
-    image: linuxserver/prowlarr:latest
+    image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
     restart: always
     environment:
@@ -66,12 +79,12 @@ services:
       - PUID=1000
       - PGID=1000
     ports:
-      - "9696:9696"
+      - 9696:9696
     volumes:
       - prowlarr:/config
 
   transmission:
-    image: linuxserver/transmission:latest
+    image: lscr.io/linuxserver/transmission:latest
     container_name: transmission
     restart: always
     environment:
@@ -88,8 +101,8 @@ services:
       - OPENVPN_USERNAME=$VPN_USERNAME
       - OPENVPN_PASSWORD=$VPN_PASSWORD
     ports:
-      - "8118:8118"
-      - "9091:9091"
+      - 8118:8118
+      - 9091:9091
     volumes:
       - transmission-config:/config
       - /mnt/media/transmission:/data
@@ -114,12 +127,13 @@ services:
     container_name: tachidesk
     restart: always
     ports:
-      - "4567:4567"
+      - 4567:4567
     volumes:
       - /home/docker/tachidesk:/home/suwayomi/.local/share/Tachidesk
 
 volumes:
   plex:
+  overseerr:
   sonarr:
   radarr:
   prowlarr:
