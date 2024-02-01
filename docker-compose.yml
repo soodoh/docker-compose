@@ -13,11 +13,11 @@ services:
       - 8888:8888/tcp # HTTP proxy
       - 8388:8388/tcp # Shadowsocks
       - 8388:8388/udp # Shadowsocks
-      - 4567:4567
-      - 7878:7878
-      - 8989:8989
-      - 9091:9091
-      - 9696:9696
+      - 4567:4567 # Tachidesk
+      - 7878:7878 # Radarr
+      - 8989:8989 # Sonarr
+      - 9091:9091 # Transmission
+      - 9696:9696 # Prowlarr
     volumes:
       - gluetun:/gluetun
     environment:
