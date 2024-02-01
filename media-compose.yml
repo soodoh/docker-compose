@@ -1,7 +1,7 @@
 version: '3'
 
 services:
-  vpn:
+  gluetun:
     image: qmcgaw/gluetun:latest
     container_name: gluetun
     restart: always
@@ -18,8 +18,8 @@ services:
     volumes:
       - gluetun:/gluetun
     environment:
-      - TZ=America/Los_Angeles
-      - VPN_SERVICE_PROVIDER=nordvpn
+      - TZ=$TZ
+      - VPN_SERVICE_PROVIDER=$VPN_PROVIDER
       - VPN_TYPE=openvpn
       - OPENVPN_USER=$VPN_USERNAME
       - OPENVPN_PASSWORD=$VPN_PASSWORD
@@ -38,8 +38,8 @@ services:
       - 32412-32414:32412-32414
       - 32469:32469
     environment:
+      - TZ=$TZ
       - ADVERTISE_IP=http://192.168.0.100:32400/
-      - TZ=America/Los_Angeles
       - HOME=/config
       - PLEX_GID=1000
       - PLEX_UID=1000
@@ -58,7 +58,7 @@ services:
     ports:
       - 5055:5055
     environment:
-      - TZ=America/Los_Angeles
+      - TZ=$TZ
       - PUID=1000
       - PGID=1000
     volumes:
@@ -71,7 +71,7 @@ services:
     ports:
       - 8989:8989
     environment:
-      - TZ=America/Los_Angeles
+      - TZ=$TZ
       - PUID=1000
       - PGID=1000
     volumes:
@@ -87,7 +87,7 @@ services:
     ports:
       - 8998:8989
     environment:
-      - TZ=America/Los_Angeles
+      - TZ=$TZ
       - PUID=1000
       - PGID=1000
     volumes:
@@ -102,7 +102,7 @@ services:
     ports:
       - 7878:7878
     environment:
-      - TZ=America/Los_Angeles
+      - TZ=$TZ
       - PUID=1000
       - PGID=1000
     volumes:
@@ -117,7 +117,7 @@ services:
     ports:
       - 7887:7878
     environment:
-      - TZ=America/Los_Angeles
+      - TZ=$TZ
       - PUID=1000
       - PGID=1000
     volumes:
@@ -132,7 +132,7 @@ services:
     ports:
       - 9696:9696
     environment:
-      - TZ=America/Los_Angeles
+      - TZ=$TZ
       - PUID=1000
       - PGID=1000
     volumes:
@@ -142,13 +142,13 @@ services:
     image: linuxserver/transmission:latest
     container_name: transmission
     restart: always
-    network_mode: service:vpn
+    network_mode: service:gluetun
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=America/Los_Angeles
+      - TZ=$TZ
       - USER=$TORRENT_USERNAME
       - PASS=$TORRENT_PASSWORD
+      - PUID=1000
+      - PGID=1000
     volumes:
       - transmission-config:/config
       - /mnt/media/transmission:/downloads
@@ -159,7 +159,7 @@ services:
     container_name: unpackerr
     restart: always
     environment:
-      - TZ=America/Los_Angeles
+      - TZ=$TZ
       - UN_SONARR_0_URL=http://sonarr-low-res:8989
       - UN_SONARR_0_API_KEY=$SONARR_API_KEY
       - UN_SONARR_0_PATHS_0=/data/complete/sonarr-low-res
@@ -173,7 +173,7 @@ services:
     image: ghcr.io/suwayomi/tachidesk:stable
     container_name: tachidesk
     restart: always
-    network_mode: service:vpn
+    network_mode: service:gluetun
     volumes:
       - /home/docker/tachidesk:/home/suwayomi/.local/share/Tachidesk
 
