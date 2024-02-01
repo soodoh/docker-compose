@@ -119,3 +119,10 @@ services:
       - "4567:4567"
     volumes:
       - /home/docker/tachidesk:/home/suwayomi/.local/share/Tachidesk
+
+volumes:
+  plex:
+  sonarr:
+  radarr:
+  prowlarr:
+  transmission-config:
