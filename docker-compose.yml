@@ -13,6 +13,11 @@ services:
       - 8888:8888/tcp # HTTP proxy
       - 8388:8388/tcp # Shadowsocks
       - 8388:8388/udp # Shadowsocks
+      - 4567:4567
+      - 7878:7878
+      - 8989:8989
+      - 9091:9091
+      - 9696:9696
     volumes:
       - gluetun:/gluetun
     environment:
@@ -67,8 +72,6 @@ services:
     container_name: sonarr
     restart: always
     network_mode: service:vpn
-    ports:
-      - 8989:8989
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
@@ -83,8 +86,6 @@ services:
     container_name: radarr
     restart: always
     network_mode: service:vpn
-    ports:
-      - 7878:7878
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
@@ -99,8 +100,6 @@ services:
     container_name: prowlarr
     restart: always
     network_mode: service:vpn
-    ports:
-      - 9696:9696
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
@@ -113,10 +112,6 @@ services:
     container_name: transmission
     restart: always
     network_mode: service:vpn
-    ports:
-      - 9091:9091
-      - 51413/tcp
-      - 51413/udp
     environment:
       - PUID=1000
       - PGID=1000
@@ -148,8 +143,6 @@ services:
     container_name: tachidesk
     restart: always
     network_mode: service:vpn
-    ports:
-      - 4567:4567
     volumes:
       - /home/docker/tachidesk:/home/suwayomi/.local/share/Tachidesk
 
