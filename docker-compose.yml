@@ -1,0 +1,126 @@
+version: '3'
+
+services:
+  plex:
+    image: plexinc/pms-docker:latest
+    container_name: plex
+    restart: always
+    ports:
+      - "1900:1900"
+      - "3005:3005"
+      - "9324:9324"
+      - "32400:32400"
+      - "32410:32410"
+      - "32412-32414:32412-32414"
+      - "32469:32469"
+    environment:
+      - ADVERTISE_IP=http://192.168.0.100:32400/
+      - TZ=America/Los_Angeles
+      - HOME=/config
+      - PLEX_GID=1000
+      - PLEX_UID=1000
+      - PLEX_CLAIM=$PLEX_CLAIM
+    volumes:
+      - plex:/config
+      - /mnt/media/movies:/movies
+      - /tmp:/transcode
+      - /mnt/media/tv_shows:/tv_shows
+      - /mnt/media/audiobooks:/audiobooks
+
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: always
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    ports:
+      - "8989:8989"
+    volumes:
+      - sonarr:/config
+      - /mnt/media/tv_shows:/tv_shows
+      - /mnt/media/transmission:/data
+
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    restart: always
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    ports:
+      - "7878:7878"
+    volumes:
+      - radarr:/config
+      - /mnt/media/transmission:/data
+      - /mnt/media/movies:/movies
+
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: always
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    ports:
+      - "9696:9696"
+    volumes:
+      - prowlarr:/config
+
+  transmission:
+    image: linuxserver/transmission:latest
+    container_name: transmission
+    restart: always
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - LOCAL_NETWORK=192.168.0.0/24
+      - TRANSMISSION_DOWNLOAD_DIR=/data/completed
+      - TRANSMISSION_INCOMPLETE_DIR=/data/incomplete
+      - TRANSMISSION_WATCH_DIR=/data/watch
+      - TRANSMISSION_DOWNLOAD_QUEUE_SIZE=50
+      - TRANSMISSION_HOME=/config/transmission-home
+      - TRANSMISSION_RPC_PORT=9091
+      - TRANSMISSION_RPC_USERNAME=$TORRENT_USERNAME
+      - TRANSMISSION_RPC_PASSWORD=$TORRENT_PASSWORD
+      - OPENVPN_PROVIDER=$VPN_PROVIDER
+      - OPENVPN_USERNAME=$VPN_USERNAME
+      - OPENVPN_PASSWORD=$VPN_PASSWORD
+    ports:
+      - "8118:8118"
+      - "9091:9091"
+    volumes:
+      - transmission-config:/config
+      - /mnt/media/transmission:/data
+
+  unpackerr:
+    image: golift/unpackerr:latest
+    container_name: unpackerr
+    restart: always
+    environment:
+      - TZ=America/Los_Angeles
+      - UN_SONARR_0_URL=$SONARR_URL
+      - UN_SONARR_0_API_KEY=$SONARR_API_KEY
+      - UN_SONARR_0_PATHS_0=/data/completed/sonarr
+      - UN_RADARR_0_URL=$RADARR_URL
+      - UN_RADARR_0_API_KEY=$RADARR_API_KEY
+      - UN_RADARR_0_PATHS_0=/data/completed/radarr
+    volumes:
+      - /mnt/media/transmission:/data
+
+  tachidesk:
+    image: suwayomi/tachidesk:stable
+    container_name: tachidesk
+    restart: always
+    ports:
+      - "4567:4567"
+    volumes:
+      - /home/docker/tachidesk:/home/suwayomi/.local/share/Tachidesk
+
+networks:
+  default:
+    external:
+      name: bridge
