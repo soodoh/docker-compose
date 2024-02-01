@@ -119,8 +119,3 @@ services:
       - "4567:4567"
     volumes:
       - /home/docker/tachidesk:/home/suwayomi/.local/share/Tachidesk
-
-networks:
-  default:
-    external:
-      name: bridge
