@@ -78,8 +78,6 @@ services:
       - PUID=1000
       - PGID=1000
       - LOCAL_NETWORK=192.168.0.0/24
-      - TRANSMISSION_DOWNLOAD_DIR=/data/completed
-      - TRANSMISSION_INCOMPLETE_DIR=/data/incomplete
       - TRANSMISSION_WATCH_DIR=/data/watch
       - TRANSMISSION_DOWNLOAD_QUEUE_SIZE=50
       - TRANSMISSION_HOME=/config/transmission-home
