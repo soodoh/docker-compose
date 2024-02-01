@@ -112,7 +112,7 @@ services:
       - /mnt/media/transmission:/data
 
   tachidesk:
-    image: suwayomi/tachidesk:stable
+    image: gchr.io/suwayomi/tachidesk:stable
     container_name: tachidesk
     restart: always
     ports:
