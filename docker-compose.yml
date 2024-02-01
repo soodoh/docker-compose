@@ -1,6 +1,28 @@
 version: '3'
 
 services:
+  vpn:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    restart: always
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - 8888:8888/tcp # HTTP proxy
+      - 8388:8388/tcp # Shadowsocks
+      - 8388:8388/udp # Shadowsocks
+    volumes:
+      - gluetun:/gluetun
+    environment:
+      - TZ=America/Los_Angeles
+      - VPN_SERVICE_PROVIDER=nordvpn
+      - VPN_TYPE=openvpn
+      - OPENVPN_USER=$VPN_USERNAME
+      - OPENVPN_PASSWORD=$VPN_PASSWORD
+      - UPDATER_PERIOD=24h
+
   plex:
     image: plexinc/pms-docker:latest
     container_name: plex
@@ -28,7 +50,7 @@ services:
       - /mnt/media/audiobooks:/audiobooks
 
   overseerr:
-    image: lscr.io/linuxserver/overseerr:latest
+    image: linuxserver/overseerr:latest
     container_name: overseerr
     restart: always
     ports:
@@ -41,71 +63,70 @@ services:
       - overseerr:/config
 
   sonarr:
-    image: lscr.io/linuxserver/sonarr:latest
+    image: linuxserver/sonarr:latest
     container_name: sonarr
     restart: always
+    network_mode: service:vpn_network
+    ports:
+      - 8989:8989
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
       - PGID=1000
-    ports:
-      - 8989:8989
     volumes:
       - sonarr:/config
       - /mnt/media/tv_shows:/tv_shows
       - /mnt/media/transmission:/downloads
 
   radarr:
-    image: lscr.io/linuxserver/radarr:latest
+    image: linuxserver/radarr:latest
     container_name: radarr
     restart: always
+    network_mode: service:vpn_network
+    ports:
+      - 7878:7878
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
       - PGID=1000
-    ports:
-      - 7878:7878
     volumes:
       - radarr:/config
       - /mnt/media/transmission:/downloads
       - /mnt/media/movies:/movies
 
   prowlarr:
-    image: lscr.io/linuxserver/prowlarr:latest
+    image: linuxserver/prowlarr:latest
     container_name: prowlarr
     restart: always
+    network_mode: service:vpn_network
+    ports:
+      - 9696:9696
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
       - PGID=1000
-    ports:
-      - 9696:9696
     volumes:
       - prowlarr:/config
 
   transmission:
-    image: lscr.io/linuxserver/transmission:latest
+    image: linuxserver/transmission:latest
     container_name: transmission
     restart: always
+    network_mode: service:vpn_network
+    ports:
+      - 9091:9091
+      - 51413/tcp
+      - 51413/udp
     environment:
       - PUID=1000
       - PGID=1000
-      - LOCAL_NETWORK=192.168.0.0/24
-      - TRANSMISSION_WATCH_DIR=/data/watch
-      - TRANSMISSION_DOWNLOAD_QUEUE_SIZE=50
-      - TRANSMISSION_HOME=/config/transmission-home
-      - TRANSMISSION_RPC_PORT=9091
-      - TRANSMISSION_RPC_USERNAME=$TORRENT_USERNAME
-      - TRANSMISSION_RPC_PASSWORD=$TORRENT_PASSWORD
-      - OPENVPN_PROVIDER=$VPN_PROVIDER
-      - OPENVPN_USERNAME=$VPN_USERNAME
-      - OPENVPN_PASSWORD=$VPN_PASSWORD
-    ports:
-      - 8118:8118
-      - 9091:9091
+      - TZ=America/Los_Angeles
+      - USER=$TORRENT_USERNAME
+      - PASS=$TORRENT_PASSWORD
     volumes:
       - transmission-config:/config
-      - /mnt/media/transmission:/data
+      - /mnt/media/transmission:/downloads
+      - /mnt/media/transmission/watch:/watch
 
   unpackerr:
     image: golift/unpackerr:latest
@@ -126,6 +147,7 @@ services:
     image: ghcr.io/suwayomi/tachidesk:stable
     container_name: tachidesk
     restart: always
+    network_mode: service:vpn_network
     ports:
       - 4567:4567
     volumes:
@@ -138,3 +160,7 @@ volumes:
   radarr:
   prowlarr:
   transmission-config:
+  gluetun:
+
+networks:
+  vpn_network:
