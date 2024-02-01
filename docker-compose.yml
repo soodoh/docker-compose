@@ -14,11 +14,7 @@ services:
       - 8388:8388/tcp # Shadowsocks
       - 8388:8388/udp # Shadowsocks
       - 4567:4567 # Tachidesk
-      - 5055:5055 # Overseerr
-      - 7878:7878 # Radarr
-      - 8989:8989 # Sonarr
       - 9091:9091 # Transmission
-      - 9696:9696 # Prowlarr
     volumes:
       - gluetun:/gluetun
     environment:
@@ -59,7 +55,8 @@ services:
     image: linuxserver/overseerr:latest
     container_name: overseerr
     restart: always
-    network_mode: service:vpn
+    ports:
+      - 5055:5055
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
@@ -67,31 +64,64 @@ services:
     volumes:
       - overseerr:/config
 
-  sonarr:
+  sonarr-low-res:
     image: linuxserver/sonarr:latest
-    container_name: sonarr
+    container_name: sonarr-low-res
     restart: always
-    network_mode: service:vpn
+    ports:
+      - 8989:8989
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
       - PGID=1000
     volumes:
-      - sonarr:/config
+      - sonarr-low-res:/config
       - /mnt/media/tv_shows:/tv_shows
       - /mnt/media/transmission:/downloads
 
-  radarr:
-    image: linuxserver/radarr:latest
-    container_name: radarr
+
+  sonarr-4k:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr-4k
     restart: always
-    network_mode: service:vpn
+    ports:
+      - 8998:8989
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
       - PGID=1000
     volumes:
-      - radarr:/config
+      - sonarr-4k:/config
+      - /mnt/media/tv_shows:/tv_shows
+      - /mnt/media/transmission:/downloads
+
+  radarr-low-res:
+    image: linuxserver/radarr:latest
+    container_name: radarr-low-res
+    restart: always
+    ports:
+      - 7878:7878
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - radarr-low-res:/config
+      - /mnt/media/transmission:/downloads
+      - /mnt/media/movies:/movies
+
+  radarr-4k:
+    image: linuxserver/radarr:latest
+    container_name: radarr-4k
+    restart: always
+    ports:
+      - 7887:7878
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - radarr-4k:/config
       - /mnt/media/transmission:/downloads
       - /mnt/media/movies:/movies
 
@@ -99,7 +129,8 @@ services:
     image: linuxserver/prowlarr:latest
     container_name: prowlarr
     restart: always
-    network_mode: service:vpn
+    ports:
+      - 9696:9696
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
@@ -129,12 +160,12 @@ services:
     restart: always
     environment:
       - TZ=America/Los_Angeles
-      - UN_SONARR_0_URL=http://localhost:8989
+      - UN_SONARR_0_URL=http://sonarr-low-res:8989
       - UN_SONARR_0_API_KEY=$SONARR_API_KEY
-      - UN_SONARR_0_PATHS_0=/data/completed/sonarr
-      - UN_RADARR_0_URL=http://localhost:7878
+      - UN_SONARR_0_PATHS_0=/data/complete/sonarr-low-res
+      - UN_RADARR_0_URL=http://radarr-low-res:7878
       - UN_RADARR_0_API_KEY=$RADARR_API_KEY
-      - UN_RADARR_0_PATHS_0=/data/completed/radarr
+      - UN_RADARR_0_PATHS_0=/data/complete/radarr-low-res
     volumes:
       - /mnt/media/transmission:/data
 
@@ -149,11 +180,10 @@ services:
 volumes:
   plex:
   overseerr:
-  sonarr:
-  radarr:
+  sonarr-low-res:
+  sonarr-4k:
+  radarr-low-res:
+  radarr-4k:
   prowlarr:
   transmission-config:
   gluetun:
-
-networks:
-  vpn_network:
