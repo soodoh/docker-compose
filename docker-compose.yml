@@ -66,7 +66,7 @@ services:
     image: linuxserver/sonarr:latest
     container_name: sonarr
     restart: always
-    network_mode: service:vpn_network
+    network_mode: service:vpn
     ports:
       - 8989:8989
     environment:
@@ -82,7 +82,7 @@ services:
     image: linuxserver/radarr:latest
     container_name: radarr
     restart: always
-    network_mode: service:vpn_network
+    network_mode: service:vpn
     ports:
       - 7878:7878
     environment:
@@ -98,7 +98,7 @@ services:
     image: linuxserver/prowlarr:latest
     container_name: prowlarr
     restart: always
-    network_mode: service:vpn_network
+    network_mode: service:vpn
     ports:
       - 9696:9696
     environment:
@@ -112,7 +112,7 @@ services:
     image: linuxserver/transmission:latest
     container_name: transmission
     restart: always
-    network_mode: service:vpn_network
+    network_mode: service:vpn
     ports:
       - 9091:9091
       - 51413/tcp
@@ -147,7 +147,7 @@ services:
     image: ghcr.io/suwayomi/tachidesk:stable
     container_name: tachidesk
     restart: always
-    network_mode: service:vpn_network
+    network_mode: service:vpn
     ports:
       - 4567:4567
     volumes:
