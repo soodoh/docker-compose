@@ -40,7 +40,7 @@ services:
     volumes:
       - sonarr:/config
       - /mnt/media/tv_shows:/tv_shows
-      - /mnt/media/transmission:/data
+      - /mnt/media/transmission:/downloads
 
   radarr:
     image: linuxserver/radarr:latest
@@ -54,7 +54,7 @@ services:
       - "7878:7878"
     volumes:
       - radarr:/config
-      - /mnt/media/transmission:/data
+      - /mnt/media/transmission:/downloads
       - /mnt/media/movies:/movies
 
   prowlarr:
