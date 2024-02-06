@@ -86,6 +86,8 @@ services:
     restart: always
     ports:
       - 8998:8989
+    depends_on:
+      - sonarr-low-res
     environment:
       - TZ=$TZ
       - PUID=1000
@@ -116,6 +118,8 @@ services:
     restart: always
     ports:
       - 7887:7878
+    depends_on:
+      - radarr-low-res
     environment:
       - TZ=$TZ
       - PUID=1000
@@ -176,7 +180,7 @@ services:
     network_mode: service:gluetun
     environment:
       - TZ:$TZ
-      - DOWNLOAD_AS_CBZ=true
+      - DOWNLOAD_AS_CBZ=false
       - WEB_UI_ENABLED=true
       - WEB_UI_FLAVOR=WebUI
       - WEB_UI_CHANNEL=preview
