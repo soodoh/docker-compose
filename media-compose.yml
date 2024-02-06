@@ -170,10 +170,26 @@ services:
       - /mnt/media/transmission:/data
 
   tachidesk:
-    image: ghcr.io/suwayomi/tachidesk:stable
+    image: ghcr.io/suwayomi/tachidesk:preview
     container_name: tachidesk
     restart: always
     network_mode: service:gluetun
+    environment:
+      - TZ:$TZ
+      - DOWNLOAD_AS_CBZ=true
+      - WEB_UI_ENABLED=true
+      - WEB_UI_FLAVOR=WebUI
+      - WEB_UI_CHANNEL=preview
+      - WEB_UI_UPDATE_INTERVAL=12
+      - AUTO_DOWNLOAD_CHAPTERS=true
+      - AUTO_DOWNLOAD_EXCLUDE_UNREAD=true
+      - AUTO_DOWNLOAD_AHEAD_LIMIT=5
+      - UPDATE_EXCLUDE_UNREAD=true
+      - UPDATE_EXCLUDE_STARTED=true
+      - UPDATE_EXCLUDE_COMPLETED=true
+      - UPDATE_INTERVAL=12
+      - UPDATE_MANGA_INFO=true
+      - FLARESOLVERR_ENABLED=false
     volumes:
       - /home/docker/tachidesk:/home/suwayomi/.local/share/Tachidesk
 
