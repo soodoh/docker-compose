@@ -55,17 +55,38 @@ services:
     restart: always
     cap_add:
       - NET_ADMIN
+    dns:
+      - 127.0.0.1
+      - 1.1.1.1
     ports:
       - 53:53/tcp
       - 53:53/udp
-      - 67:67/udp # required if using Pi-hole as DHCP server
       - 1337:80/tcp
     environment:
       - TZ=$TZ
       - DNSMASQ_USER=pihole
+      - ServerIp=192.168.0.100
+      - DNS1=8.8.8.8
+      - DNS2=1.1.1.1
+      - VIRTUAL_HOST=pi.hole
+      - DNSMASQ_LISTENING=all
     volumes:
       - pihole-dnsmasq:/etc/dnsmasq.d
       - pihole:/etc/pihole
+    depends_on:
+      - dhcp-helper
+
+  dhcp-helper:
+    image: homeall/dhcphelper:latest
+    container_name: dhcp-helper
+    restart: always
+    network_mode: host
+    command: -s 192.168.0.100
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - TZ=$TZ
+      - IP=192.168.0.100
 
 volumes:
   omada-data:
