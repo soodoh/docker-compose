@@ -53,10 +53,11 @@ services:
     image: pihole/pihole:latest
     container_name: pihole
     restart: always
+    cap_add:
+      - NET_ADMIN
     ports:
-      # Port 53 is taken by systemd-resolved linux service
-      - 5335:53/tcp
-      - 5335:53/udp
+      - 53:53/tcp
+      - 53:53/udp
       - 67:67/udp # required if using Pi-hole as DHCP server
       - 1337:80/tcp
     environment:
