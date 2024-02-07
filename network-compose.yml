@@ -54,9 +54,11 @@ services:
     container_name: pihole
     restart: always
     ports:
-      - 53:53
-      - 67:67
-      - 1337:80
+      # Port 53 is taken by systemd-resolved linux service
+      - 5335:53/tcp
+      - 5335:53/udp
+      - 67:67/udp # required if using Pi-hole as DHCP server
+      - 1337:80/tcp
     environment:
       - TZ=$TZ
       - DNSMASQ_USER=pihole
