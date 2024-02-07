@@ -25,6 +25,19 @@ services:
       - OPENVPN_PASSWORD=$VPN_PASSWORD
       - UPDATER_PERIOD=24h
 
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: always
+    user: 1000:1000
+    ports:
+      - 8096:8096/tcp
+    volumes:
+      - jellyfin-config:/config
+      - jellyfin-cache:/cache
+      - /mnt/media/tv_shows:/tv_shows
+      - /mnt/media/movies:/movies
+
   plex:
     image: plexinc/pms-docker:latest
     container_name: plex
@@ -199,6 +212,8 @@ services:
 
 volumes:
   plex:
+  jellyfin-config:
+  jellyfin-cache:
   overseerr:
   sonarr-low-res:
   sonarr-4k:
