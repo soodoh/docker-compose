@@ -1,6 +1,151 @@
-version: '3'
+version: '3.3'
 
 services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: always
+    user: 1000:1000
+    ports:
+      - 8096:8096/tcp
+    volumes:
+      - jellyfin-config:/config
+      - jellyfin-cache:/cache
+      - /mnt/media/tv_shows:/tv_shows
+      - /mnt/media/movies:/movies
+    networks:
+      - proxy
+
+  plex:
+    image: plexinc/pms-docker:latest
+    container_name: plex
+    restart: always
+    ports:
+      - 1900:1900
+      - 3005:3005
+      - 9324:9324
+      - 32400:32400
+      - 32410:32410
+      - 32412-32414:32412-32414
+      - 32469:32469
+    environment:
+      - TZ=America/Los_Angeles
+      - ADVERTISE_IP=http://192.168.0.100:32400/
+      - HOME=/config
+      - PLEX_GID=1000
+      - PLEX_UID=1000
+      - PLEX_CLAIM=$PLEX_CLAIM
+    volumes:
+      - plex:/config
+      - /mnt/media/movies:/movies
+      - /tmp:/transcode
+      - /mnt/media/tv_shows:/tv_shows
+      - /mnt/media/audiobooks:/audiobooks
+    networks:
+      - proxy
+
+  overseerr:
+    image: linuxserver/overseerr:latest
+    container_name: overseerr
+    restart: always
+    ports:
+      - 5055:5055
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - overseerr:/config
+    networks:
+      - proxy
+
+  sonarr-low-res:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr-low-res
+    restart: always
+    ports:
+      - 8989:8989
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - sonarr-low-res:/config
+      - /mnt/media/tv_shows:/tv_shows
+      - /mnt/media/transmission:/downloads
+    networks:
+      - proxy
+
+  sonarr-4k:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr-4k
+    restart: always
+    ports:
+      - 8998:8989
+    depends_on:
+      - sonarr-low-res
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - sonarr-4k:/config
+      - /mnt/media/tv_shows:/tv_shows
+      - /mnt/media/transmission:/downloads
+    networks:
+      - proxy
+
+  radarr-low-res:
+    image: linuxserver/radarr:latest
+    container_name: radarr-low-res
+    restart: always
+    ports:
+      - 7878:7878
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - radarr-low-res:/config
+      - /mnt/media/transmission:/downloads
+      - /mnt/media/movies:/movies
+    networks:
+      - proxy
+
+  radarr-4k:
+    image: linuxserver/radarr:latest
+    container_name: radarr-4k
+    restart: always
+    ports:
+      - 7887:7878
+    depends_on:
+      - radarr-low-res
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - radarr-4k:/config
+      - /mnt/media/transmission:/downloads
+      - /mnt/media/movies:/movies
+    networks:
+      - proxy
+
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: always
+    ports:
+      - 9696:9696
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - prowlarr:/config
+    networks:
+      - proxy
+
   gluetun:
     image: qmcgaw/gluetun:latest
     container_name: gluetun
@@ -18,165 +163,22 @@ services:
     volumes:
       - gluetun:/gluetun
     environment:
-      - TZ=$TZ
+      - TZ=America/Los_Angeles
       - VPN_SERVICE_PROVIDER=$VPN_PROVIDER
       - VPN_TYPE=openvpn
       - OPENVPN_USER=$VPN_USERNAME
       - OPENVPN_PASSWORD=$VPN_PASSWORD
       - UPDATER_PERIOD=24h
-
-  jellyfin:
-    image: jellyfin/jellyfin:latest
-    container_name: jellyfin
-    restart: always
-    user: 1000:1000
-    ports:
-      - 8096:8096/tcp
-    volumes:
-      - jellyfin-config:/config
-      - jellyfin-cache:/cache
-      - /mnt/media/tv_shows:/tv_shows
-      - /mnt/media/movies:/movies
-
-  plex:
-    image: plexinc/pms-docker:latest
-    container_name: plex
-    restart: always
-    ports:
-      - 1900:1900
-      - 3005:3005
-      - 9324:9324
-      - 32400:32400
-      - 32410:32410
-      - 32412-32414:32412-32414
-      - 32469:32469
-    environment:
-      - TZ=$TZ
-      - ADVERTISE_IP=http://192.168.0.100:32400/
-      - HOME=/config
-      - PLEX_GID=1000
-      - PLEX_UID=1000
-      - PLEX_CLAIM=$PLEX_CLAIM
-    volumes:
-      - plex:/config
-      - /mnt/media/movies:/movies
-      - /tmp:/transcode
-      - /mnt/media/tv_shows:/tv_shows
-      - /mnt/media/audiobooks:/audiobooks
-
-  overseerr:
-    image: linuxserver/overseerr:latest
-    container_name: overseerr
-    restart: always
-    ports:
-      - 5055:5055
-    environment:
-      - TZ=$TZ
-      - PUID=1000
-      - PGID=1000
-    volumes:
-      - overseerr:/config
-
-  sonarr-low-res:
-    image: linuxserver/sonarr:latest
-    container_name: sonarr-low-res
-    restart: always
-    ports:
-      - 8989:8989
-    environment:
-      - TZ=$TZ
-      - PUID=1000
-      - PGID=1000
-    volumes:
-      - sonarr-low-res:/config
-      - /mnt/media/tv_shows:/tv_shows
-      - /mnt/media/transmission:/downloads
-
-
-  sonarr-4k:
-    image: linuxserver/sonarr:latest
-    container_name: sonarr-4k
-    restart: always
-    ports:
-      - 8998:8989
-    depends_on:
-      - sonarr-low-res
-    environment:
-      - TZ=$TZ
-      - PUID=1000
-      - PGID=1000
-    volumes:
-      - sonarr-4k:/config
-      - /mnt/media/tv_shows:/tv_shows
-      - /mnt/media/transmission:/downloads
-
-  radarr-low-res:
-    image: linuxserver/radarr:latest
-    container_name: radarr-low-res
-    restart: always
-    ports:
-      - 7878:7878
-    environment:
-      - TZ=$TZ
-      - PUID=1000
-      - PGID=1000
-    volumes:
-      - radarr-low-res:/config
-      - /mnt/media/transmission:/downloads
-      - /mnt/media/movies:/movies
-
-  radarr-4k:
-    image: linuxserver/radarr:latest
-    container_name: radarr-4k
-    restart: always
-    ports:
-      - 7887:7878
-    depends_on:
-      - radarr-low-res
-    environment:
-      - TZ=$TZ
-      - PUID=1000
-      - PGID=1000
-    volumes:
-      - radarr-4k:/config
-      - /mnt/media/transmission:/downloads
-      - /mnt/media/movies:/movies
-
-  prowlarr:
-    image: linuxserver/prowlarr:latest
-    container_name: prowlarr
-    restart: always
-    ports:
-      - 9696:9696
-    environment:
-      - TZ=$TZ
-      - PUID=1000
-      - PGID=1000
-    volumes:
-      - prowlarr:/config
-
-  transmission:
-    image: linuxserver/transmission:latest
-    container_name: transmission
-    restart: always
-    network_mode: service:gluetun
-    environment:
-      - TZ=$TZ
-      - USER=$TORRENT_USERNAME
-      - PASS=$TORRENT_PASSWORD
-      - PUID=1000
-      - PGID=1000
-    volumes:
-      - transmission-config:/config
-      - /mnt/media/transmission:/downloads
-      - /mnt/media/transmission/watch:/watch
+    networks:
+      - proxy
 
   unpackerr:
     image: golift/unpackerr:latest
     container_name: unpackerr
     restart: always
+    network_mode: none
     environment:
-      - TZ=$TZ
+      - TZ=America/Los_Angeles
       - UN_SONARR_0_URL=http://sonarr-low-res:8989
       - UN_SONARR_0_API_KEY=$SONARR_LOW_RES_API_KEY
       - UN_SONARR_0_PATHS_0=/data/complete/sonarr-low-res
@@ -186,23 +188,39 @@ services:
     volumes:
       - /mnt/media/transmission:/data
 
+  transmission:
+    image: linuxserver/transmission:latest
+    container_name: transmission
+    restart: always
+    network_mode: service:gluetun
+    environment:
+      - TZ=America/Los_Angeles
+      - USER=$TORRENT_USERNAME
+      - PASS=$TORRENT_PASSWORD
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - transmission-config:/config
+      - /mnt/media/transmission:/downloads
+      - /mnt/media/transmission/watch:/watch
+
   tachidesk:
     image: ghcr.io/suwayomi/tachidesk:preview
     container_name: tachidesk
     restart: always
     network_mode: service:gluetun
     environment:
-      - TZ:$TZ
-      - DOWNLOAD_AS_CBZ=false
+      - TZ:America/Los_Angeles
+      - DOWNLOAD_AS_CBZ=true
       - WEB_UI_ENABLED=true
       - WEB_UI_FLAVOR=WebUI
       - WEB_UI_CHANNEL=preview
       - WEB_UI_UPDATE_INTERVAL=12
       - AUTO_DOWNLOAD_CHAPTERS=true
-      - AUTO_DOWNLOAD_EXCLUDE_UNREAD=true
-      - AUTO_DOWNLOAD_AHEAD_LIMIT=5
-      - UPDATE_EXCLUDE_UNREAD=true
-      - UPDATE_EXCLUDE_STARTED=true
+      - AUTO_DOWNLOAD_EXCLUDE_UNREAD=false
+      - AUTO_DOWNLOAD_AHEAD_LIMIT=20
+      - UPDATE_EXCLUDE_UNREAD=false
+      - UPDATE_EXCLUDE_STARTED=false
       - UPDATE_EXCLUDE_COMPLETED=true
       - UPDATE_INTERVAL=12
       - UPDATE_MANGA_INFO=true
@@ -222,3 +240,7 @@ volumes:
   prowlarr:
   transmission-config:
   gluetun:
+
+networks:
+  proxy:
+    external: true
