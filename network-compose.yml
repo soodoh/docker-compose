@@ -1,4 +1,4 @@
-version: '3'
+version: '3.3'
 
 services:
   omada-controller:
@@ -13,7 +13,7 @@ services:
       - 29810:29810/udp
       - 29811-29816:29811-29816
     environment:
-      - TZ=$TZ
+      - TZ=America/Los_Angeles
       - PUID=508
       - PGID=508
       - MANAGE_HTTP_PORT=8088
@@ -35,20 +35,23 @@ services:
     volumes:
       - omada-data:/opt/tplink/EAPController/data
       - omada-logs:/opt/tplink/EAPController/logs
+    networks:
+      - proxy
 
   nginx-proxy-manager:
     image: jc21/nginx-proxy-manager:latest
     container_name: nginx-proxy-manager
     restart: always
-    network_mode: host
-    # ports:
-    #   - 80-81:80-81
-    #   - 443:443
+    ports:
+      - 80-81:80-81
+      - 443:443
     environment:
-      - TZ=$TZ
+      - TZ=America/Los_Angeles
     volumes:
       - nginx-data:/data
       - nginx-letsencrypt:/etc/letsencrypt
+    networks:
+      - proxy
 
   pihole:
     image: pihole/pihole:latest
@@ -59,11 +62,26 @@ services:
       - 53:53/udp
       - 1337:80/tcp
     environment:
-      - TZ=$TZ
+      - TZ=America/Los_Angeles
       - DNSMASQ_USER=pihole
     volumes:
       - pihole-dnsmasq:/etc/dnsmasq.d
       - pihole:/etc/pihole
+    networks:
+      - proxy
+
+  authelia:
+    image: authelia/authelia:latest
+    container_name: authelia
+    restart: always
+    ports:
+      - 9191:9191
+    environment:
+      - TZ=America/Los_Angeles
+    volumes:
+      - /home/docker/authelia/config:/config
+    networks:
+      - proxy
 
 volumes:
   omada-data:
@@ -72,3 +90,7 @@ volumes:
   nginx-letsencrypt:
   pihole-dnsmasq:
   pihole:
+
+networks:
+  proxy:
+    external: true
