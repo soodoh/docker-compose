@@ -1,10 +1,6 @@
 #!/bin/bash
 
-# Check if the container named "portainer" is running
-if [ "$(docker inspect -f '{{.State.Running}}' portainer 2>/dev/null)" == "true" ]; then
-    echo "Stopping container named 'portainer'..."
-    docker stop portainer
-fi
+docker stop portainer
 # Check if the container with the name "portainer" exists
 if [ "$(docker ps -aq -f name=portainer)" ]; then
     echo "Removing container named 'portainer'..."
@@ -31,7 +27,7 @@ docker run -d \
   -p 9443:9443 \
   -v portainer_data:/data \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -network=proxy
   -e "TZ=America/Los_Angeles" \
+  --network=proxy \
   --name portainer \
   portainer/portainer-ce:latest
