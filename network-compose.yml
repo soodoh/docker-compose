@@ -37,6 +37,7 @@ services:
       - omada-logs:/opt/tplink/EAPController/logs
     networks:
       - proxy
+      - mailnet
 
   nginx-proxy-manager:
     image: jc21/nginx-proxy-manager:latest
@@ -82,6 +83,22 @@ services:
       - /home/docker/authelia/config:/config
     networks:
       - proxy
+      - mailnet
+
+  postfix:
+    image: catatnight/postfix
+    restart: always
+    environment:
+      MAIL_DOMAIN: servepaul.duckdns.org
+      MY_NETWORKS: "10.0.0.0/8 172.16.0.0/12 192.168.0.0/16"
+      SASL_PASSWD: /etc/postfix/sasl_passwd
+    volumes:
+      - postfix:/data
+      - /home/docker/postfix/sasl_password:/etc/postfix/sasl_passwd
+    ports:
+      - 25:25
+    networks:
+      - mailnet
 
 volumes:
   omada-data:
@@ -90,7 +107,9 @@ volumes:
   nginx-letsencrypt:
   pihole-dnsmasq:
   pihole:
+  postfix:
 
 networks:
+  mailnet:
   proxy:
     external: true
