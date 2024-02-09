@@ -15,6 +15,7 @@ services:
       - /mnt/media/movies:/movies
     networks:
       - proxy
+      - arr_network
 
   plex:
     image: plexinc/pms-docker:latest
@@ -43,6 +44,7 @@ services:
       - /mnt/media/audiobooks:/audiobooks
     networks:
       - proxy
+      - arr_network
 
   overseerr:
     image: linuxserver/overseerr:latest
@@ -58,6 +60,7 @@ services:
       - overseerr:/config
     networks:
       - proxy
+      - arr_network
 
   sonarr-low-res:
     image: linuxserver/sonarr:latest
@@ -75,6 +78,7 @@ services:
       - /mnt/media/transmission:/downloads
     networks:
       - proxy
+      - arr_network
 
   sonarr-4k:
     image: linuxserver/sonarr:latest
@@ -94,6 +98,7 @@ services:
       - /mnt/media/transmission:/downloads
     networks:
       - proxy
+      - arr_network
 
   radarr-low-res:
     image: linuxserver/radarr:latest
@@ -111,6 +116,7 @@ services:
       - /mnt/media/movies:/movies
     networks:
       - proxy
+      - arr_network
 
   radarr-4k:
     image: linuxserver/radarr:latest
@@ -130,6 +136,7 @@ services:
       - /mnt/media/movies:/movies
     networks:
       - proxy
+      - arr_network
 
   prowlarr:
     image: linuxserver/prowlarr:latest
@@ -145,6 +152,7 @@ services:
       - prowlarr:/config
     networks:
       - proxy
+      - arr_network
 
   gluetun:
     image: qmcgaw/gluetun:latest
@@ -171,12 +179,12 @@ services:
       - UPDATER_PERIOD=24h
     networks:
       - proxy
+      - arr_network
 
   unpackerr:
     image: golift/unpackerr:latest
     container_name: unpackerr
     restart: always
-    network_mode: none
     environment:
       - TZ=America/Los_Angeles
       - UN_SONARR_0_URL=http://sonarr-low-res:8989
@@ -187,6 +195,8 @@ services:
       - UN_RADARR_0_PATHS_0=/data/complete/radarr-low-res
     volumes:
       - /mnt/media/transmission:/data
+    networks:
+      - arr_network
 
   transmission:
     image: linuxserver/transmission:latest
@@ -195,8 +205,6 @@ services:
     network_mode: service:gluetun
     environment:
       - TZ=America/Los_Angeles
-      - USER=$TORRENT_USERNAME
-      - PASS=$TORRENT_PASSWORD
       - PUID=1000
       - PGID=1000
     volumes:
@@ -242,5 +250,6 @@ volumes:
   gluetun:
 
 networks:
+  arr_network:
   proxy:
     external: true
