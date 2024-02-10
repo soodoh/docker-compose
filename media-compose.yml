@@ -62,9 +62,9 @@ services:
       - proxy
       - arr_network
 
-  sonarr-low-res:
+  sonarr:
     image: linuxserver/sonarr:latest
-    container_name: sonarr-low-res
+    container_name: sonarr
     restart: always
     ports:
       - 8989:8989
@@ -73,7 +73,7 @@ services:
       - PUID=1000
       - PGID=1000
     volumes:
-      - sonarr-low-res:/config
+      - sonarr:/config
       - /mnt/media/tv_shows:/tv_shows
       - /mnt/media/transmission:/downloads
     networks:
@@ -87,7 +87,7 @@ services:
     ports:
       - 8998:8989
     depends_on:
-      - sonarr-low-res
+      - sonarr
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
@@ -100,9 +100,9 @@ services:
       - proxy
       - arr_network
 
-  radarr-low-res:
+  radarr:
     image: linuxserver/radarr:latest
-    container_name: radarr-low-res
+    container_name: radarr
     restart: always
     ports:
       - 7878:7878
@@ -111,7 +111,7 @@ services:
       - PUID=1000
       - PGID=1000
     volumes:
-      - radarr-low-res:/config
+      - radarr:/config
       - /mnt/media/transmission:/downloads
       - /mnt/media/movies:/movies
     networks:
@@ -125,7 +125,7 @@ services:
     ports:
       - 7887:7878
     depends_on:
-      - radarr-low-res
+      - radarr
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
@@ -187,12 +187,12 @@ services:
     restart: always
     environment:
       - TZ=America/Los_Angeles
-      - UN_SONARR_0_URL=http://sonarr-low-res:8989
+      - UN_SONARR_0_URL=http://sonarr:8989
       - UN_SONARR_0_API_KEY=$SONARR_LOW_RES_API_KEY
-      - UN_SONARR_0_PATHS_0=/data/complete/sonarr-low-res
-      - UN_RADARR_0_URL=http://radarr-low-res:7878
+      - UN_SONARR_0_PATHS_0=/data/complete/sonarr
+      - UN_RADARR_0_URL=http://radarr:7878
       - UN_RADARR_0_API_KEY=$RADARR_LOW_RES_API_KEY
-      - UN_RADARR_0_PATHS_0=/data/complete/radarr-low-res
+      - UN_RADARR_0_PATHS_0=/data/complete/radarr
     volumes:
       - /mnt/media/transmission:/data
     networks:
@@ -241,9 +241,9 @@ volumes:
   jellyfin-config:
   jellyfin-cache:
   overseerr:
-  sonarr-low-res:
+  sonarr:
   sonarr-4k:
-  radarr-low-res:
+  radarr:
   radarr-4k:
   prowlarr:
   transmission-config:
