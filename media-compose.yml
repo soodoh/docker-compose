@@ -4,7 +4,7 @@ services:
   jellyfin:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin
-    restart: always
+    restart: unless-stopped
     user: 1000:1000
     ports:
       - 8096:8096
@@ -17,10 +17,22 @@ services:
       - proxy
       - arr_network
 
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    restart: unless-stopped
+    environment:
+      - TZ=America/Los_Angeles
+    volumes:
+      - jellyseerr:/app/config
+    networks:
+      - proxy
+      - arr_network
+
   # plex:
   #   image: plexinc/pms-docker:latest
   #   container_name: plex
-  #   restart: always
+  #   restart: unless-stopped
   #   ports:
   #     - 1900:1900
   #     - 3005:3005
@@ -45,12 +57,11 @@ services:
   #   networks:
   #     - proxy
   #     - arr_network
-  #     - arr_network
 
   sonarr:
     image: linuxserver/sonarr:latest
     container_name: sonarr
-    restart: always
+    restart: unless-stopped
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
@@ -66,7 +77,7 @@ services:
   sonarr-4k:
     image: linuxserver/sonarr:latest
     container_name: sonarr-4k
-    restart: always
+    restart: unless-stopped
     depends_on:
       - sonarr
     environment:
@@ -84,7 +95,7 @@ services:
   radarr:
     image: linuxserver/radarr:latest
     container_name: radarr
-    restart: always
+    restart: unless-stopped
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
@@ -100,7 +111,7 @@ services:
   radarr-4k:
     image: linuxserver/radarr:latest
     container_name: radarr-4k
-    restart: always
+    restart: unless-stopped
     depends_on:
       - radarr
     environment:
@@ -118,7 +129,7 @@ services:
   prowlarr:
     image: linuxserver/prowlarr:latest
     container_name: prowlarr
-    restart: always
+    restart: unless-stopped
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
@@ -153,7 +164,7 @@ services:
   unpackerr:
     image: golift/unpackerr:latest
     container_name: unpackerr
-    restart: always
+    restart: unless-stopped
     environment:
       - TZ=America/Los_Angeles
       - UN_SONARR_0_URL=http://sonarr:8989
@@ -170,7 +181,7 @@ services:
   transmission:
     image: linuxserver/transmission:latest
     container_name: transmission
-    restart: always
+    restart: unless-stopped
     network_mode: service:gluetun
     environment:
       - TZ=America/Los_Angeles
@@ -184,7 +195,7 @@ services:
   tachidesk:
     image: ghcr.io/suwayomi/tachidesk:preview
     container_name: tachidesk
-    restart: always
+    restart: unless-stopped
     network_mode: service:gluetun
     environment:
       - TZ:America/Los_Angeles
@@ -209,7 +220,7 @@ volumes:
   plex:
   jellyfin-config:
   jellyfin-cache:
-  overseerr:
+  jellyseerr:
   sonarr:
   sonarr-4k:
   radarr:
