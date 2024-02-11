@@ -14,42 +14,27 @@ services:
       - 29811-29816:29811-29816
     environment:
       - TZ=America/Los_Angeles
-      - PUID=508
-      - PGID=508
-      - MANAGE_HTTP_PORT=8088
-      - MANAGE_HTTPS_PORT=8043
-      - PORTAL_HTTP_PORT=8088
-      - PORTAL_HTTPS_PORT=8843
-      - PORT_APP_DISCOVERY=27001
-      - PORT_ADOPT_V1=29812
-      - PORT_UPGRADE_V1=29813
-      - PORT_MANAGER_V1=29811
-      - PORT_MANAGER_V2=29814
-      - PORT_DISCOVERY=29810
-      - PORT_TRANSFER_V2=29815
-      - PORT_RTTY=29816
-      - SHOW_SERVER_LOGS=true
-      - SHOW_MONGODB_LOGS=false
-      - SSL_CERT_NAME=tls.crt
-      - SSL_KEY_NAME=tls.key
     volumes:
       - omada-data:/opt/tplink/EAPController/data
       - omada-logs:/opt/tplink/EAPController/logs
     networks:
       - proxy
 
-  nginx-proxy-manager:
-    image: jc21/nginx-proxy-manager:latest
-    container_name: nginx-proxy-manager
+  caddy:
+    image: caddy:latest
+    container_name: caddy
     restart: always
+    cap_add:
+      - NET_ADMIN
     ports:
-      - 80-81:80-81
-      - 443:443
+      - 80:80
+      - 443:443/tcp
+      - 443:443/udp
     environment:
       - TZ=America/Los_Angeles
     volumes:
-      - nginx-data:/data
-      - nginx-letsencrypt:/etc/letsencrypt
+      - /home/docker/portainer-compose/Caddyfile:/etc/caddy/Caddyfile
+      - caddy:/data
     networks:
       - proxy
 
@@ -60,7 +45,6 @@ services:
     ports:
       - 53:53/tcp
       - 53:53/udp
-      - 1337:80/tcp
     environment:
       - TZ=America/Los_Angeles
       - DNSMASQ_USER=pihole
@@ -74,8 +58,6 @@ services:
     image: authelia/authelia:latest
     container_name: authelia
     restart: always
-    ports:
-      - 9191:9191
     environment:
       - TZ=America/Los_Angeles
     volumes:
@@ -86,8 +68,7 @@ services:
 volumes:
   omada-data:
   omada-logs:
-  nginx-data:
-  nginx-letsencrypt:
+  caddy:
   pihole-dnsmasq:
   pihole:
 
