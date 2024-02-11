@@ -1,4 +1,12 @@
+(authelia) {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+}
+
 {
+  debug
   acme_dns route53 {
     access_key_id {$ROUTE_53_ACCESS_KEY}
     secret_access_key {$ROUTE_53_SECRET}
@@ -6,154 +14,182 @@
 }
 
 *.pauld.link {
-
-}
-
-auth.ext.pauld.link {
-  reverse_proxy authelia:9191
-}
-
-hass.pauld.link {
-  reverse_proxy 192.168.0.101:8123
-}
-
-hass.ext.pauld.link {
-  forward_auth authelia:9191 {
-    uri /api/verify?rd=https://auth.ext.pauld.link/
-    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  @proxmox host proxmox.pauld.link
+  handle @proxmox {
+    reverse_proxy 192.168.0.110:8006 {
+      transport http {
+        tls
+        tls_insecure_skip_verify
+      }
+    }
   }
-  reverse_proxy 192.168.0.101:8123
-}
 
-proxmox.pauld.link {
-  reverse_proxy 192.168.0.110:8006
-}
-
-proxmox.ext.pauld.link {
-  forward_auth authelia:9191 {
-    uri /api/verify?rd=https://auth.ext.pauld.link/
-    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  @omada host omada.pauld.link
+  handle @omada {
+    reverse_proxy omada-controller:8043 {
+      transport http {
+        tls
+        tls_insecure_skip_verify
+      }
+    }
   }
-  reverse_proxy 192.168.0.110:8006
-}
 
-omada.pauld.link {
-  reverse_proxy omada-controller:8088 {
+  @portainer host portainer.pauld.link
+  handle @portainer {
+    reverse_proxy portainer:9443 {
+      transport http {
+        tls
+        tls_insecure_skip_verify
+      }
+    }
+  }
+
+  @hass host hass.pauld.link
+  handle @hass {
+    reverse_proxy 192.168.0.101:8123
+  }
+
+  @jellyfin host jellyfin.pauld.link
+  handle @jellyfin {
+    reverse_proxy jellyfin:8096
+  }
+
+  @jellyseerr host jellyseerr.pauld.link
+  handle @jellyseerr {
+    reverse_proxy jellyseerr:5055
+  }
+
+  @sonarr host sonarr.pauld.link
+  handle @sonarr {
+    reverse_proxy sonarr:8989
+  }
+
+  @radarr host radarr.pauld.link
+  handle @radarr {
+    reverse_proxy radarr:7878
+  }
+
+  @prowlarr host prowlarr.pauld.link
+  handle @prowlarr {
+    reverse_proxy prowlarr:9696
+  }
+
+  @torrent host torrent.pauld.link
+  handle @torrent {
+    reverse_proxy gluetun:9091
+  }
+
+  @comics host comics.pauld.link
+  handle @comics {
+    reverse_proxy gluetun:4567
+  }
+
+  @pihole host pihole.pauld.link
+  handle @pihole {
+    rewrite / /admin
+    reverse_proxy pihole:80
+  }
+
+  handle {
+    abort
   }
 }
 
-omada.ext.pauld.link {
-  forward_auth authelia:9191 {
-    uri /api/verify?rd=https://auth.ext.pauld.link/
-    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+*.ext.pauld.link {
+  @auth host auth.ext.pauld.link
+  handle @auth {
+    reverse_proxy authelia:9191
   }
-  reverse_proxy omada-controller:8043
-}
 
-portainer.pauld.link {
-  reverse_proxy protainer:9443
-}
-
-portainer.ext.pauld.link {
-  forward_auth authelia:9191 {
-    uri /api/verify?rd=https://auth.ext.pauld.link/
-    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  @proxmox host proxmox.ext.pauld.link
+  handle @proxmox {
+    import authelia
+    reverse_proxy 192.168.0.110:8006 {
+      transport http {
+        tls
+        tls_insecure_skip_verify
+      }
+    }
   }
-  reverse_proxy protainer:9443
-}
 
-pihole.pauld.link {
-  reverse_proxy pihole:80
-}
-
-pihole.ext.pauld.link {
-  forward_auth authelia:9191 {
-    uri /api/verify?rd=https://auth.ext.pauld.link/
-    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  @omada host omada.ext.pauld.link
+  handle @omada {
+    import authelia
+    reverse_proxy omada-controller:8043 {
+      transport http {
+        tls
+        tls_insecure_skip_verify
+      }
+    }
   }
-  reverse_proxy pihole:80
-}
 
-jellyfin.pauld.link {
-  reverse_proxy jellyfin:8096
-}
-
-jellyfin.ext.pauld.link {
-  forward_auth authelia:9191 {
-    uri /api/verify?rd=https://auth.ext.pauld.link/
-    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  @portainer host portainer.ext.pauld.link
+  handle @portainer {
+    import authelia
+    reverse_proxy portainer:9443 {
+      transport http {
+        tls
+        tls_insecure_skip_verify
+      }
+    }
   }
-  reverse_proxy jellyfin:8096
-}
 
-jellyseerr.pauld.link {
-  reverse_proxy jellyseerr:5055
-}
-
-jellyseerr.ext.pauld.link {
-  forward_auth authelia:9191 {
-    uri /api/verify?rd=https://auth.ext.pauld.link/
-    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  @hass host hass.ext.pauld.link
+  handle @hass {
+    import authelia
+    reverse_proxy 192.168.0.101:8123
   }
-  reverse_proxy jellyseerr:5055
-}
 
-sonarr.pauld.link {
-  reverse_proxy sonarr:8989
-}
-
-sonarr.ext.pauld.link {
-  forward_auth authelia:9191 {
-    uri /api/verify?rd=https://auth.ext.pauld.link/
-    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  @jellyfin host jellyfin.ext.pauld.link
+  handle @jellyfin {
+    import authelia
+    reverse_proxy jellyfin:8096
   }
-  reverse_proxy sonarr:8989
-}
 
-radarr.pauld.link {
-  reverse_proxy radarr:7878
-}
-
-radarr.ext.pauld.link {
-  forward_auth authelia:9191 {
-    uri /api/verify?rd=https://auth.ext.pauld.link/
-    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  @jellyseerr host jellyseerr.ext.pauld.link
+  handle @jellyseerr {
+    import authelia
+    reverse_proxy jellyseerr:5055
   }
-  reverse_proxy radarr:7878
-}
 
-prowlarr.pauld.link {
-  reverse_proxy prowlarr:9696
-}
-
-prowlarr.ext.pauld.link {
-  forward_auth authelia:9191 {
-    uri /api/verify?rd=https://auth.ext.pauld.link/
-    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  @sonarr host sonarr.ext.pauld.link
+  handle @sonarr {
+    import authelia
+    reverse_proxy sonarr:8989
   }
-  reverse_proxy prowlarr:9696
-}
 
-torrent.pauld.link {
-  reverse_proxy gluetun:9091
-}
-
-torrent.ext.pauld.link {
-  forward_auth authelia:9191 {
-    uri /api/verify?rd=https://auth.ext.pauld.link/
-    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  @radarr host radarr.ext.pauld.link
+  handle @radarr {
+    import authelia
+    reverse_proxy radarr:7878
   }
-  reverse_proxy gluetun:9091
-}
 
-comics.pauld.link {
-  reverse_proxy gluetun:4567
-}
-
-comics.ext.pauld.link {
-  forward_auth authelia:9191 {
-    uri /api/verify?rd=https://auth.ext.pauld.link/
-    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  @prowlarr host prowlarr.ext.pauld.link
+  handle @prowlarr {
+    import authelia
+    reverse_proxy prowlarr:9696
   }
-  reverse_proxy gluetun:4567
+
+  @torrent host torrent.ext.pauld.link
+  handle @torrent {
+    import authelia
+    reverse_proxy gluetun:9091
+  }
+
+  @comics host comics.ext.pauld.link
+  handle @comics {
+    import authelia
+    reverse_proxy gluetun:4567
+  }
+
+  @pihole host pihole.ext.pauld.link
+  handle @pihole {
+    import authelia
+    rewrite / /admin
+    reverse_proxy pihole:80
+  }
+
+  handle {
+    abort
+  }
 }
