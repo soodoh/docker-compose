@@ -59,6 +59,16 @@
     reverse_proxy jellyseerr:5055
   }
 
+  @readarr host readarr.pauld.link
+  handle @readarr {
+    reverse_proxy http://readarr:8787
+  }
+
+  @lib host lib.pauld.link
+  handle @lib {
+    reverse_proxy http://lazylibrarian:5299
+  }
+
   @sonarr host sonarr.pauld.link
   handle @sonarr {
     reverse_proxy sonarr:8989
@@ -150,6 +160,18 @@
   handle @jellyseerr {
     import authelia
     reverse_proxy jellyseerr:5055
+  }
+
+  @readarr host readarr.ext.pauld.link
+  handle @readarr {
+    import authelia
+    reverse_proxy http://readarr:8787
+  }
+
+  @lib host lib.ext.pauld.link
+  handle @lib {
+    import authelia
+    reverse_proxy http://lazylibrarian:5299
   }
 
   @sonarr host sonarr.ext.pauld.link
