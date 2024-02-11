@@ -6,9 +6,6 @@ services:
     container_name: omada-controller
     restart: always
     ports:
-      - 8088:8088
-      - 8043:8043
-      - 8843:8843
       - 27001:27001/udp
       - 29810:29810/udp
       - 29811-29816:29811-29816
