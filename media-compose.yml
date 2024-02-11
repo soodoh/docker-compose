@@ -126,6 +126,38 @@ services:
       - proxy
       - arr_network
 
+  readarr:
+    image: linuxserver/readarr:develop
+    container_name: readarr
+    restart: unless-stopped
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - readarr:/config
+      - /mnt/media/books:/books
+      - /mnt/media/transmission:/downloads
+    networks:
+      - proxy
+      - arr_network
+
+  lazylibrarian:
+    image: linuxserver/lazylibrarian:latest
+    container_name: lazylibrarian
+    restart: unless-stopped
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - lazylibrarian:/config
+      - /mnt/media/books:/books
+      - /mnt/media/transmission:/downloads
+    networks:
+      - proxy
+      - arr_network
+
   prowlarr:
     image: linuxserver/prowlarr:latest
     container_name: prowlarr
@@ -221,6 +253,8 @@ volumes:
   jellyfin-config:
   jellyfin-cache:
   jellyseerr:
+  readarr:
+  lazylibrarian:
   sonarr:
   sonarr-4k:
   radarr:
