@@ -1,0 +1,159 @@
+{
+  acme_dns route53 {
+    access_key_id {$ROUTE_53_ACCESS_KEY}
+    secret_access_key {$ROUTE_53_SECRET}
+  }
+}
+
+*.pauld.link {
+
+}
+
+auth.ext.pauld.link {
+  reverse_proxy authelia:9191
+}
+
+hass.pauld.link {
+  reverse_proxy 192.168.0.101:8123
+}
+
+hass.ext.pauld.link {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+  reverse_proxy 192.168.0.101:8123
+}
+
+proxmox.pauld.link {
+  reverse_proxy 192.168.0.110:8006
+}
+
+proxmox.ext.pauld.link {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+  reverse_proxy 192.168.0.110:8006
+}
+
+omada.pauld.link {
+  reverse_proxy omada-controller:8088 {
+  }
+}
+
+omada.ext.pauld.link {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+  reverse_proxy omada-controller:8043
+}
+
+portainer.pauld.link {
+  reverse_proxy protainer:9443
+}
+
+portainer.ext.pauld.link {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+  reverse_proxy protainer:9443
+}
+
+pihole.pauld.link {
+  reverse_proxy pihole:80
+}
+
+pihole.ext.pauld.link {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+  reverse_proxy pihole:80
+}
+
+jellyfin.pauld.link {
+  reverse_proxy jellyfin:8096
+}
+
+jellyfin.ext.pauld.link {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+  reverse_proxy jellyfin:8096
+}
+
+jellyseerr.pauld.link {
+  reverse_proxy jellyseerr:5055
+}
+
+jellyseerr.ext.pauld.link {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+  reverse_proxy jellyseerr:5055
+}
+
+sonarr.pauld.link {
+  reverse_proxy sonarr:8989
+}
+
+sonarr.ext.pauld.link {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+  reverse_proxy sonarr:8989
+}
+
+radarr.pauld.link {
+  reverse_proxy radarr:7878
+}
+
+radarr.ext.pauld.link {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+  reverse_proxy radarr:7878
+}
+
+prowlarr.pauld.link {
+  reverse_proxy prowlarr:9696
+}
+
+prowlarr.ext.pauld.link {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+  reverse_proxy prowlarr:9696
+}
+
+torrent.pauld.link {
+  reverse_proxy gluetun:9091
+}
+
+torrent.ext.pauld.link {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+  reverse_proxy gluetun:9091
+}
+
+comics.pauld.link {
+  reverse_proxy gluetun:4567
+}
+
+comics.ext.pauld.link {
+  forward_auth authelia:9191 {
+    uri /api/verify?rd=https://auth.ext.pauld.link/
+    copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+  }
+  reverse_proxy gluetun:4567
+}

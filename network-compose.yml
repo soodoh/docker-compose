@@ -21,7 +21,8 @@ services:
       - proxy
 
   caddy:
-    image: caddy:latest
+    # TODO use my own image
+    image: ghcr.io/williamjacksn/caddy-route53:latest
     container_name: caddy
     restart: always
     cap_add:
@@ -32,6 +33,8 @@ services:
       - 443:443/udp
     environment:
       - TZ=America/Los_Angeles
+      - ROUTE_53_ACCESS_KEY=$ROUTE_53_ACCESS_KEY
+      - ROUTE_53_SECRET=$ROUTE_53_SECRET
     volumes:
       - /home/docker/portainer-compose/Caddyfile:/etc/caddy/Caddyfile
       - caddy:/data
