@@ -16,7 +16,7 @@
 *.pauld.link {
   @ldap host ldap.pauld.link
   handle @ldap {
-    reverse_proxy http://openldap-ui
+    reverse_proxy lldap:17170
   }
 
   @proxmox host proxmox.pauld.link
@@ -119,7 +119,7 @@
   @ldap host ldap.ext.pauld.link
   handle @ldap {
     import authelia
-    reverse_proxy http://openldap-ui
+    reverse_proxy lldap:17170
   }
 
   @proxmox host proxmox.ext.pauld.link

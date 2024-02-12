@@ -60,34 +60,31 @@ services:
     restart: always
     environment:
       - TZ=America/Los_Angeles
+      - AUTHELIA_JWT_SECRET_FILE=/secrets/AUTHELIA_JWT_SECRET
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE=/secrets/LDAP_USER_PASS
+      - AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE=/secrets/AUTHELIA_NOTIFIER_SMTP_PASSWORD
+      - AUTHELIA_SESSION_SECRET_FILE=/secrets/AUTHELIA_SESSION_SECRET
+      - AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE=/secrets/AUTHELIA_STORAGE_ENCRYPTION_KEY
     volumes:
-      - /home/docker/authelia/config:/config
+      - /home/docker/authelia:/config
+      - /home/docker/lldap/secrets:/secrets
     networks:
       - proxy
 
-  openldap:
-    image: bitnami/openldap:latest
-    container_name: openldap
+  lldap:
+    image: lldap/lldap:latest
+    container_name: lldap
     volumes:
-      - openldap:/bitnami/openldap
+      - /home/docker/lldap/data:/data
+      - /home/docker/lldap/secrets:/secrets
     environment:
-      - LDAP_PORT_NUMBER=1389
-      - LDAP_ADMIN_USERNAME=admin
-      - LDAP_ADMIN_PASSWORD=$LDAP_ADMIN_PASSWORD
-      - LDAP_ROOT=dc=pauld,dc=link
-      - LDAP_ADMIN_DN=cn=admin,dc=pauld,dc=link
-    networks:
-      - proxy
-
-  openldap-ui:
-    image: dnknth/ldap-ui
-    container_name: openldap-ui
-    environment:
-      - LDAP_URL=ldap://openldap:1389
-      - BASE_DN=dc=pauld,dc=link
-      - LOGIN_ATTR=uid
-    depends_on:
-      - openldap
+      - UID=0
+      - GID=0
+      - LLDAP_JWT_SECRET_FILE=/secrets/LDAP_JWT_SECRET
+      - LLDAP_KEY_SEED_FILE=/secrets/LDAP_KEY_SEED
+      - LLDAP_LDAP_USER_PASS_FILE=/secrets/LDAP_USER_PASS
+      - TZ=America/Los_Angeles
+      - LLDAP_LDAP_BASE_DN=dc=pauld,dc=link
     networks:
       - proxy
 
@@ -97,9 +94,9 @@ volumes:
   caddy:
   pihole-dnsmasq:
   pihole:
-  openldap:
+  lldap-data:
+  lldap-secrets:
 
 networks:
-  ldap:
   proxy:
     external: true
