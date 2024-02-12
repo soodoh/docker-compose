@@ -64,43 +64,42 @@ services:
       - /home/docker/authelia/config:/config
     networks:
       - proxy
-      - ldap
 
   openldap:
     image: bitnami/openldap:latest
     container_name: openldap
     volumes:
-      - openldap-data:/var/lib/ldap
-      - openldap-config:/etc/ldap/slapd.d
+      - openldap:/bitnami/openldap
     environment:
-      - LDAP_ORGANISATION=example-org
-      - LDAP_DOMAIN=example.org
-      - LDAP_ADMIN_PASSWORD=admin
-      - LDAP_CONFIG_PASSWORD=config
-      - LDAP_RFC2307BIS_SCHEMA=true
-      - LDAP_REMOVE_CONFIG_AFTER_SETUP=true
-      - LDAP_TLS_VERIFY_CLIENT=never
+      - LDAP_PORT_NUMBER=1389
+      - LDAP_ADMIN_USERNAME=admin
+      - LDAP_ADMIN_PASSWORD=$LDAP_ADMIN_PASSWORD
+      - LDAP_ROOT=dc=pauld,dc=link
+      - LDAP_ADMIN_DN=cn=admin,dc=pauld,dc=link
     networks:
-      - ldap
+      - proxy
 
   openldap-ui:
     image: wheelybird/ldap-user-manager:latest
     container_name: openldap-ui
     environment:
-      - LDAP_URI=ldap://openldap
-      - LDAP_BASE_DN=dc=example,dc=org
+      - LDAP_ACCOUNT_ADDITIONAL_ATTRIBUTES=mail,displayname
+      - LDAP_GROUP_ADDITIONAL_ATTRIBUTES=groupOfNames
+      - LDAP_URI=ldap://openldap:1389
+      - LDAP_BASE_DN=dc=pauld,dc=link
       - LDAP_REQUIRE_STARTTLS=FALSE
       - LDAP_ADMINS_GROUP=admins
-      - LDAP_ADMIN_BIND_DN=cn=admin,dc=example,dc=org
-      - LDAP_ADMIN_BIND_PWD=admin
-      - LDAP_IGNORE_CERT_ERRORS=true
+      - LDAP_ADMIN_BIND_DN=cn=admin,dc=pauld,dc=link
+      - LDAP_ADMIN_BIND_PWD=$LDAP_ADMIN_PASSWORD
+      - LDAP_IGNORE_CERT_ERRORS=TRUE
       - NO_HTTPS=TRUE
       - PASSWORD_HASH=SSHA
-      - SERVER_HOSTNAME=localhost:18080
+      - SERVER_HOSTNAME=ldap.pauld.link
+      - SITE_NAME=Home LDAP User Manager
     depends_on:
       - openldap
     networks:
-      - ldap
+      - proxy
 
 volumes:
   omada-data:
@@ -108,8 +107,7 @@ volumes:
   caddy:
   pihole-dnsmasq:
   pihole:
-  openldap-data:
-  openldap-config:
+  openldap:
 
 networks:
   ldap:

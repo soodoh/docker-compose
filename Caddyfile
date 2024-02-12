@@ -16,7 +16,7 @@
 *.pauld.link {
   @ldap host ldap.pauld.link
   handle @ldap {
-    reverse_proxy openldap-ui:80
+    reverse_proxy http://openldap-ui
   }
 
   @proxmox host proxmox.pauld.link
@@ -71,7 +71,7 @@
 
   @lib host lib.pauld.link
   handle @lib {
-    reverse_proxy lazylibrarian:5299
+    reverse_proxy http://lazylibrarian:5299
   }
 
   @sonarr host sonarr.pauld.link
@@ -119,7 +119,7 @@
   @ldap host ldap.ext.pauld.link
   handle @ldap {
     import authelia
-    reverse_proxy openldap-ui:80
+    reverse_proxy http://openldap-ui
   }
 
   @proxmox host proxmox.ext.pauld.link
@@ -182,7 +182,7 @@
   @lib host lib.ext.pauld.link
   handle @lib {
     import authelia
-    reverse_proxy lazylibrarian:5299
+    reverse_proxy http://lazylibrarian:5299
   }
 
   @sonarr host sonarr.ext.pauld.link

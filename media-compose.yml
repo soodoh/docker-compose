@@ -146,6 +146,8 @@ services:
     image: linuxserver/lazylibrarian:latest
     container_name: lazylibrarian
     restart: unless-stopped
+    ports:
+      - 5299:5299
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
