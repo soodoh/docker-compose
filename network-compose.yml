@@ -80,22 +80,12 @@ services:
       - proxy
 
   openldap-ui:
-    image: wheelybird/ldap-user-manager:latest
+    image: dnknth/ldap-ui
     container_name: openldap-ui
     environment:
-      - LDAP_ACCOUNT_ADDITIONAL_ATTRIBUTES=mail,displayname
-      - LDAP_GROUP_ADDITIONAL_ATTRIBUTES=groupOfNames
-      - LDAP_URI=ldap://openldap:1389
-      - LDAP_BASE_DN=dc=pauld,dc=link
-      - LDAP_REQUIRE_STARTTLS=FALSE
-      - LDAP_ADMINS_GROUP=admins
-      - LDAP_ADMIN_BIND_DN=cn=admin,dc=pauld,dc=link
-      - LDAP_ADMIN_BIND_PWD=$LDAP_ADMIN_PASSWORD
-      - LDAP_IGNORE_CERT_ERRORS=TRUE
-      - NO_HTTPS=TRUE
-      - PASSWORD_HASH=SSHA
-      - SERVER_HOSTNAME=ldap.pauld.link
-      - SITE_NAME=Home LDAP User Manager
+      - LDAP_URL=ldap://openldap:1389
+      - BASE_DN=dc=pauld,dc=link
+      - LOGIN_ATTR=uid
     depends_on:
       - openldap
     networks:
