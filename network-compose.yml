@@ -64,6 +64,43 @@ services:
       - /home/docker/authelia/config:/config
     networks:
       - proxy
+      - ldap
+
+  openldap:
+    image: bitnami/openldap:latest
+    container_name: openldap
+    volumes:
+      - openldap-data:/var/lib/ldap
+      - openldap-config:/etc/ldap/slapd.d
+    environment:
+      - LDAP_ORGANISATION=example-org
+      - LDAP_DOMAIN=example.org
+      - LDAP_ADMIN_PASSWORD=admin
+      - LDAP_CONFIG_PASSWORD=config
+      - LDAP_RFC2307BIS_SCHEMA=true
+      - LDAP_REMOVE_CONFIG_AFTER_SETUP=true
+      - LDAP_TLS_VERIFY_CLIENT=never
+    networks:
+      - ldap
+
+  openldap-ui:
+    image: wheelybird/ldap-user-manager:latest
+    container_name: openldap-ui
+    environment:
+      - LDAP_URI=ldap://openldap
+      - LDAP_BASE_DN=dc=example,dc=org
+      - LDAP_REQUIRE_STARTTLS=FALSE
+      - LDAP_ADMINS_GROUP=admins
+      - LDAP_ADMIN_BIND_DN=cn=admin,dc=example,dc=org
+      - LDAP_ADMIN_BIND_PWD=admin
+      - LDAP_IGNORE_CERT_ERRORS=true
+      - NO_HTTPS=TRUE
+      - PASSWORD_HASH=SSHA
+      - SERVER_HOSTNAME=localhost:18080
+    depends_on:
+      - openldap
+    networks:
+      - ldap
 
 volumes:
   omada-data:
@@ -71,7 +108,10 @@ volumes:
   caddy:
   pihole-dnsmasq:
   pihole:
+  openldap-data:
+  openldap-config:
 
 networks:
+  ldap:
   proxy:
     external: true
