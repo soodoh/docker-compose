@@ -171,7 +171,7 @@ services:
       - gluetun:/gluetun
     environment:
       - TZ=America/Los_Angeles
-      - VPN_SERVICE_PROVIDER=$VPN_PROVIDER
+      - VPN_SERVICE_PROVIDER=nordvpn
       - VPN_TYPE=openvpn
       - OPENVPN_USER=$VPN_USERNAME
       - OPENVPN_PASSWORD=$VPN_PASSWORD
@@ -239,8 +239,7 @@ services:
     image: ghcr.io/advplyr/audiobookshelf:latest
     container_name: audiobookshelf
     volumes:
-      - /mnt/media/audiobooks:/audiobooks
-      - /mnt/media/podcasts:/podcasts
+      - /mnt/media/books:/books
       - audiobookshelf-config:/config
       - audiobookshelf-metadata:/metadata
     networks:

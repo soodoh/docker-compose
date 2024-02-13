@@ -66,7 +66,8 @@ services:
       - AUTHELIA_SESSION_SECRET_FILE=/secrets/AUTHELIA_SESSION_SECRET
       - AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE=/secrets/AUTHELIA_STORAGE_ENCRYPTION_KEY
     volumes:
-      - /home/docker/authelia:/config
+      - authelia:/config
+      - /home/docker/portainer-compose/authelia-config.yml:/config/configuration.yml
       - /home/docker/lldap/secrets:/secrets
     networks:
       - proxy
@@ -89,6 +90,7 @@ services:
       - proxy
 
 volumes:
+  authelia:
   omada-data:
   omada-logs:
   caddy:
