@@ -5,6 +5,15 @@
   }
 }
 
+(insecure_reverse_proxy) {
+  reverse_proxy {args[0]} {
+    transport http {
+      tls
+      tls_insecure_skip_verify
+    }
+  }
+}
+
 {
   debug
   acme_dns route53 {
@@ -21,32 +30,17 @@
 
   @proxmox host proxmox.pauld.link
   handle @proxmox {
-    reverse_proxy 192.168.0.110:8006 {
-      transport http {
-        tls
-        tls_insecure_skip_verify
-      }
-    }
+    import insecure_reverse_proxy 192.168.0.110:8006
   }
 
   @omada host omada.pauld.link
   handle @omada {
-    reverse_proxy omada-controller:8043 {
-      transport http {
-        tls
-        tls_insecure_skip_verify
-      }
-    }
+    import insecure_reverse_proxy omada-controller:8043
   }
 
   @portainer host portainer.pauld.link
   handle @portainer {
-    reverse_proxy portainer:9443 {
-      transport http {
-        tls
-        tls_insecure_skip_verify
-      }
-    }
+    import insecure_reverse_proxy portainer:9443
   }
 
   @hass host hass.pauld.link
@@ -72,6 +66,11 @@
   @lib host lib.pauld.link
   handle @lib {
     reverse_proxy http://lazylibrarian:5299
+  }
+
+  @audiobookshelf host audiobookshelf.pauld.link
+  handle @audiobookshelf {
+   reverse_proxy audiobookshelf:80
   }
 
   @sonarr host sonarr.pauld.link
@@ -125,34 +124,19 @@
   @proxmox host proxmox.ext.pauld.link
   handle @proxmox {
     import authelia
-    reverse_proxy 192.168.0.110:8006 {
-      transport http {
-        tls
-        tls_insecure_skip_verify
-      }
-    }
+    import insecure_reverse_proxy 192.168.0.110:8006
   }
 
   @omada host omada.ext.pauld.link
   handle @omada {
     import authelia
-    reverse_proxy omada-controller:8043 {
-      transport http {
-        tls
-        tls_insecure_skip_verify
-      }
-    }
+    import insecure_reverse_proxy omada-controller:8043
   }
 
   @portainer host portainer.ext.pauld.link
   handle @portainer {
     import authelia
-    reverse_proxy portainer:9443 {
-      transport http {
-        tls
-        tls_insecure_skip_verify
-      }
-    }
+    import insecure_reverse_proxy portainer:9443
   }
 
   @hass host hass.ext.pauld.link
@@ -183,6 +167,12 @@
   handle @lib {
     import authelia
     reverse_proxy http://lazylibrarian:5299
+  }
+
+  @audiobookshelf host audiobookshelf.pauld.link
+  handle @audiobookshelf {
+    import authelia
+    reverse_proxy audiobookshelf:80
   }
 
   @sonarr host sonarr.ext.pauld.link

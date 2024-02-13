@@ -146,8 +146,6 @@ services:
     image: linuxserver/lazylibrarian:latest
     container_name: lazylibrarian
     restart: unless-stopped
-    ports:
-      - 5299:5299
     environment:
       - TZ=America/Los_Angeles
       - PUID=1000
@@ -250,6 +248,17 @@ services:
     volumes:
       - /home/docker/tachidesk:/home/suwayomi/.local/share/Tachidesk
 
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    container_name: audiobookshelf
+    volumes:
+      - /mnt/media/audiobooks:/audiobooks
+      - /mnt/media/podcasts:/podcasts
+      - audiobookshelf-config:/config
+      - audiobookshelf-metadata:/metadata
+    networks:
+      - proxy
+
 volumes:
   plex:
   jellyfin-config:
@@ -264,6 +273,8 @@ volumes:
   prowlarr:
   transmission-config:
   gluetun:
+  audiobookshelf-config:
+  audiobookshelf-metadata:
 
 networks:
   arr_network:
