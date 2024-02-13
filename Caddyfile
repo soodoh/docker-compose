@@ -63,6 +63,11 @@
     reverse_proxy http://readarr:8787
   }
 
+  @speakarr host speakarr.pauld.link
+  handle @speakarr {
+    reverse_proxy http://speakarr:8787
+  }
+
   @lib host lib.pauld.link
   handle @lib {
     reverse_proxy http://lazylibrarian:5299
@@ -163,13 +168,19 @@
     reverse_proxy http://readarr:8787
   }
 
+  @speakarr host speakarr.ext.pauld.link
+  handle @speakarr {
+    import authelia
+    reverse_proxy http://speakarr:8787
+  }
+
   @lib host lib.ext.pauld.link
   handle @lib {
     import authelia
     reverse_proxy http://lazylibrarian:5299
   }
 
-  @audiobookshelf host audiobookshelf.pauld.link
+  @audiobookshelf host audiobookshelf.ext.pauld.link
   handle @audiobookshelf {
     import authelia
     reverse_proxy audiobookshelf:80

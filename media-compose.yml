@@ -29,35 +29,6 @@ services:
       - proxy
       - arr_network
 
-  # plex:
-  #   image: plexinc/pms-docker:latest
-  #   container_name: plex
-  #   restart: unless-stopped
-  #   ports:
-  #     - 1900:1900
-  #     - 3005:3005
-  #     - 9324:9324
-  #     - 32400:32400
-  #     - 32410:32410
-  #     - 32412-32414:32412-32414
-  #     - 32469:32469
-  #   environment:
-  #     - TZ=America/Los_Angeles
-  #     - ADVERTISE_IP=http://192.168.0.100:32400/
-  #     - HOME=/config
-  #     - PLEX_GID=1000
-  #     - PLEX_UID=1000
-  #     - PLEX_CLAIM=$PLEX_CLAIM
-  #   volumes:
-  #     - plex:/config
-  #     - /mnt/media/movies:/movies
-  #     - /tmp:/transcode
-  #     - /mnt/media/tv_shows:/tv_shows
-  #     - /mnt/media/audiobooks:/audiobooks
-  #   networks:
-  #     - proxy
-  #     - arr_network
-
   sonarr:
     image: linuxserver/sonarr:latest
     container_name: sonarr
@@ -136,6 +107,22 @@ services:
       - PGID=1000
     volumes:
       - readarr:/config
+      - /mnt/media/books:/books
+      - /mnt/media/transmission:/downloads
+    networks:
+      - proxy
+      - arr_network
+
+  speakarr:
+    image: linuxserver/readarr:develop
+    container_name: speakarr
+    restart: unless-stopped
+    environment:
+      - TZ=America/Los_Angeles
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - speakarr:/config
       - /mnt/media/books:/books
       - /mnt/media/transmission:/downloads
     networks:
@@ -265,6 +252,7 @@ volumes:
   jellyfin-cache:
   jellyseerr:
   readarr:
+  speakarr:
   lazylibrarian:
   sonarr:
   sonarr-4k:
