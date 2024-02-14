@@ -167,10 +167,8 @@ services:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
-    entrypoint: sh -c "/start.sh"
     volumes:
-      - /home/docker/gluetun:/gluetun
-      - /home/docker/gluetun/start.sh:/start.sh
+      - gluetun:/gluetun
     environment:
       TZ: America/Los_Angeles
       VPN_SERVICE_PROVIDER: nordvpn
@@ -181,6 +179,16 @@ services:
     networks:
       - proxy
       - arr_network
+
+  gluetun-cron:
+    image: curlimages/curl:latest
+    container_name: gluetun-cron
+    restart: unless-stopped
+    network_mode: service:gluetun
+    user: root
+    command: sh /config/entrypoint.sh
+    volumes:
+      - /home/docker/gluetun-cron:/config
 
   unpackerr:
     image: golift/unpackerr:latest
@@ -262,6 +270,7 @@ volumes:
   transmission-config:
   audiobookshelf-config:
   audiobookshelf-metadata:
+  gluetun:
 
 networks:
   arr_network:
