@@ -95,7 +95,7 @@
 
   @torrent host torrent.pauld.link
   handle @torrent {
-    reverse_proxy gluetun:9091
+    reverse_proxy flood:3001
   }
 
   @comics host comics.pauld.link
@@ -207,7 +207,7 @@
   @torrent host torrent.ext.pauld.link
   handle @torrent {
     import authelia
-    reverse_proxy gluetun:9091
+    reverse_proxy flood:3001
   }
 
   @comics host comics.ext.pauld.link
