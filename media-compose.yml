@@ -167,9 +167,10 @@ services:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
+    entrypoint: sh -c "/start.sh"
     volumes:
       - /home/docker/gluetun:/gluetun
-      - /home/docker/gluetun/crontab:/etc/crontabs/root
+      - /home/docker/gluetun/start.sh:/start.sh
     environment:
       TZ: America/Los_Angeles
       VPN_SERVICE_PROVIDER: nordvpn
@@ -207,7 +208,6 @@ services:
       TZ: America/Los_Angeles
       PUID: 1000
       PGID: 1000
-      TRANSMISSION_WEB_HOME: /flood-for-transmission
     volumes:
       - transmission-config:/config
       - /mnt/media/transmission:/downloads
@@ -260,7 +260,6 @@ volumes:
   radarr-4k:
   prowlarr:
   transmission-config:
-  gluetun:
   audiobookshelf-config:
   audiobookshelf-metadata:
 
