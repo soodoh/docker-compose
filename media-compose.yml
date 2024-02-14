@@ -22,7 +22,7 @@ services:
     container_name: jellyseerr
     restart: unless-stopped
     environment:
-      - TZ=America/Los_Angeles
+      TZ: America/Los_Angeles
     volumes:
       - jellyseerr:/app/config
     networks:
@@ -34,9 +34,9 @@ services:
     container_name: sonarr
     restart: unless-stopped
     environment:
-      - TZ=America/Los_Angeles
-      - PUID=1000
-      - PGID=1000
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
     volumes:
       - sonarr:/config
       - /mnt/media/tv_shows:/tv_shows
@@ -52,9 +52,9 @@ services:
     depends_on:
       - sonarr
     environment:
-      - TZ=America/Los_Angeles
-      - PUID=1000
-      - PGID=1000
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
     volumes:
       - sonarr-4k:/config
       - /mnt/media/tv_shows:/tv_shows
@@ -68,9 +68,9 @@ services:
     container_name: radarr
     restart: unless-stopped
     environment:
-      - TZ=America/Los_Angeles
-      - PUID=1000
-      - PGID=1000
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
     volumes:
       - radarr:/config
       - /mnt/media/transmission:/downloads
@@ -86,9 +86,9 @@ services:
     depends_on:
       - radarr
     environment:
-      - TZ=America/Los_Angeles
-      - PUID=1000
-      - PGID=1000
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
     volumes:
       - radarr-4k:/config
       - /mnt/media/transmission:/downloads
@@ -102,9 +102,9 @@ services:
     container_name: readarr
     restart: unless-stopped
     environment:
-      - TZ=America/Los_Angeles
-      - PUID=1000
-      - PGID=1000
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
     volumes:
       - readarr:/config
       - /mnt/media/books:/books
@@ -118,9 +118,9 @@ services:
     container_name: speakarr
     restart: unless-stopped
     environment:
-      - TZ=America/Los_Angeles
-      - PUID=1000
-      - PGID=1000
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
     volumes:
       - speakarr:/config
       - /mnt/media/books:/books
@@ -134,9 +134,9 @@ services:
     container_name: lazylibrarian
     restart: unless-stopped
     environment:
-      - TZ=America/Los_Angeles
-      - PUID=1000
-      - PGID=1000
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
     volumes:
       - lazylibrarian:/config
       - /mnt/media/books:/books
@@ -150,9 +150,9 @@ services:
     container_name: prowlarr
     restart: unless-stopped
     environment:
-      - TZ=America/Los_Angeles
-      - PUID=1000
-      - PGID=1000
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
     volumes:
       - prowlarr:/config
     networks:
@@ -168,14 +168,15 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - gluetun:/gluetun
+      - /home/docker/gluetun:/gluetun
+      - /home/docker/gluetun/crontab:/etc/crontabs/root
     environment:
-      - TZ=America/Los_Angeles
-      - VPN_SERVICE_PROVIDER=nordvpn
-      - VPN_TYPE=openvpn
-      - OPENVPN_USER=$VPN_USERNAME
-      - OPENVPN_PASSWORD=$VPN_PASSWORD
-      - UPDATER_PERIOD=24h
+      TZ: America/Los_Angeles
+      VPN_SERVICE_PROVIDER: nordvpn
+      VPN_TYPE: openvpn
+      OPENVPN_USER: $VPN_USERNAME
+      OPENVPN_PASSWORD: $VPN_PASSWORD
+      UPDATER_PERIOD: 24h
     networks:
       - proxy
       - arr_network
@@ -185,13 +186,13 @@ services:
     container_name: unpackerr
     restart: unless-stopped
     environment:
-      - TZ=America/Los_Angeles
-      - UN_SONARR_0_URL=http://sonarr:8989
-      - UN_SONARR_0_API_KEY=$SONARR_API_KEY
-      - UN_SONARR_0_PATHS_0=/data/complete/sonarr
-      - UN_RADARR_0_URL=http://radarr:7878
-      - UN_RADARR_0_API_KEY=$RADARR_API_KEY
-      - UN_RADARR_0_PATHS_0=/data/complete/radarr
+      TZ: America/Los_Angeles
+      UN_SONARR_0_URL: http://sonarr:8989
+      UN_SONARR_0_API_KEY: $SONARR_API_KEY
+      UN_SONARR_0_PATHS_0: /data/complete/sonarr
+      UN_RADARR_0_URL: http://radarr:7878
+      UN_RADARR_0_API_KEY: $RADARR_API_KEY
+      UN_RADARR_0_PATHS_0: /data/complete/radarr
     volumes:
       - /mnt/media/transmission:/data
     networks:
@@ -203,9 +204,9 @@ services:
     restart: unless-stopped
     network_mode: service:gluetun
     environment:
-      - TZ=America/Los_Angeles
-      - PUID=1000
-      - PGID=1000
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
     volumes:
       - transmission-config:/config
       - /mnt/media/transmission:/downloads
@@ -217,21 +218,21 @@ services:
     restart: unless-stopped
     network_mode: service:gluetun
     environment:
-      - TZ:America/Los_Angeles
-      - DOWNLOAD_AS_CBZ=true
-      - WEB_UI_ENABLED=true
-      - WEB_UI_FLAVOR=WebUI
-      - WEB_UI_CHANNEL=preview
-      - WEB_UI_UPDATE_INTERVAL=12
-      - AUTO_DOWNLOAD_CHAPTERS=true
-      - AUTO_DOWNLOAD_EXCLUDE_UNREAD=false
-      - AUTO_DOWNLOAD_AHEAD_LIMIT=20
-      - UPDATE_EXCLUDE_UNREAD=false
-      - UPDATE_EXCLUDE_STARTED=false
-      - UPDATE_EXCLUDE_COMPLETED=true
-      - UPDATE_INTERVAL=12
-      - UPDATE_MANGA_INFO=true
-      - FLARESOLVERR_ENABLED=false
+      TZ: America/Los_Angeles
+      DOWNLOAD_AS_CBZ: true
+      WEB_UI_ENABLED: true
+      WEB_UI_FLAVOR: WebUI
+      WEB_UI_CHANNEL: preview
+      WEB_UI_UPDATE_INTERVAL: 12
+      AUTO_DOWNLOAD_CHAPTERS: true
+      AUTO_DOWNLOAD_EXCLUDE_UNREAD: false
+      AUTO_DOWNLOAD_AHEAD_LIMIT: 20
+      UPDATE_EXCLUDE_UNREAD: false
+      UPDATE_EXCLUDE_STARTED: false
+      UPDATE_EXCLUDE_COMPLETED: true
+      UPDATE_INTERVAL: 12
+      UPDATE_MANGA_INFO: true
+      FLARESOLVERR_ENABLED: false
     volumes:
       - /home/docker/tachidesk:/home/suwayomi/.local/share/Tachidesk
 
@@ -246,7 +247,6 @@ services:
       - proxy
 
 volumes:
-  plex:
   jellyfin-config:
   jellyfin-cache:
   jellyseerr:

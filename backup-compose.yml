@@ -78,8 +78,6 @@ volumes:
     external: true
   media_transmission-config:
     external: true
-  media_gluetun:
-    external: true
   media_audiobookshelf-config:
     external: true
   media_audiobookshelf-metadata:
