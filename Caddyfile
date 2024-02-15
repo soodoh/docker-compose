@@ -15,7 +15,6 @@
 }
 
 {
-  debug
   acme_dns route53 {
     access_key_id {$ROUTE_53_ACCESS_KEY}
     secret_access_key {$ROUTE_53_SECRET}
@@ -95,7 +94,11 @@
 
   @torrent host torrent.pauld.link
   handle @torrent {
-    reverse_proxy flood:3001
+    rewrite / /vpn
+    reverse_proxy /vpn/api gluetun:3000
+    reverse_proxy /vpn gluetun:3001
+    reverse_proxy /open/api flood-open:3000
+    reverse_proxy /open flood-open:3001
   }
 
   @comics host comics.pauld.link
@@ -207,7 +210,11 @@
   @torrent host torrent.ext.pauld.link
   handle @torrent {
     import authelia
-    reverse_proxy flood:3001
+    rewrite / /vpn
+    reverse_proxy /vpn/api gluetun:3000
+    reverse_proxy /vpn gluetun:3001
+    reverse_proxy /open/api flood-open:3000
+    reverse_proxy /open flood-open:3001
   }
 
   @comics host comics.ext.pauld.link

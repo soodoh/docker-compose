@@ -207,9 +207,9 @@ services:
     networks:
       - arr_network
 
-  transmission:
+  transmission-vpn:
     image: linuxserver/transmission:latest
-    container_name: transmission
+    container_name: transmission-vpn
     restart: unless-stopped
     network_mode: service:gluetun
     environment:
@@ -219,7 +219,42 @@ services:
     volumes:
       - transmission-config:/config
       - /mnt/media/transmission:/downloads
-      - /mnt/media/transmission/watch:/watch
+  flood-vpn:
+    image: jesec/flood:latest
+    container_name: flood-vpn
+    restart: unless-stopped
+    network_mode: service:gluetun
+    command: --port 3001 --allowedpath /downloads --baseuri=/vpn
+    volumes:
+      - /mnt/media/transmission:/downloads
+      - flood-vpn:/home/download
+
+  transmission-open:
+    image: linuxserver/transmission:latest
+    container_name: transmission-open
+    restart: unless-stopped
+    environment:
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - transmission-open:/config
+      - /mnt/media/transmission:/downloads
+    networks:
+      - proxy
+      - arr_network
+  flood-open:
+    image: jesec/flood:latest
+    container_name: flood-open
+    restart: unless-stopped
+    command: --port 3001 --allowedpath /downloads --baseuri=/open
+    volumes:
+      - /mnt/media/transmission:/downloads
+      - flood-open:/home/download
+    networks:
+      - proxy
+      - arr_network
+
 
   tachidesk:
     image: ghcr.io/suwayomi/tachidesk:preview
@@ -268,6 +303,9 @@ volumes:
   radarr-4k:
   prowlarr:
   transmission-config:
+  flood-vpn:
+  transmission-open:
+  flood-open:
   audiobookshelf-config:
   audiobookshelf-metadata:
   gluetun:
