@@ -1,0 +1,19 @@
+{
+  "name": "portainer-compose",
+  "version": "1.0.0",
+  "description": "My docker compose files for my home server",
+  "main": "./",
+  "repository": "git@github.com:pauldiloreto/portainer-compose.git",
+  "author": "Paul DiLoreto <paul.diloreto@gmail.com>",
+  "license": "MIT",
+  "packageManager": "yarn@4.1.0",
+  "devDependencies": {
+    "@commitlint/cli": "^18.6.1",
+    "@commitlint/config-conventional": "^18.6.2",
+    "@commitlint/types": "^18.6.1",
+    "@types/node": "^20.11.19",
+    "husky": "^9.0.11"
+  },
+  "scripts": {
+  }
+}
