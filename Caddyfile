@@ -94,11 +94,16 @@
 
   @torrent host torrent.pauld.link
   handle @torrent {
-    rewrite / /vpn
-    reverse_proxy /vpn/api gluetun:3000
-    reverse_proxy /vpn gluetun:3001
-    reverse_proxy /open/api flood-open:3000
-    reverse_proxy /open flood-open:3001
+    redir / /vpn/
+    redir /vpn /vpn/
+    handle_path /vpn/* {
+      reverse_proxy gluetun:3001
+    }
+    redir /open /open/
+    handle_path /open/* {
+      reverse_proxy flood-open:3001
+    }
+    abort
   }
 
   @comics host comics.pauld.link
@@ -210,11 +215,15 @@
   @torrent host torrent.ext.pauld.link
   handle @torrent {
     import authelia
-    rewrite / /vpn
-    reverse_proxy /vpn/api gluetun:3000
-    reverse_proxy /vpn gluetun:3001
-    reverse_proxy /open/api flood-open:3000
-    reverse_proxy /open flood-open:3001
+    redir / /vpn/
+    redir /vpn /vpn/
+    handle_path /vpn/* {
+      reverse_proxy gluetun:3001
+    }
+    redir /open /open/
+    handle_path /open/* {
+      reverse_proxy flood-open:3001
+    }
   }
 
   @comics host comics.ext.pauld.link
