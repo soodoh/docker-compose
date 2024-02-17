@@ -15,5 +15,12 @@
     "husky": "^9.0.11"
   },
   "scripts": {
+    "update-portainer": "./update-portainer.sh",
+    "network-compose": "docker compose -f ./network-compose.yml --env-file ./network.env -p network",
+    "media-compose": "docker compose -f ./media-compose.yml --env-file ./media.env -p media",
+    "network-up": "yarn network-compose pull && yarn network-compose up -d",
+    "media-up": "yarn media-compose pull && yarn media-compose up -d",
+    "network-down": "yarn network-compose down",
+    "media-down": "yarn media-compose down"
   }
 }
