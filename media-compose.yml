@@ -179,7 +179,6 @@ services:
     networks:
       - proxy
       - arr_network
-
   gluetun-cron:
     image: curlimages/curl:latest
     container_name: gluetun-cron
@@ -224,10 +223,10 @@ services:
     container_name: flood-vpn
     restart: unless-stopped
     network_mode: service:gluetun
-    command: --port 3001 --allowedpath /downloads --baseuri=/vpn
+    command: --port 3001 --allowedpath /downloads
     volumes:
-      - /mnt/media/transmission:/downloads
       - flood-vpn:/home/download
+      - /mnt/media/transmission:/downloads
 
   transmission-open:
     image: linuxserver/transmission:latest
@@ -237,6 +236,8 @@ services:
       TZ: America/Los_Angeles
       PUID: 1000
       PGID: 1000
+    ports:
+      - 9091:9091
     volumes:
       - transmission-open:/config
       - /mnt/media/transmission:/downloads
@@ -247,10 +248,10 @@ services:
     image: jesec/flood:latest
     container_name: flood-open
     restart: unless-stopped
-    command: --port 3001 --allowedpath /downloads --baseuri=/open
+    command: --port 3001 --allowedpath /downloads
     volumes:
-      - /mnt/media/transmission:/downloads
       - flood-open:/home/download
+      - /mnt/media/transmission:/downloads
     networks:
       - proxy
       - arr_network
