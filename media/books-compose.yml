@@ -85,12 +85,45 @@ services:
     networks:
       - proxy
 
+  calibre:
+    image: linuxserver/calibre
+    container_name: calibre
+    restart: unless-stopped
+    environment:
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - calibre-config:/config
+      - calibre-plugins:/plugins
+      - /mnt/media/books:/books
+    networks:
+      - proxy
+
+  calibre-web:
+    image: linuxserver/calibre-web
+    container_name: calibre-web
+    restart: unless-stopped
+    environment:
+      PUID: 1000
+      PGID: 1000
+    depends_on:
+      - calibre
+    volumes:
+      - calibre-web:/config
+      - /mnt/media/books:/books
+    networks:
+      - proxy
+
 volumes:
   readarr:
   speakarr:
   audiobookshelf-config:
   audiobookshelf-metadata:
   tachidesk-gluetun:
+  calibre-config:
+  calibre-uploads:
+  calibre-plugins:
+  calibre-web:
 
 networks:
   proxy:

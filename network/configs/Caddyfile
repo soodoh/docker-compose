@@ -67,14 +67,19 @@
     reverse_proxy http://speakarr:8787
   }
 
-  @lib host lib.pauld.link
-  handle @lib {
-    reverse_proxy http://lazylibrarian:5299
-  }
-
   @audiobookshelf host audiobookshelf.pauld.link
   handle @audiobookshelf {
    reverse_proxy audiobookshelf:80
+  }
+
+  @calibre host calibre.pauld.link
+  handle @calibre {
+    reverse_proxy calibre:8080
+  }
+
+  @calibreweb host calibreweb.pauld.link
+  handle @calibreweb {
+    reverse_proxy calibre-web:8083
   }
 
   @sonarr host sonarr.pauld.link
@@ -182,16 +187,22 @@
     reverse_proxy http://speakarr:8787
   }
 
-  @lib host lib.ext.pauld.link
-  handle @lib {
-    import authelia
-    reverse_proxy http://lazylibrarian:5299
-  }
-
   @audiobookshelf host audiobookshelf.ext.pauld.link
   handle @audiobookshelf {
     import authelia
     reverse_proxy audiobookshelf:80
+  }
+
+  @calibre host calibre.ext.pauld.link
+  handle @calibre {
+    import authelia
+    reverse_proxy calibre:8080
+  }
+
+  @calibreweb host calibreweb.ext.pauld.link
+  handle @calibreweb {
+    import authelia
+    reverse_proxy calibre-web:8083
   }
 
   @sonarr host sonarr.ext.pauld.link
