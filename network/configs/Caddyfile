@@ -108,7 +108,7 @@
 
   @comics host comics.pauld.link
   handle @comics {
-    reverse_proxy gluetun:4567
+    reverse_proxy tachidesk-vpn:4567
   }
 
   @pihole host pihole.pauld.link
@@ -229,7 +229,7 @@
   @comics host comics.ext.pauld.link
   handle @comics {
     import authelia
-    reverse_proxy gluetun:4567
+    reverse_proxy tachidesk-vpn:4567
   }
 
   @pihole host pihole.ext.pauld.link

@@ -1,0 +1,66 @@
+version: '3.3'
+
+services:
+  omada-controller:
+    image: mbentley/omada-controller:latest
+    container_name: omada-controller
+    restart: always
+    ports:
+      - 27001:27001/udp
+      - 29810:29810/udp
+      - 29811-29816:29811-29816
+    environment:
+      TZ: America/Los_Angeles
+    volumes:
+      - omada-data:/opt/tplink/EAPController/data
+      - omada-logs:/opt/tplink/EAPController/logs
+    networks:
+      - proxy
+
+  caddy:
+    # TODO use my own image
+    image: ghcr.io/williamjacksn/caddy-route53:latest
+    container_name: caddy
+    restart: always
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - 80:80
+      - 443:443/tcp
+      - 443:443/udp
+    environment:
+      TZ: America/Los_Angeles
+      ROUTE_53_ACCESS_KEY: $ROUTE_53_ACCESS_KEY
+      ROUTE_53_SECRET: $ROUTE_53_SECRET
+    volumes:
+      - /home/docker/portainer-compose/network/configs/Caddyfile:/etc/caddy/Caddyfile
+      - caddy:/data
+    networks:
+      - proxy
+
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: always
+    ports:
+      - 53:53/tcp
+      - 53:53/udp
+    environment:
+      TZ: America/Los_Angeles
+      DNSMASQ_USER: pihole
+    volumes:
+      - pihole-dnsmasq:/etc/dnsmasq.d
+      - pihole:/etc/pihole
+    networks:
+      - proxy
+
+volumes:
+  omada-data:
+  omada-logs:
+  caddy:
+  pihole-dnsmasq:
+  pihole:
+
+networks:
+  proxy:
+    external: true

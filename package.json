@@ -16,11 +16,10 @@
   },
   "scripts": {
     "update-portainer": "./update-portainer.sh",
-    "network-compose": "docker compose -f ./network-compose.yml --env-file ./network.env -p network",
-    "media-compose": "docker compose -f ./media-compose.yml --env-file ./media.env -p media",
-    "network-up": "yarn network-compose pull && yarn network-compose up -d",
-    "media-up": "yarn media-compose pull && yarn media-compose up -d",
-    "network-down": "yarn network-compose down",
-    "media-down": "yarn media-compose down"
+    "network-compose": "docker compose -f ./network/infra-compose.yml -f ./network/auth-compose.yml --env-file ./network/network.env -p network",
+    "media-compose": "docker compose -f ./media/books-compose.yml -f ./media/downloaders-compose.yml -f ./media/videos-compose.yml --env-file ./media/media.env -p media",
+    "update-network": "yarn network-compose down && yarn network-compose pull && yarn network-compose up -d",
+    "update-media": "yarn media-compose down && yarn media-compose pull && yarn media-compose up -d",
+    "update-all": "yarn update-network && yarn update-media"
   }
 }

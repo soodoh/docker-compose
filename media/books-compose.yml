@@ -1,0 +1,97 @@
+version: '3.3'
+
+services:
+  readarr:
+    image: linuxserver/readarr:develop
+    container_name: readarr
+    restart: unless-stopped
+    environment:
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - readarr:/config
+      - /mnt/media/books:/books
+      - /mnt/media/transmission:/downloads
+    networks:
+      - proxy
+
+  speakarr:
+    image: linuxserver/readarr:develop
+    container_name: speakarr
+    restart: unless-stopped
+    environment:
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - speakarr:/config
+      - /mnt/media/books:/books
+      - /mnt/media/transmission:/downloads
+    networks:
+      - proxy
+
+  tachidesk-vpn:
+    image: qmcgaw/gluetun:latest
+    container_name: tachidesk-vpn
+    restart: always
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - tachidesk-gluetun:/gluetun
+    environment:
+      TZ: America/Los_Angeles
+      VPN_SERVICE_PROVIDER: nordvpn
+      VPN_TYPE: openvpn
+      OPENVPN_USER: $VPN_USERNAME
+      OPENVPN_PASSWORD: $VPN_PASSWORD
+      UPDATER_PERIOD: 24h
+    networks:
+      - proxy
+
+  tachidesk:
+    image: ghcr.io/suwayomi/tachidesk:preview
+    container_name: tachidesk
+    restart: unless-stopped
+    network_mode: service:tachidesk-vpn
+    environment:
+      TZ: America/Los_Angeles
+      DOWNLOAD_AS_CBZ: true
+      WEB_UI_ENABLED: true
+      WEB_UI_FLAVOR: WebUI
+      WEB_UI_CHANNEL: preview
+      WEB_UI_UPDATE_INTERVAL: 12
+      AUTO_DOWNLOAD_CHAPTERS: true
+      AUTO_DOWNLOAD_EXCLUDE_UNREAD: false
+      AUTO_DOWNLOAD_AHEAD_LIMIT: 20
+      UPDATE_EXCLUDE_UNREAD: false
+      UPDATE_EXCLUDE_STARTED: false
+      UPDATE_EXCLUDE_COMPLETED: true
+      UPDATE_INTERVAL: 12
+      UPDATE_MANGA_INFO: true
+      FLARESOLVERR_ENABLED: false
+    volumes:
+      - /home/docker/tachidesk:/home/suwayomi/.local/share/Tachidesk
+
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    container_name: audiobookshelf
+    volumes:
+      - /mnt/media/books:/books
+      - audiobookshelf-config:/config
+      - audiobookshelf-metadata:/metadata
+    networks:
+      - proxy
+
+volumes:
+  readarr:
+  speakarr:
+  audiobookshelf-config:
+  audiobookshelf-metadata:
+  tachidesk-gluetun:
+
+networks:
+  proxy:
+    external: true
