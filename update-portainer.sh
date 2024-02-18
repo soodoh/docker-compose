@@ -31,3 +31,5 @@ docker run -d \
   --network=proxy \
   --name portainer \
   portainer/portainer-ce:latest
+
+echo "Done!"

@@ -1,0 +1,113 @@
+version: '3.3'
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    user: 1000:1000
+    ports:
+      - 8096:8096
+    volumes:
+      - jellyfin-config:/config
+      - jellyfin-cache:/cache
+      - /mnt/media/tv_shows:/tv_shows
+      - /mnt/media/movies:/movies
+    networks:
+      - proxy
+      - arr_network
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    restart: unless-stopped
+    environment:
+      TZ: America/Los_Angeles
+    volumes:
+      - jellyseerr:/app/config
+    networks:
+      - proxy
+      - arr_network
+
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    environment:
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - sonarr:/config
+      - /mnt/media/tv_shows:/tv_shows
+      - /mnt/media/transmission:/downloads
+    networks:
+      - proxy
+      - arr_network
+
+  sonarr-4k:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr-4k
+    restart: unless-stopped
+    depends_on:
+      - sonarr
+    environment:
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - sonarr-4k:/config
+      - /mnt/media/tv_shows:/tv_shows
+      - /mnt/media/transmission:/downloads
+    networks:
+      - proxy
+      - arr_network
+
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - radarr:/config
+      - /mnt/media/transmission:/downloads
+      - /mnt/media/movies:/movies
+    networks:
+      - proxy
+      - arr_network
+
+  radarr-4k:
+    image: linuxserver/radarr:latest
+    container_name: radarr-4k
+    restart: unless-stopped
+    depends_on:
+      - radarr
+    environment:
+      TZ: America/Los_Angeles
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - radarr-4k:/config
+      - /mnt/media/transmission:/downloads
+      - /mnt/media/movies:/movies
+    networks:
+      - proxy
+      - arr_network
+
+volumes:
+  jellyfin-config:
+  jellyfin-cache:
+  jellyseerr:
+  sonarr:
+  sonarr-4k:
+  radarr:
+  radarr-4k:
+
+networks:
+  arr_network:
+    external: true
+  proxy:
+    external: true
