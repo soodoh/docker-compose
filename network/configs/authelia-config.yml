@@ -66,6 +66,8 @@ access_control:
       subject:
         - 'group:media_admins'
     - domain:
+        - calibre.ext.pauld.link
+        - calibreweb.ext.pauld.link
         - ldap.ext.pauld.link
         - pihole.ext.pauld.link
         - omada.ext.pauld.link
