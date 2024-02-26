@@ -122,7 +122,6 @@ volumes:
   audiobookshelf-metadata:
   tachidesk-gluetun:
   calibre-config:
-  calibre-uploads:
   calibre-plugins:
   calibre-web:
 
