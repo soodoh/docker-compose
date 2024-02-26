@@ -78,6 +78,7 @@ services:
   audiobookshelf:
     image: ghcr.io/advplyr/audiobookshelf:latest
     container_name: audiobookshelf
+    restart: unless-stopped
     volumes:
       - /mnt/media/books:/books
       - audiobookshelf-config:/config

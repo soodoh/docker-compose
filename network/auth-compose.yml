@@ -22,6 +22,7 @@ services:
   lldap:
     image: lldap/lldap:latest
     container_name: lldap
+    restart: always
     volumes:
       - /home/docker/lldap/data:/data
       - /home/docker/lldap/secrets:/secrets
