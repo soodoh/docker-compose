@@ -60,6 +60,7 @@ access_control:
         - lib.ext.pauld.link
         - sonarr.ext.pauld.link
         - radarr.ext.pauld.link
+        - lidarr.ext.pauld.link
         - prowlarr.ext.pauld.link
         - torrent.ext.pauld.link
       policy: one_factor

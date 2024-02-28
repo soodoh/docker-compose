@@ -92,6 +92,11 @@
     reverse_proxy radarr:7878
   }
 
+  @lidarr host lidarr.pauld.link
+  handle @lidarr {
+    reverse_proxy lidarr:8686
+  }
+
   @prowlarr host prowlarr.pauld.link
   handle @prowlarr {
     reverse_proxy prowlarr:9696
@@ -215,6 +220,12 @@
   handle @radarr {
     import authelia
     reverse_proxy radarr:7878
+  }
+
+  @lidarr host lidarr.ext.pauld.link
+  handle @lidarr {
+    import authelia
+    reverse_proxy lidarr:8686
   }
 
   @prowlarr host prowlarr.ext.pauld.link

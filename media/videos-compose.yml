@@ -97,6 +97,21 @@ services:
       - proxy
       - arr_network
 
+  lidarr:
+    image: linuxserver/lidarr:latest
+    container_name: lidarr
+    restart: unless-stopped
+    environment:
+      PUID: 999
+      PGID: 999
+      TZ: America/Los_Angeles
+    volumes:
+      - lidarr:/config
+      - /mnt/media/music:/music
+      - /mnt/media/transmission:/downloads
+    networks:
+      - proxy
+
 volumes:
   jellyfin-config:
   jellyfin-cache:
@@ -105,6 +120,7 @@ volumes:
   sonarr-4k:
   radarr:
   radarr-4k:
+  lidarr:
 
 networks:
   arr_network:
