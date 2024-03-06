@@ -3,16 +3,18 @@ version: '3.3'
 services:
   backup:
     image: offen/docker-volume-backup:v2
+    container_name: docker-volume-backup
     environment:
       AWS_S3_BUCKET_NAME: paul.diloreto.backups
       AWS_ACCESS_KEY_ID: $S3_ACCESS_KEY
       AWS_SECRET_ACCESS_KEY: $S3_SECRET_KEY
+      BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
+      BACKUP_PRUNING_PREFIX: backup-
+      BACKUP_RETENTION_DAYS: 5
     volumes:
       # Network volumes:
       # Auth
       - network_authelia:/docker-volumes/authelia:ro
-      - network_lldap-data:/docker-volumes/lldap-data:ro
-      - network_lldap-secrets:/docker-volumes/lldap-secrets:ro
       # Infra
       - network_caddy:/docker-volumes/caddy:ro
       - network_omada-data:/docker-volumes/omada-data:ro
@@ -42,6 +44,8 @@ services:
       - media_sonarr-4k:/docker-volumes/sonarr-4k:ro
       - media_radarr:/docker-volumes/radarr:ro
       - media_radarr-4k:/docker-volumes/radarr-4k:ro
+      # Local folders to back up (non Docker volumes)
+      - /home/docker/lldap:/docker-volumes/lldap:ro
       # Local backups
       - /mnt/media/backups/docker-volumes:/archive
       # Required
