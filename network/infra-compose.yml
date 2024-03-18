@@ -9,6 +9,9 @@ services:
       - 27001:27001/udp
       - 29810:29810/udp
       - 29811-29816:29811-29816
+      - 8088:8088
+      - 8043:8043
+      - 8843:8843
     environment:
       TZ: America/Los_Angeles
     volumes:
