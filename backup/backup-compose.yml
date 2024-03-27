@@ -1,5 +1,3 @@
-version: '3.3'
-
 services:
   backup:
     image: offen/docker-volume-backup:v2

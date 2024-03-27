@@ -1,5 +1,3 @@
-version: '3.3'
-
 services:
   omada-controller:
     image: mbentley/omada-controller:latest
@@ -57,20 +55,20 @@ services:
     networks:
       - proxy
 
-  frigate:
-    container_name: frigate
-    restart: unless-stopped
-    image: gchr.io/blakeblackshear/frigate:stable
-    ports:
-      - 5000:5000
-      - 8554:8554 # RTSP feeds
-    volumes:
-      - frigate:/config
-      - /mnt/media/frigate:/media/frigate
-      - type: tmpfs
-        target: /tmp/cache
-        tmpfs:
-          size: 1000000000
+  # frigate:
+  #   container_name: frigate
+  #   restart: unless-stopped
+  #   image: gchr.io/blakeblackshear/frigate:stable
+  #   ports:
+  #     - 5000:5000
+  #     - 8554:8554 # RTSP feeds
+  #   volumes:
+  #     - frigate:/config
+  #     - /mnt/media/frigate:/media/frigate
+  #     - type: tmpfs
+  #       target: /tmp/cache
+  #       tmpfs:
+  #         size: 1000000000
 
 volumes:
   omada-data:
