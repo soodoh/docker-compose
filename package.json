@@ -16,7 +16,6 @@
   },
   "scripts": {
     "update-portainer": "./update-portainer.sh",
-    "init": "docker network create proxy && docker network create arr_network",
     "backup-compose": "docker compose -f ./backup/backup-compose.yml --env-file ./backup/backup.env -p backup",
     "network-compose": "docker compose -f ./network/infra-compose.yml -f ./network/auth-compose.yml --env-file ./network/network.env -p network",
     "media-compose": "docker compose -f ./media/books-compose.yml -f ./media/downloaders-compose.yml -f ./media/videos-compose.yml --env-file ./media/media.env -p media",
