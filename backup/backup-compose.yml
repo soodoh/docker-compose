@@ -28,8 +28,6 @@ services:
       - media_calibre-web:/backup/calibre-web:ro
       - media_readarr:/backup/readarr:ro
       - media_speakarr:/backup/speakarr:ro
-      # Downloaders
-      - media_prowlarr:/backup/prowlarr:ro
       - media_transmission-open:/backup/transmission-open:ro
       - media_flood-open:/backup/flood-open:ro
       - media_transmission-vpn:/backup/transmission-vpn:ro
@@ -42,8 +40,10 @@ services:
       - media_sonarr-4k:/backup/sonarr-4k:ro
       - media_radarr:/backup/radarr:ro
       - media_radarr-4k:/backup/radarr-4k:ro
+      - media_lidarr:/backup/lidarr:ro
       # Local folders to back up (non Docker volumes)
       - /home/docker/lldap:/backup/lldap:ro
+      - /home/docker/tachidesk:/backup/tachidesk:ro
       # Local backups
       - /mnt/media/backups:/archive
       # Required
@@ -110,4 +110,6 @@ volumes:
   media_radarr:
     external: true
   media_radarr-4k:
+    external: true
+  media_lidarr:
     external: true
