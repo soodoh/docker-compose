@@ -1,0 +1,19 @@
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: hass
+    restart: unless-stopped
+    ports:
+      - 8123:8123
+    volumes:
+      - /mnt/media/hass:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    privileged: true
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+
