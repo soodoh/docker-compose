@@ -11,8 +11,6 @@ services:
       BACKUP_RETENTION_DAYS: 5
     volumes:
       # Network volumes:
-      # Auth
-      - network_authelia:/backup/authelia:ro
       # Infra
       - network_caddy:/backup/caddy:ro
       - network_omada-data:/backup/omada-data:ro
@@ -42,8 +40,8 @@ services:
       - media_radarr-4k:/backup/radarr-4k:ro
       - media_lidarr:/backup/lidarr:ro
       # Local folders to back up (non Docker volumes)
-      - /home/docker/lldap:/backup/lldap:ro
-      - /home/docker/tachidesk:/backup/tachidesk:ro
+      - /mnt/media/lldap:/backup/lldap:ro
+      - /mnt/media/tachidesk:/backup/tachidesk:ro
       # Local backups
       - /mnt/media/backups:/archive
       # Required
@@ -52,8 +50,6 @@ services:
 volumes:
   # Network volumes:
   # Auth
-  network_authelia:
-    external: true
   network_lldap-data:
     external: true
   network_lldap-secrets:

@@ -10,7 +10,7 @@ services:
     volumes:
       - readarr:/config
       - /mnt/media/books:/books
-      - /mnt/media/transmission:/downloads
+      - /mnt/media/downloads:/downloads
     networks:
       - proxy
 
@@ -25,7 +25,7 @@ services:
     volumes:
       - speakarr:/config
       - /mnt/media/books:/books
-      - /mnt/media/transmission:/downloads
+      - /mnt/media/downloads:/downloads
     networks:
       - proxy
 
@@ -71,7 +71,7 @@ services:
       UPDATE_MANGA_INFO: true
       FLARESOLVERR_ENABLED: false
     volumes:
-      - /home/docker/tachidesk:/home/suwayomi/.local/share/Tachidesk
+      - /mnt/media/tachidesk:/home/suwayomi/.local/share/Tachidesk
 
   audiobookshelf:
     image: ghcr.io/advplyr/audiobookshelf:latest

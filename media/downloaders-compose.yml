@@ -26,7 +26,7 @@ services:
       UN_RADARR_0_API_KEY: $RADARR_API_KEY
       UN_RADARR_0_PATHS_0: /data/complete
     volumes:
-      - /mnt/media/transmission:/data
+      - /mnt/media/downloads:/data
     networks:
       - arr_network
 
@@ -62,7 +62,7 @@ services:
       PGID: 1000
     volumes:
       - transmission-vpn:/config
-      - /mnt/media/transmission:/downloads
+      - /mnt/media/downloads:/downloads
 
   flood-vpn:
     image: jesec/flood:latest
@@ -72,7 +72,7 @@ services:
     command: --port 3001 --allowedpath /downloads
     volumes:
       - flood-vpn:/home/download
-      - /mnt/media/transmission:/downloads
+      - /mnt/media/downloads:/downloads
 
   transmission-open:
     image: linuxserver/transmission:latest
@@ -87,7 +87,7 @@ services:
       - 51413:51413 # Port forwarding for seeding
     volumes:
       - transmission-open:/config
-      - /mnt/media/transmission:/downloads
+      - /mnt/media/downloads:/downloads
     networks:
       - proxy
       - arr_network
@@ -99,7 +99,7 @@ services:
     command: --port 3001 --allowedpath /downloads
     volumes:
       - flood-open:/home/download
-      - /mnt/media/transmission:/downloads
+      - /mnt/media/downloads:/downloads
     networks:
       - proxy
       - arr_network
