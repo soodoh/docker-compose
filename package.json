@@ -19,9 +19,11 @@
     "backup-compose": "docker compose -f ./backup/backup-compose.yml --env-file ./backup/backup.env -p backup",
     "network-compose": "docker compose -f ./network/infra-compose.yml -f ./network/auth-compose.yml --env-file ./network/network.env -p network",
     "media-compose": "docker compose -f ./media/books-compose.yml -f ./media/downloaders-compose.yml -f ./media/videos-compose.yml --env-file ./media/media.env -p media",
+    "hass-compose": "docker compose -f ./hass/hass-compose.yml -p hass",
     "update-backup": "yarn backup-compose down && yarn backup-compose pull && yarn backup-compose up -d",
     "update-network": "yarn network-compose down && yarn network-compose pull && yarn network-compose up -d",
     "update-media": "yarn media-compose down && yarn media-compose pull && yarn media-compose up -d",
-    "update-all": "yarn update-network && yarn update-media && yarn update-backup"
+    "update-hass": "yarn hass-compose down && yarn hass-compose pull && yarn hass-compose up -d",
+    "update-all": "yarn update-network && yarn update-media && yarn update-hass && yarn update-backup"
   }
 }
