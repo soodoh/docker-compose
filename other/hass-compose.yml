@@ -1,0 +1,46 @@
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: hass
+    restart: unless-stopped
+    privileged: true
+    # TODO remove ports?
+    ports:
+      - 8123:8123
+    devices:
+      - /dev/zigbee:/dev/zigbee
+    volumes:
+      - /mnt/media/hass:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    networks:
+      - proxy
+      - hass_network
+
+  zwavejs2mqtt:
+    image: zwavejs/zwavejs2mqtt:latest
+    container_name: zwavejs
+    restart: always
+    tty: true
+    stop_signal: SIGINT
+    ports:
+      - 8091:8091
+    devices:
+      - /dev/zwave:/dev/zwave
+    volumes:
+      - zwavejs2mqtt:/usr/src/app/store
+    environment:
+      TZ: America/Los_Angeles
+      SESSION_SECRET: $ZWAVE_SECRET
+      ZWAVEJS_EXTERNAL_CONFIG: /usr/src/app/store/.config-db
+    networks:
+      - hass_network
+
+volumes:
+  zwavejs2mqtt:
+
+networks:
+  hass_network:
+  proxy:
+    external: true
+

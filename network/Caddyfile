@@ -44,7 +44,12 @@
 
   @hass host hass.pauld.link
   handle @hass {
-    reverse_proxy 192.168.0.101:8123
+    reverse_proxy hass:8123
+  }
+
+  @zwave host zwave.pauld.link
+  handle @zwave {
+    reverse_proxy zwavejs:8091
   }
 
   @jellyfin host jellyfin.pauld.link
@@ -168,7 +173,13 @@
   @hass host hass.ext.pauld.link
   handle @hass {
     import authelia
-    reverse_proxy 192.168.0.101:8123
+    reverse_proxy hass:8123
+  }
+
+  @zwave host zwave.ext.pauld.link
+  handle @zwave {
+    import authelia
+    reverse_proxy zwavejs:8091
   }
 
   @jellyfin host jellyfin.ext.pauld.link
