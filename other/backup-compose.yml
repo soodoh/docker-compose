@@ -39,7 +39,10 @@ services:
       - media_radarr:/backup/radarr:ro
       - media_radarr-4k:/backup/radarr-4k:ro
       - media_lidarr:/backup/lidarr:ro
+      # Hass
+      - hass_zwavejs2mqtt:/backup/zwavejs2mqtt:ro
       # Local folders to back up (non Docker volumes)
+      - /mnt/media/hass:/backup/hass:ro
       - /mnt/media/lldap:/backup/lldap:ro
       - /mnt/media/tachidesk:/backup/tachidesk:ro
       # Local backups
@@ -108,4 +111,7 @@ volumes:
   media_radarr-4k:
     external: true
   media_lidarr:
+    external: true
+  # Hass
+  hass_zwavejs2mqtt:
     external: true
