@@ -4,9 +4,6 @@ services:
     container_name: hass
     restart: unless-stopped
     privileged: true
-    # TODO remove ports?
-    ports:
-      - 8123:8123
     devices:
       - /dev/zigbee:/dev/zigbee
     volumes:
@@ -15,7 +12,6 @@ services:
       - /run/dbus:/run/dbus:ro
     networks:
       - proxy
-      - hass_network
 
   zwavejs2mqtt:
     image: zwavejs/zwavejs2mqtt:latest
@@ -23,9 +19,6 @@ services:
     restart: always
     tty: true
     stop_signal: SIGINT
-    # TODO remove ports
-    ports:
-      - 8091:8091
     devices:
       - /dev/zwave:/dev/zwave
     volumes:
@@ -35,13 +28,12 @@ services:
       SESSION_SECRET: $ZWAVE_SECRET
       ZWAVEJS_EXTERNAL_CONFIG: /usr/src/app/store/.config-db
     networks:
-      - hass_network
+      - proxy
 
 volumes:
   zwavejs2mqtt:
 
 networks:
-  hass_network:
   proxy:
     external: true
 

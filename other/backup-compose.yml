@@ -53,6 +53,8 @@ services:
 volumes:
   # Network volumes:
   # Auth
+  network_authelia:
+    external: true
   network_lldap-data:
     external: true
   network_lldap-secrets:

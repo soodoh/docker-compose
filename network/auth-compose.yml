@@ -11,7 +11,8 @@ services:
       AUTHELIA_SESSION_SECRET_FILE: /secrets/AUTHELIA_SESSION_SECRET
       AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: /secrets/AUTHELIA_STORAGE_ENCRYPTION_KEY
     volumes:
-      - /mnt/media/portainer-compose/network/authelia-config:/config
+      - authelia:/data
+      - /mnt/media/portainer-compose/network/authelia-config.yml:/config/configuration.yml
       - /mnt/media/lldap/secrets:/secrets
     networks:
       - proxy
@@ -37,6 +38,7 @@ services:
 volumes:
   lldap-data:
   lldap-secrets:
+  authelia:
 
 networks:
   proxy:
