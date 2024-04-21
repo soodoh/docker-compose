@@ -23,6 +23,7 @@ services:
     restart: always
     tty: true
     stop_signal: SIGINT
+    # TODO remove ports
     ports:
       - 8091:8091
     devices:
