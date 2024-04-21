@@ -5,7 +5,6 @@ BACKUP_FILENAME="backup-2024-04-14T00-00-00.tar.gz"
 docker stop $(docker ps -q)
 
 docker run --rm -it \
-  -v data:/backup/my-app-backup \
   -v media_audiobookshelf-config:/backup/audiobookshelf-config \
   -v media_audiobookshelf-metadata:/backup/audiobookshelf-metadata \
   -v media_calibre-config:/backup/calibre-config \

@@ -37,7 +37,9 @@ services:
       - /mnt/media/portainer-compose/network/Caddyfile:/etc/caddy/Caddyfile
       - caddy:/data
     networks:
-      - proxy
+      proxy:
+        # Necessary for setting homeassistant trusted_proxies
+        ipv4_address: 172.19.0.100
 
   pihole:
     image: pihole/pihole:latest
