@@ -29,7 +29,7 @@
 
   @proxmox host proxmox.pauld.link
   handle @proxmox {
-    import insecure_reverse_proxy 192.168.0.110:8006
+    import insecure_reverse_proxy 192.168.0.123:8006
   }
 
   @omada host omada.pauld.link
@@ -155,7 +155,7 @@
   @proxmox host proxmox.ext.pauld.link
   handle @proxmox {
     import authelia
-    import insecure_reverse_proxy 192.168.0.110:8006
+    import insecure_reverse_proxy 192.168.0.123:8006
   }
 
   @omada host omada.ext.pauld.link
