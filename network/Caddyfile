@@ -49,7 +49,7 @@
 
   @zwave host zwave.pauld.link
   handle @zwave {
-    reverse_proxy zwavejs:8091
+    reverse_proxy zwave:8091
   }
 
   @jellyfin host jellyfin.pauld.link
@@ -179,7 +179,7 @@
   @zwave host zwave.ext.pauld.link
   handle @zwave {
     import authelia
-    reverse_proxy zwavejs:8091
+    reverse_proxy zwave:8091
   }
 
   @jellyfin host jellyfin.ext.pauld.link
