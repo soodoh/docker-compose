@@ -9,8 +9,7 @@ services:
       PGID: 1000
     volumes:
       - readarr:/config
-      - /mnt/media/books:/books
-      - /mnt/media/downloads:/downloads
+      - /mnt/media/media_data:/data
     networks:
       - proxy
 
@@ -24,8 +23,7 @@ services:
       PGID: 1000
     volumes:
       - speakarr:/config
-      - /mnt/media/books:/books
-      - /mnt/media/downloads:/downloads
+      - /mnt/media/media_data:/data
     networks:
       - proxy
 
@@ -78,7 +76,7 @@ services:
     container_name: audiobookshelf
     restart: unless-stopped
     volumes:
-      - /mnt/media/books:/books
+      - /mnt/media/media_data/books:/books
       - audiobookshelf-config:/config
       - audiobookshelf-metadata:/metadata
     networks:
@@ -94,7 +92,7 @@ services:
     volumes:
       - calibre-config:/config
       - calibre-plugins:/plugins
-      - /mnt/media/books:/books
+      - /mnt/media/media_data/books:/data/books
     networks:
       - proxy
 
@@ -109,7 +107,7 @@ services:
       - calibre
     volumes:
       - calibre-web:/config
-      - /mnt/media/books:/books
+      - /mnt/media/media_data/books:/books
     networks:
       - proxy
 

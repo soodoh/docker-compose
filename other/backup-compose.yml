@@ -24,6 +24,7 @@ services:
       - media_calibre-config:/backup/calibre-config:ro
       - media_calibre-plugins:/backup/calibre-plugins:ro
       - media_calibre-web:/backup/calibre-web:ro
+      - media_prowlarr:/backup/prowlarr:ro
       - media_readarr:/backup/readarr:ro
       - media_speakarr:/backup/speakarr:ro
       - media_transmission-open:/backup/transmission-open:ro
