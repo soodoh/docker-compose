@@ -37,4 +37,4 @@ docker run --rm -it \
   -v /mnt/media/backups:/archive:ro \
     alpine tar -xvzf /archive/$BACKUP_FILENAME
 
-docker start $(docker ps -aq)
+yarn restart-all
