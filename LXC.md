@@ -22,13 +22,17 @@ pct apply <CTID>
 ```
 lxc.mount.entry: /dev/zigbee dev/zigbee none bind,optional,create=file
 lxc.mount.entry: /dev/zwave dev/zwave none bind,optional,create=file
+lxc.mount.entry: /dev/net/tun dev/net/tun none bind,optional,create=file
 ```
+
 This might be necessary too? `lxc.cgroup2.devices.allow: c 188:* rwm`
+I don't think I needed it.
 
 1. Set `udev` rules for Zigbee/Zwave USB controllers
 
 File location: `/etc/udev/rules.d/<YOUR_FILE>.rules`
 File contents:
+
 ```
 SUBSYSTEM=="tty", ATTRS{idVendor}=="VENDOR_ID", ATTRS{idProduct}=="PRODUCT_ID", ATTRS{serial}=="SERIAL", MODE="0766", SYMLINK+="zigbee"
 SUBSYSTEM=="tty", ATTRS{idVendor}=="VENDOR_ID", ATTRS{idProduct}=="PRODUCT_ID", ATTRS{serial}=="SERIAL", MODE="0766", SYMLINK+="zwave"

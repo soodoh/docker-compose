@@ -16,15 +16,15 @@
   },
   "scripts": {
     "update-portainer": "./update-portainer.sh",
-    "network-compose": "docker compose -f ./network/infra-compose.yml -f ./network/auth-compose.yml --env-file ./.env -p network",
-    "media-compose": "docker compose -f ./media/books-compose.yml -f ./media/downloaders-compose.yml -f ./media/videos-compose.yml --env-file ./.env -p media",
-    "backup-compose": "docker compose -f ./other/backup-compose.yml --env-file ./.env -p backup",
-    "hass-compose": "docker compose -f ./other/hass-compose.yml --env-file ./.env -p hass",
-    "update-network": "yarn network-compose down && yarn network-compose pull && yarn network-compose up -d",
-    "update-media": "yarn media-compose down && yarn media-compose pull && yarn media-compose up -d",
-    "update-backup": "yarn backup-compose down && yarn backup-compose pull && yarn backup-compose up -d",
-    "update-hass": "yarn hass-compose down && yarn hass-compose pull && yarn hass-compose up -d",
+    "network": "docker compose -f ./network/infra-compose.yml -f ./network/auth-compose.yml --env-file ./.env -p network",
+    "media": "docker compose -f ./media/books-compose.yml -f ./media/downloaders-compose.yml -f ./media/videos-compose.yml --env-file ./.env -p media",
+    "backup": "docker compose -f ./other/backup-compose.yml --env-file ./.env -p backup",
+    "hass": "docker compose -f ./other/hass-compose.yml --env-file ./.env -p hass",
+    "update-network": "yarn network down && yarn network pull && yarn network up -d",
+    "update-media": "yarn media down && yarn media pull && yarn media up -d",
+    "update-backup": "yarn backup down && yarn backup pull && yarn backup up -d",
+    "update-hass": "yarn hass down && yarn hass pull && yarn hass up -d",
     "update-all": "yarn update-network && yarn update-media && yarn update-hass && yarn update-backup",
-    "restart-all": "yarn network-compose up -d && yarn media-compose up -d && yarn backup-compose up -d && yarn hass-compose up -d"
+    "restart-all": "yarn network up -d && yarn media up -d && yarn backup up -d && yarn hass up -d"
   }
 }
