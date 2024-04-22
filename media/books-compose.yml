@@ -27,9 +27,9 @@ services:
     networks:
       - proxy
 
-  tachidesk-gluetun:
+  tachidesk-vpn:
     image: qmcgaw/gluetun:latest
-    container_name: tachidesk-gluetun
+    container_name: tachidesk-vpn
     restart: always
     cap_add:
       - NET_ADMIN
@@ -46,14 +46,15 @@ services:
       UPDATER_PERIOD: 24h
     networks:
       - proxy
+      - arr_network
 
   tachidesk:
     image: ghcr.io/suwayomi/tachidesk:preview
     container_name: tachidesk
     restart: unless-stopped
-    network_mode: service:tachidesk-gluetun
+    network_mode: service:tachidesk-vpn
     depends_on:
-      - tachidesk-gluetun
+      - tachidesk-vpn
     environment:
       TZ: America/Los_Angeles
       DOWNLOAD_AS_CBZ: true
@@ -69,9 +70,23 @@ services:
       UPDATE_EXCLUDE_COMPLETED: true
       UPDATE_INTERVAL: 12
       UPDATE_MANGA_INFO: true
-      FLARESOLVERR_ENABLED: false
+      FLARESOLVERR_ENABLED: true
+      # Cannot use service name due to limitations with Gluetun network
+      FLARESOLVERR_URL: http://172.18.0.99:8191
     volumes:
       - /mnt/media/tachidesk:/home/suwayomi/.local/share/Tachidesk
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    environment:
+      TZ: America/Los Angeles
+    networks:
+      arr_network:
+        # Cannot use service name due to limitations with Gluetun network
+        ipv4_address: 172.18.0.99
+
 
   audiobookshelf:
     image: ghcr.io/advplyr/audiobookshelf:latest
@@ -125,4 +140,6 @@ volumes:
 
 networks:
   proxy:
+    external: true
+  arr_network:
     external: true
