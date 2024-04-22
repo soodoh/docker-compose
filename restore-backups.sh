@@ -36,3 +36,5 @@ docker run --rm -it \
   -v network_pihole-dnsmasq:/backup/pihole-dnsmasq \
   -v /mnt/media/backups:/archive:ro \
     alpine tar -xvzf /archive/$BACKUP_FILENAME
+
+docker start $(docker ps -aq)

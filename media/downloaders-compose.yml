@@ -21,12 +21,12 @@ services:
       TZ: America/Los_Angeles
       UN_SONARR_0_URL: http://sonarr:8989
       UN_SONARR_0_API_KEY: $SONARR_API_KEY
-      UN_SONARR_0_PATHS_0: /data/complete
+      UN_SONARR_0_PATHS_0: /data/downloads/complete
       UN_RADARR_0_URL: http://radarr:7878
       UN_RADARR_0_API_KEY: $RADARR_API_KEY
-      UN_RADARR_0_PATHS_0: /data/complete
+      UN_RADARR_0_PATHS_0: /data/downloads/complete
     volumes:
-      - /mnt/media/downloads:/data
+      - /mnt/media/media_data:/data
     networks:
       - arr_network
 
@@ -62,17 +62,17 @@ services:
       PGID: 1000
     volumes:
       - transmission-vpn:/config
-      - /mnt/media/downloads:/downloads
+      - /mnt/media/media_data/downloads:/data/downloads
 
   flood-vpn:
     image: jesec/flood:latest
     container_name: flood-vpn
     restart: unless-stopped
     network_mode: service:gluetun
-    command: --port 3001 --allowedpath /downloads
+    command: --port 3001 --allowedpath /data/downloads
     volumes:
       - flood-vpn:/home/download
-      - /mnt/media/downloads:/downloads
+      - /mnt/media/media_data/downloads:/data/downloads
 
   transmission-open:
     image: linuxserver/transmission:latest
@@ -87,7 +87,7 @@ services:
       - 51413:51413 # Port forwarding for seeding
     volumes:
       - transmission-open:/config
-      - /mnt/media/downloads:/downloads
+      - /mnt/media/media_data/downloads:/data/downloads
     networks:
       - proxy
       - arr_network
@@ -96,10 +96,10 @@ services:
     image: jesec/flood:latest
     container_name: flood-open
     restart: unless-stopped
-    command: --port 3001 --allowedpath /downloads
+    command: --port 3001 --allowedpath /data/downloads
     volumes:
       - flood-open:/home/download
-      - /mnt/media/downloads:/downloads
+      - /mnt/media/media_data/downloads:/data/downloads
     networks:
       - proxy
       - arr_network

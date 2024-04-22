@@ -9,8 +9,8 @@ services:
     volumes:
       - jellyfin-config:/config
       - jellyfin-cache:/cache
-      - /mnt/media/tv_shows:/tv_shows
-      - /mnt/media/movies:/movies
+      - /mnt/media/media_data/tv_shows:/tv_shows
+      - /mnt/media/media_data/movies:/movies
     networks:
       - proxy
       - arr_network
@@ -37,8 +37,7 @@ services:
       PGID: 1000
     volumes:
       - sonarr:/config
-      - /mnt/media/tv_shows:/tv_shows
-      - /mnt/media/downloads:/downloads
+      - /mnt/media/media_data:/data
     networks:
       - proxy
       - arr_network
@@ -55,8 +54,7 @@ services:
       PGID: 1000
     volumes:
       - sonarr-4k:/config
-      - /mnt/media/tv_shows:/tv_shows
-      - /mnt/media/downloads:/downloads
+      - /mnt/media/media_data:/data
     networks:
       - proxy
       - arr_network
@@ -71,8 +69,7 @@ services:
       PGID: 1000
     volumes:
       - radarr:/config
-      - /mnt/media/downloads:/downloads
-      - /mnt/media/movies:/movies
+      - /mnt/media/media_data:/data
     networks:
       - proxy
       - arr_network
@@ -89,8 +86,7 @@ services:
       PGID: 1000
     volumes:
       - radarr-4k:/config
-      - /mnt/media/downloads:/downloads
-      - /mnt/media/movies:/movies
+      - /mnt/media/media_data:/data
     networks:
       - proxy
       - arr_network
@@ -105,8 +101,7 @@ services:
       TZ: America/Los_Angeles
     volumes:
       - lidarr:/config
-      - /mnt/media/music:/music
-      - /mnt/media/downloads:/downloads
+      - /mnt/media/media_data:/data
     networks:
       - proxy
 
