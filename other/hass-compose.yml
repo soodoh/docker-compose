@@ -3,6 +3,10 @@ services:
     image: ghcr.io/home-assistant/home-assistant:stable
     container_name: hass
     restart: unless-stopped
+    depends_on:
+      - zwave
+    # Needs host network for device discovery
+    network_mode: host
     privileged: true
     devices:
       - /dev/zigbee:/dev/zigbee
@@ -10,12 +14,10 @@ services:
       - /mnt/media/hass:/config
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
-    networks:
-      - proxy
 
-  zwavejs2mqtt:
+  zwave:
     image: zwavejs/zwavejs2mqtt:latest
-    container_name: zwavejs
+    container_name: zwave
     restart: always
     tty: true
     stop_signal: SIGINT
@@ -29,6 +31,8 @@ services:
       ZWAVEJS_EXTERNAL_CONFIG: /usr/src/app/store/.config-db
     networks:
       - proxy
+    ports:
+      - 3000:3000
 
 volumes:
   zwavejs2mqtt:

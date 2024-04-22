@@ -27,9 +27,9 @@ services:
     networks:
       - proxy
 
-  tachidesk-vpn:
+  tachidesk-gluetun:
     image: qmcgaw/gluetun:latest
-    container_name: tachidesk-vpn
+    container_name: tachidesk-gluetun
     restart: always
     cap_add:
       - NET_ADMIN
@@ -51,7 +51,9 @@ services:
     image: ghcr.io/suwayomi/tachidesk:preview
     container_name: tachidesk
     restart: unless-stopped
-    network_mode: service:tachidesk-vpn
+    network_mode: service:tachidesk-gluetun
+    depends_on:
+      - tachidesk-gluetun
     environment:
       TZ: America/Los_Angeles
       DOWNLOAD_AS_CBZ: true

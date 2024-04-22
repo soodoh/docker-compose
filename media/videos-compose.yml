@@ -46,8 +46,6 @@ services:
     image: linuxserver/sonarr:latest
     container_name: sonarr-4k
     restart: unless-stopped
-    depends_on:
-      - sonarr
     environment:
       TZ: America/Los_Angeles
       PUID: 1000
@@ -78,8 +76,6 @@ services:
     image: linuxserver/radarr:latest
     container_name: radarr-4k
     restart: unless-stopped
-    depends_on:
-      - radarr
     environment:
       TZ: America/Los_Angeles
       PUID: 1000
