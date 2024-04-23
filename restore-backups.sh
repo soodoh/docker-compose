@@ -2,7 +2,7 @@
 
 BACKUP_FILENAME="backup-2024-04-14T00-00-00.tar.gz"
 
-docker stop $(docker ps -q)
+yarn down
 
 docker run --rm -it \
   -v media_audiobookshelf-config:/backup/audiobookshelf-config \
@@ -37,4 +37,4 @@ docker run --rm -it \
   -v /mnt/media/backups:/archive:ro \
     alpine tar -xvzf /archive/$BACKUP_FILENAME
 
-yarn restart-all
+yarn upd

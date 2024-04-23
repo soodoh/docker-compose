@@ -32,6 +32,12 @@
     import insecure_reverse_proxy 192.168.0.123:8006
   }
 
+  @omada host omada.pauld.link
+  handle @omada {
+    import insecure_reverse_proxy omada-controller:8043
+  }
+
+
   @portainer host portainer.pauld.link
   handle @portainer {
     import insecure_reverse_proxy portainer:9443
@@ -151,12 +157,6 @@
   handle @proxmox {
     import authelia
     import insecure_reverse_proxy 192.168.0.123:8006
-  }
-
-  @omada host omada.ext.pauld.link
-  handle @omada {
-    import authelia
-    import insecure_reverse_proxy omada-controller:8043
   }
 
   @portainer host portainer.ext.pauld.link
