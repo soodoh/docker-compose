@@ -11,7 +11,7 @@ services:
     devices:
       - /dev/zigbee:/dev/zigbee
     volumes:
-      - /mnt/media/hass:/config
+      - /mnt/media/hass/hass:/config
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
 
@@ -32,10 +32,46 @@ services:
     networks:
       - proxy
     ports:
-      - 3000:3000
+      - 3000:3000 # HASS is on host network
+
+
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - 1883:1883
+      - 9001:9001
+    environment:
+      TZ: America/Los Angeles
+    volumes:
+      - mosquitto:/mosquitto/data
+      - /mnt/media/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  frigate:
+    container_name: frigate
+    restart: unless-stopped
+    image: ghcr.io/blakeblackshear/frigate:stable
+    ports:
+      - 5000:5000
+      - 8554:8554 # RTSP feeds
+      # WebRTC
+      - 8555:8555/tcp
+      - 8555:8555/udp
+    volumes:
+      - /mnt/media/frigate/config:/config
+      - /mnt/media/frigate/storage:/media/frigate
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+    networks:
+      - proxy
 
 volumes:
   zwavejs2mqtt:
+  mosquitto:
+  frigate:
 
 networks:
   proxy:
