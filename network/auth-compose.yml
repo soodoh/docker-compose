@@ -12,8 +12,8 @@ services:
       AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: /secrets/AUTHELIA_STORAGE_ENCRYPTION_KEY
     volumes:
       - authelia:/data
-      - /mnt/media/portainer-compose/network/authelia-config.yml:/config/configuration.yml
-      - /mnt/media/lldap/secrets:/secrets
+      - $BASE_DIR/portainer-compose/network/authelia-config.yml:/config/configuration.yml
+      - $BASE_DIR/lldap/secrets:/secrets
     networks:
       - proxy
 
@@ -22,8 +22,8 @@ services:
     container_name: lldap
     restart: always
     volumes:
-      - /mnt/media/lldap/data:/data
-      - /mnt/media/lldap/secrets:/secrets
+      - $BASE_DIR/lldap/data:/data
+      - $BASE_DIR/lldap/secrets:/secrets
     environment:
       UID: 0
       GID: 0

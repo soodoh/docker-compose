@@ -11,7 +11,7 @@ services:
     devices:
       - /dev/zigbee:/dev/zigbee
     volumes:
-      - /mnt/media/hass/hass:/config
+      - $BASE_DIR/hass/hass:/config
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
 
@@ -46,7 +46,7 @@ services:
       TZ: America/Los Angeles
     volumes:
       - mosquitto:/mosquitto/data
-      - /mnt/media/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - $BASE_DIR/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf
 
   frigate:
     container_name: frigate
@@ -59,8 +59,8 @@ services:
       - 8555:8555/tcp
       - 8555:8555/udp
     volumes:
-      - /mnt/media/frigate/config:/config
-      - /mnt/media/frigate/storage:/media/frigate
+      - $BASE_DIR/frigate/config:/config
+      - $BASE_DIR/frigate/storage:/media/frigate
       - type: tmpfs
         target: /tmp/cache
         tmpfs:
