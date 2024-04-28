@@ -9,7 +9,7 @@ services:
       PGID: 1000
     volumes:
       - readarr:/config
-      - $BASE_DIR/media:/data
+      - /mnt/storage/media:/data
     networks:
       - proxy
 
@@ -23,7 +23,7 @@ services:
       PGID: 1000
     volumes:
       - speakarr:/config
-      - $BASE_DIR/media:/data
+      - /mnt/storage/media:/data
     networks:
       - proxy
 
@@ -74,7 +74,7 @@ services:
       # Cannot use service name due to limitations with Gluetun network
       FLARESOLVERR_URL: http://172.18.0.99:8191
     volumes:
-      - $BASE_DIR/tachidesk:/home/suwayomi/.local/share/Tachidesk
+      - /mnt/storage/tachidesk:/home/suwayomi/.local/share/Tachidesk
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
@@ -93,7 +93,7 @@ services:
     container_name: audiobookshelf
     restart: unless-stopped
     volumes:
-      - $BASE_DIR/media/books:/books
+      - /mnt/storage/media/books:/books
       - audiobookshelf-config:/config
       - audiobookshelf-metadata:/metadata
     networks:
@@ -109,7 +109,7 @@ services:
     volumes:
       - calibre-config:/config
       - calibre-plugins:/plugins
-      - $BASE_DIR/media/books:/data/books
+      - /mnt/storage/media/books:/data/books
     networks:
       - proxy
 
@@ -124,7 +124,7 @@ services:
       - calibre
     volumes:
       - calibre-web:/config
-      - $BASE_DIR/media/books:/books
+      - /mnt/storage/media/books:/books
     networks:
       - proxy
 
