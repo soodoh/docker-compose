@@ -11,7 +11,7 @@ services:
     devices:
       - /dev/zigbee:/dev/zigbee
     volumes:
-      - $BASE_DIR/hass/hass:/config
+      - /mnt/storage/hass/hass:/config
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
 
@@ -46,27 +46,42 @@ services:
       TZ: America/Los Angeles
     volumes:
       - mosquitto:/mosquitto/data
-      - $BASE_DIR/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /mnt/storage/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf
 
   frigate:
     container_name: frigate
     restart: unless-stopped
     image: ghcr.io/blakeblackshear/frigate:stable
-    ports:
-      - 5000:5000
-      - 8554:8554 # RTSP feeds
-      # WebRTC
-      - 8555:8555/tcp
-      - 8555:8555/udp
+    network_mode: host # Necessary to access cameras on LAN
+    # ports:
+    #   - 5000:5000
+    #   - 8554:8554 # RTSP feeds
+    #   # WebRTC
+    #   - 8555:8555/tcp
+    #   - 8555:8555/udp
+    environment:
+      # Matches env variable usage in frigate config.yml
+      FRIGATE_MQTT_USER: $FRIGATE_MQTT_USER
+      FRIGATE_MQTT_PASSWORD: $FRIGATE_MQTT_PASSWORD
+      FRIGATE_CAM_USER: $FRIGATE_CAM_USER
+      FRIGATE_BACKYARD: $FRIGATE_BACKYARD
+      FRIGATE_BACKYARD_PW: $FRIGATE_BACKYARD_PW
+      FRIGATE_DOORBELL: $FRIGATE_DOORBELL
+      FRIGATE_DOORBELL_PW: $FRIGATE_DOORBELL_PW
+      FRIGATE_FRONTYARD: $FRIGATE_FRONTYARD
+      FRIGATE_FRONTYARD_PW: $FRIGATE_FRONTYARD_PW
+      FRIGATE_STUDIO_PW: $FRIGATE_STUDIO_PW
+      FRIGATE_BACK_HOUSE_PW: $FRIGATE_BACK_HOUSE_PW
+      FRIGATE_BACK_STUDIO_PW: $FRIGATE_BACK_STUDIO_PW
+      FRIGATE_FLOOD_LIGHT: $FRIGATE_FLOOD_LIGHT
+      FRIGATE_FLOOD_LIGHT_PW: $FRIGATE_FLOOD_LIGHT_PW
     volumes:
-      - $BASE_DIR/frigate/config:/config
-      - $BASE_DIR/frigate/storage:/media/frigate
+      - /mnt/storage/frigate/config:/config
+      - /mnt/storage/frigate/storage:/media/frigate
       - type: tmpfs
         target: /tmp/cache
         tmpfs:
           size: 1000000000
-    networks:
-      - proxy
 
 volumes:
   zwavejs2mqtt:

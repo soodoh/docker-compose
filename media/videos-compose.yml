@@ -9,8 +9,8 @@ services:
     volumes:
       - jellyfin-config:/config
       - jellyfin-cache:/cache
-      - $BASE_DIR/media/tv_shows:/tv_shows
-      - $BASE_DIR/media/movies:/movies
+      - /mnt/storage/media/tv_shows:/tv_shows
+      - /mnt/storage/media/movies:/movies
     networks:
       - proxy
       - arr_network
@@ -37,7 +37,7 @@ services:
       PGID: 1000
     volumes:
       - sonarr:/config
-      - $BASE_DIR/media:/data
+      - /mnt/storage/media:/data
     networks:
       - proxy
       - arr_network
@@ -52,7 +52,7 @@ services:
       PGID: 1000
     volumes:
       - sonarr-4k:/config
-      - $BASE_DIR/media:/data
+      - /mnt/storage/media:/data
     networks:
       - proxy
       - arr_network
@@ -67,7 +67,7 @@ services:
       PGID: 1000
     volumes:
       - radarr:/config
-      - $BASE_DIR/media:/data
+      - /mnt/storage/media:/data
     networks:
       - proxy
       - arr_network
@@ -82,7 +82,7 @@ services:
       PGID: 1000
     volumes:
       - radarr-4k:/config
-      - $BASE_DIR/media:/data
+      - /mnt/storage/media:/data
     networks:
       - proxy
       - arr_network
@@ -97,7 +97,7 @@ services:
       TZ: America/Los_Angeles
     volumes:
       - lidarr:/config
-      - $BASE_DIR/media:/data
+      - /mnt/storage/media:/data
     networks:
       - proxy
 

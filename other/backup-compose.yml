@@ -43,11 +43,11 @@ services:
       # Hass
       - hass_zwavejs2mqtt:/backup/zwavejs2mqtt:ro
       # Local folders to back up (non Docker volumes)
-      - $BASE_DIR/hass:/backup/hass:ro
-      - $BASE_DIR/lldap:/backup/lldap:ro
-      - $BASE_DIR/tachidesk:/backup/tachidesk:ro
+      - /mnt/storage/hass:/backup/hass:ro
+      - /mnt/storage/lldap:/backup/lldap:ro
+      - /mnt/storage/tachidesk:/backup/tachidesk:ro
       # Local backups
-      - $BASE_DIR/backups:/archive
+      - /mnt/storage/backups:/archive
       # Required
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
