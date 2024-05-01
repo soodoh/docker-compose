@@ -63,6 +63,7 @@ access_control:
         - lidarr.ext.pauld.link
         - prowlarr.ext.pauld.link
         - torrent.ext.pauld.link
+        - qb.ext.pauld.link
       policy: one_factor
       subject:
         - 'group:media_admins'

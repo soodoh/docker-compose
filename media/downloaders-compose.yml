@@ -38,6 +38,7 @@ services:
       - NET_ADMIN
     ports:
       - 9092:9091 # Expose transmission-vpn
+      - 8080:8080 # qbittorrent
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
@@ -113,6 +114,23 @@ services:
       - proxy
       - arr_network
 
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent-vpn
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: America/Los_Angeles
+    restart: unless-stopped
+    network_mode: service:gluetun
+    depends_on:
+      - gluetun
+    volumes:
+      - qbittorrent-vpn:/config
+      - /mnt/storage/media/vuetorrent:/vuetorrent
+      - /mnt/storage/media/downloads:/data/downloads
+
+
 volumes:
   prowlarr:
   gluetun:
@@ -120,6 +138,7 @@ volumes:
   flood-vpn:
   transmission-open:
   flood-open:
+  qbittorrent-vpn:
 
 networks:
   arr_network:

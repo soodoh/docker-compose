@@ -111,6 +111,11 @@
     reverse_proxy prowlarr:9696
   }
 
+  @qb host qb.pauld.link
+  handle @qb {
+    reverse_proxy gluetun:8080
+  }
+
   @torrent host torrent.pauld.link
   handle @torrent {
     redir / /vpn/
@@ -257,6 +262,17 @@
     redir /open /open/
     handle_path /open/* {
       reverse_proxy flood-open:3001
+    }
+  }
+
+  @qb host qb.ext.pauld.link
+  handle @qb {
+    import authelia
+    reverse_proxy gluetun:8080 {
+      header_up Host gluetun:8080
+      header_up X-Forwarded-Host {hostport}
+      header_up -Origin
+      header_up -Referer
     }
   }
 
