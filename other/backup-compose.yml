@@ -3,9 +3,9 @@ services:
     image: offen/docker-volume-backup:v2
     container_name: docker-volume-backup
     environment:
-      AWS_S3_BUCKET_NAME: paul.diloreto.backups
-      AWS_ACCESS_KEY_ID: $S3_ACCESS_KEY
-      AWS_SECRET_ACCESS_KEY: $S3_SECRET_KEY
+      # AWS_S3_BUCKET_NAME: paul.diloreto.backups
+      # AWS_ACCESS_KEY_ID: $S3_ACCESS_KEY
+      # AWS_SECRET_ACCESS_KEY: $S3_SECRET_KEY
       BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
       BACKUP_PRUNING_PREFIX: backup-
       BACKUP_RETENTION_DAYS: 5
@@ -46,6 +46,7 @@ services:
       - /mnt/storage/hass:/backup/hass:ro
       - /mnt/storage/lldap:/backup/lldap:ro
       - /mnt/storage/tachidesk:/backup/tachidesk:ro
+      - /mnt/storage/frigate/config:/backup/frigate-config:ro
       # Local backups
       - /mnt/storage/backups:/archive
       # Required

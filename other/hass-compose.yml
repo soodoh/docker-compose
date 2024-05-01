@@ -43,7 +43,7 @@ services:
       - 1883:1883
       - 9001:9001
     environment:
-      TZ: America/Los Angeles
+      TZ: America/Los_Angeles
     volumes:
       - mosquitto:/mosquitto/data
       - /mnt/storage/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf

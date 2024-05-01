@@ -81,7 +81,7 @@ services:
     container_name: flaresolverr
     restart: unless-stopped
     environment:
-      TZ: America/Los Angeles
+      TZ: America/Los_Angeles
     networks:
       arr_network:
         # Cannot use service name due to limitations with Gluetun network
