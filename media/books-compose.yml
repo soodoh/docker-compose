@@ -38,12 +38,10 @@ services:
     volumes:
       - tachidesk-gluetun:/gluetun
     environment:
-      TZ: America/Los_Angeles
-      VPN_SERVICE_PROVIDER: nordvpn
+      VPN_SERVICE_PROVIDER: $VPN_SERVICE_PROVIDER
       VPN_TYPE: openvpn
-      OPENVPN_USER: $VPN_USERNAME
-      OPENVPN_PASSWORD: $VPN_PASSWORD
-      UPDATER_PERIOD: 24h
+      OPENVPN_USER: $OPENVPN_USER
+      OPENVPN_PASSWORD: $OPENVPN_PASSWORD
     networks:
       - proxy
       - arr_network
