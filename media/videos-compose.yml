@@ -42,21 +42,6 @@ services:
       - proxy
       - arr_network
 
-  sonarr-4k:
-    image: linuxserver/sonarr:latest
-    container_name: sonarr-4k
-    restart: unless-stopped
-    environment:
-      TZ: America/Los_Angeles
-      PUID: 1000
-      PGID: 1000
-    volumes:
-      - sonarr-4k:/config
-      - /mnt/storage/media:/data
-    networks:
-      - proxy
-      - arr_network
-
   radarr:
     image: linuxserver/radarr:latest
     container_name: radarr
@@ -67,21 +52,6 @@ services:
       PGID: 1000
     volumes:
       - radarr:/config
-      - /mnt/storage/media:/data
-    networks:
-      - proxy
-      - arr_network
-
-  radarr-4k:
-    image: linuxserver/radarr:latest
-    container_name: radarr-4k
-    restart: unless-stopped
-    environment:
-      TZ: America/Los_Angeles
-      PUID: 1000
-      PGID: 1000
-    volumes:
-      - radarr-4k:/config
       - /mnt/storage/media:/data
     networks:
       - proxy

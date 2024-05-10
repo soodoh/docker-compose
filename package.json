@@ -15,7 +15,6 @@
     "husky": "^9.0.11"
   },
   "scripts": {
-    "update-portainer": "./update-portainer.sh",
     "network": "docker compose -f ./network/infra-compose.yml -f ./network/auth-compose.yml --env-file ./.env -p network",
     "media": "docker compose -f ./media/books-compose.yml -f ./media/downloaders-compose.yml -f ./media/videos-compose.yml --env-file ./.env -p media",
     "backup": "docker compose -f ./other/backup-compose.yml --env-file ./.env -p backup",

@@ -36,23 +36,51 @@ services:
     restart: always
     cap_add:
       - NET_ADMIN
-    ports:
-      - 9092:9091 # Expose transmission-vpn
-      - 8080:8080 # qbittorrent
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
       - gluetun:/gluetun
+      - /mnt/storage/gluetun/info:/tmp/gluetun
+      - /mnt/storage/portainer-compose/scripts/mam_seedbox_update_ip.sh:/scripts/ip.sh:ro
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.update-ip.schedule: "@every 5m"
+      ofelia.job-exec.update-ip.command: "sh /scripts/ip.sh"
     environment:
+      TZ: America/Los_Angeles
       VPN_SERVICE_PROVIDER: $VPN_SERVICE_PROVIDER
       VPN_TYPE: openvpn
       OPENVPN_USER: $OPENVPN_USER
       OPENVPN_PASSWORD: $OPENVPN_PASSWORD
       VPN_PORT_FORWARDING: $VPN_PORT_FORWARDING
       VPN_PORT_FORWARDING_PROVIDER: $VPN_SERVICE_PROVIDER
+      MAM_ID: $MAM_ID
+      MAM_URL: $MAM_URL
     networks:
       - proxy
       - arr_network
+
+  qbittorrent-port-forward-gluetun-server:
+    image: mjmeli/qbittorrent-port-forward-gluetun-server:latest
+    container_name: qbittorrent-port-forward-gluetun-server
+    restart: unless-stopped
+    environment:
+      TZ: America/Los_Angeles
+      QBT_USERNAME: $QBT_USERNAME
+      QBT_PASSWORD: $QBT_PASSWORD
+      QBT_ADDR: http://gluetun:8080
+      GTN_ADDR: http://gluetun:8000
+    networks:
+      - arr_network
+
+  ofelia:
+    image: mcuadros/ofelia:latest
+    container_name: ofelia
+    depends_on:
+      - gluetun
+    command: daemon --docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
   transmission-vpn:
     image: linuxserver/transmission:latest
@@ -82,41 +110,9 @@ services:
       - flood-vpn:/home/download
       - /mnt/storage/media/downloads:/data/downloads
 
-  transmission-open:
-    image: linuxserver/transmission:latest
-    container_name: transmission-open
-    restart: unless-stopped
-    environment:
-      TZ: America/Los_Angeles
-      PUID: 1000
-      PGID: 1000
-    ports:
-      - 9091:9091
-      - 51413:51413 # Port forwarding for seeding
-    volumes:
-      - transmission-open:/config
-      - /mnt/storage/media/downloads:/data/downloads
-    networks:
-      - proxy
-      - arr_network
-
-  flood-open:
-    image: jesec/flood:latest
-    container_name: flood-open
-    restart: unless-stopped
-    command: --port 3001 --allowedpath /data/downloads
-    depends_on:
-      - transmission-open
-    volumes:
-      - flood-open:/home/download
-      - /mnt/storage/media/downloads:/data/downloads
-    networks:
-      - proxy
-      - arr_network
-
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
-    container_name: qbittorrent-vpn
+    container_name: qbittorrent
     environment:
       PUID: 1000
       PGID: 1000
@@ -126,19 +122,16 @@ services:
     depends_on:
       - gluetun
     volumes:
-      - qbittorrent-vpn:/config
+      - qbittorrent:/config
       - /mnt/storage/media/vuetorrent:/vuetorrent
       - /mnt/storage/media/downloads:/data/downloads
-
 
 volumes:
   prowlarr:
   gluetun:
   transmission-vpn:
   flood-vpn:
-  transmission-open:
-  flood-open:
-  qbittorrent-vpn:
+  qbittorrent:
 
 networks:
   arr_network:
