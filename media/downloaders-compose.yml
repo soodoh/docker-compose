@@ -41,7 +41,7 @@ services:
     volumes:
       - gluetun:/gluetun
       - /mnt/storage/gluetun/info:/tmp/gluetun
-      - /mnt/storage/portainer-compose/scripts/mam_seedbox_update_ip.sh:/scripts/ip.sh:ro
+      - /mnt/storage/docker-compose/scripts/mam_seedbox_update_ip.sh:/scripts/ip.sh:ro
     labels:
       ofelia.enabled: "true"
       ofelia.job-exec.update-ip.schedule: "@every 5m"
