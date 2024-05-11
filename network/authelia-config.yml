@@ -44,6 +44,7 @@ access_control:
   rules:
     - domain:
         - auth.ext.pauld.link
+        - jf.ext.pauld.link
         - jellyfin.ext.pauld.link
         - hass.ext.pauld.link
       policy: bypass

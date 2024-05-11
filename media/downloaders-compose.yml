@@ -76,6 +76,7 @@ services:
   ofelia:
     image: mcuadros/ofelia:latest
     container_name: ofelia
+    restart: unless-stopped
     depends_on:
       - gluetun
     command: daemon --docker

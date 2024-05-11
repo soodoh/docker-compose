@@ -53,9 +53,14 @@
     reverse_proxy zwave:8091
   }
 
-  @jellyfin host jellyfin.pauld.link
-  handle @jellyfin {
+  @jf_server host jellyfin.pauld.link
+  handle @jf_server {
     reverse_proxy jellyfin:8096
+  }
+
+  @jf_vue host jf.pauld.link
+  handle @jf_vue {
+    reverse_proxy jellyfin-vue:80
   }
 
   @jellyseerr host jellyseerr.pauld.link
@@ -182,12 +187,17 @@
     reverse_proxy zwave:8091
   }
 
-  @jellyfin host jellyfin.ext.pauld.link
-  handle @jellyfin {
+  @jf_server host jellyfin.ext.pauld.link
+  handle @jf_server {
     import authelia
     reverse_proxy jellyfin:8096
   }
 
+  @jf_vue host jf.ext.pauld.link
+  handle @jf_vue {
+    import authelia
+    reverse_proxy jellyfin-vue:80
+  }
   @jellyseerr host jellyseerr.ext.pauld.link
   handle @jellyseerr {
     import authelia

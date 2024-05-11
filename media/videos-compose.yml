@@ -3,9 +3,6 @@ services:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin
     restart: unless-stopped
-    user: 1000:1000
-    ports:
-      - 8096:8096
     volumes:
       - jellyfin-config:/config
       - jellyfin-cache:/cache
@@ -14,6 +11,15 @@ services:
     networks:
       - proxy
       - arr_network
+
+  jellyfin-vue:
+    image: jellyfin/jellyfin-vue:unstable
+    container_name: jellyfin-vue
+    restart: unless-stopped
+    environment:
+      DEFAULT_SERVERS: $JELLYFIN_SERVERS
+    networks:
+      - proxy
 
   jellyseerr:
     image: fallenbagel/jellyseerr:latest
@@ -76,9 +82,7 @@ volumes:
   jellyfin-cache:
   jellyseerr:
   sonarr:
-  sonarr-4k:
   radarr:
-  radarr-4k:
   lidarr:
 
 networks:
