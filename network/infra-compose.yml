@@ -34,7 +34,7 @@ services:
       ROUTE_53_ACCESS_KEY: $ROUTE_53_ACCESS_KEY
       ROUTE_53_SECRET: $ROUTE_53_SECRET
     volumes:
-      - /mnt/storage/portainer-compose/network/Caddyfile:/etc/caddy/Caddyfile
+      - /mnt/storage/docker-compose/network/Caddyfile:/etc/caddy/Caddyfile
       - caddy:/data
     networks:
       proxy:
