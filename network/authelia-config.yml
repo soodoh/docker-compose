@@ -76,6 +76,7 @@ access_control:
         - portainer.ext.pauld.link
         - proxmox.ext.pauld.link
         - zwave.ext.pauld.link
+        - frigate.ext.pauld.link
       policy: two_factor
       subject:
         - 'group:admins'
