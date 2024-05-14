@@ -53,13 +53,12 @@ services:
     restart: unless-stopped
     image: ghcr.io/blakeblackshear/frigate:stable
     network_mode: host # Necessary to access cameras on LAN
-    # ports:
-    #   - 5000:5000
-    #   - 8554:8554 # RTSP feeds
-    #   # WebRTC
-    #   - 8555:8555/tcp
-    #   - 8555:8555/udp
+    devices:
+      # Ryzen 9 graphics
+      - /dev/dri/renderD128:/dev/dri/renderD128
     environment:
+      # Ryzen 9 graphics
+      LIBVA_DRIVER_NAME: 'radeonsi'
       # Matches env variable usage in frigate config.yml
       FRIGATE_MQTT_USER: $FRIGATE_MQTT_USER
       FRIGATE_MQTT_PASSWORD: $FRIGATE_MQTT_PASSWORD
