@@ -83,34 +83,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
-  transmission-vpn:
-    image: linuxserver/transmission:latest
-    container_name: transmission-vpn
-    restart: unless-stopped
-    network_mode: service:gluetun
-    depends_on:
-      - gluetun
-    environment:
-      TZ: America/Los_Angeles
-      PUID: 1000
-      PGID: 1000
-    volumes:
-      - transmission-vpn:/config
-      - /mnt/storage/media/downloads:/data/downloads
-
-  flood-vpn:
-    image: jesec/flood:latest
-    container_name: flood-vpn
-    restart: unless-stopped
-    network_mode: service:gluetun
-    depends_on:
-      - gluetun
-      - transmission-vpn
-    command: --port 3001 --allowedpath /data/downloads
-    volumes:
-      - flood-vpn:/home/download
-      - /mnt/storage/media/downloads:/data/downloads
-
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
@@ -130,8 +102,6 @@ services:
 volumes:
   prowlarr:
   gluetun:
-  transmission-vpn:
-  flood-vpn:
   qbittorrent:
 
 networks:

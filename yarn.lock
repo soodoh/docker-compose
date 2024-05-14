@@ -516,6 +516,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"docker-compose@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "docker-compose@workspace:."
+  dependencies:
+    "@commitlint/cli": "npm:^18.6.1"
+    "@commitlint/config-conventional": "npm:^18.6.2"
+    "@commitlint/types": "npm:^18.6.1"
+    "@types/node": "npm:^20.11.19"
+    husky: "npm:^9.0.11"
+  languageName: unknown
+  linkType: soft
+
 "dot-prop@npm:^5.1.0":
   version: 5.3.0
   resolution: "dot-prop@npm:5.3.0"
@@ -1175,18 +1187,6 @@ __metadata:
   checksum: 10c0/666f6973f332f27581371efaf303fd6c272cc43c2057b37aa99e3643158c7e4b2626549555d88626e99ea9e046f82f32e41bbde5f1508547e9a11b149b52387c
   languageName: node
   linkType: hard
-
-"portainer-compose@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "portainer-compose@workspace:."
-  dependencies:
-    "@commitlint/cli": "npm:^18.6.1"
-    "@commitlint/config-conventional": "npm:^18.6.2"
-    "@commitlint/types": "npm:^18.6.1"
-    "@types/node": "npm:^20.11.19"
-    husky: "npm:^9.0.11"
-  languageName: unknown
-  linkType: soft
 
 "punycode@npm:^2.1.0":
   version: 2.3.1
