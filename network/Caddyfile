@@ -48,6 +48,11 @@
     reverse_proxy hass:8123
   }
 
+  @frigate host frigate.pauld.link
+  handle @frigate {
+    reverse_proxy frigate:5000
+  }
+
   @zwave host zwave.pauld.link
   handle @zwave {
     reverse_proxy zwave:8091
@@ -179,6 +184,12 @@
   handle @hass {
     import authelia
     reverse_proxy hass:8123
+  }
+
+  @frigate host frigate.ext.pauld.link
+  handle @frigate {
+    import authelia
+    reverse_proxy frigate:5000
   }
 
   @zwave host zwave.ext.pauld.link
