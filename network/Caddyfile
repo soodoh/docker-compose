@@ -126,20 +126,6 @@
     reverse_proxy gluetun:8080
   }
 
-  @torrent host torrent.pauld.link
-  handle @torrent {
-    redir / /vpn/
-    redir /vpn /vpn/
-    handle_path /vpn/* {
-      reverse_proxy gluetun:3001
-    }
-    redir /open /open/
-    handle_path /open/* {
-      reverse_proxy flood-open:3001
-    }
-    abort
-  }
-
   @comics host comics.pauld.link
   handle @comics {
     reverse_proxy tachidesk-vpn:4567
@@ -270,20 +256,6 @@
   handle @prowlarr {
     import authelia
     reverse_proxy prowlarr:9696
-  }
-
-  @torrent host torrent.ext.pauld.link
-  handle @torrent {
-    import authelia
-    redir / /vpn/
-    redir /vpn /vpn/
-    handle_path /vpn/* {
-      reverse_proxy gluetun:3001
-    }
-    redir /open /open/
-    handle_path /open/* {
-      reverse_proxy flood-open:3001
-    }
   }
 
   @qb host qb.ext.pauld.link
