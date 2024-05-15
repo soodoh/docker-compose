@@ -11,7 +11,7 @@ services:
       - 8043:8043
       - 8843:8843
     environment:
-      TZ: America/Los_Angeles
+      TZ: $TZ
     volumes:
       - omada-data:/opt/tplink/EAPController/data
       - omada-logs:/opt/tplink/EAPController/logs
@@ -30,7 +30,7 @@ services:
       - 443:443/tcp
       - 443:443/udp
     environment:
-      TZ: America/Los_Angeles
+      TZ: $TZ
       ROUTE_53_ACCESS_KEY: $ROUTE_53_ACCESS_KEY
       ROUTE_53_SECRET: $ROUTE_53_SECRET
     volumes:
@@ -49,7 +49,7 @@ services:
       - 53:53/tcp
       - 53:53/udp
     environment:
-      TZ: America/Los_Angeles
+      TZ: $TZ
       DNSMASQ_USER: pihole
     volumes:
       - pihole-dnsmasq:/etc/dnsmasq.d

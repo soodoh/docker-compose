@@ -38,7 +38,8 @@ docker run -d \
   -p 9443:9443 \
   -v portainer_data:/data \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -e "TZ=America/Los_Angeles" \
+  `# Assume this is triggered from yarn script, so $PWD should be root` \
+  --env-file $PWD/.env \
   --network=proxy \
   --name portainer \
   portainer/portainer-ce:latest

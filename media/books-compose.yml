@@ -4,7 +4,7 @@ services:
     container_name: readarr
     restart: unless-stopped
     environment:
-      TZ: America/Los_Angeles
+      TZ: $TZ
       PUID: 1000
       PGID: 1000
     volumes:
@@ -18,7 +18,7 @@ services:
     container_name: speakarr
     restart: unless-stopped
     environment:
-      TZ: America/Los_Angeles
+      TZ: $TZ
       PUID: 1000
       PGID: 1000
     volumes:
@@ -54,7 +54,7 @@ services:
     depends_on:
       - tachidesk-vpn
     environment:
-      TZ: America/Los_Angeles
+      TZ: $TZ
       DOWNLOAD_AS_CBZ: true
       WEB_UI_ENABLED: true
       WEB_UI_FLAVOR: WebUI
@@ -79,7 +79,7 @@ services:
     container_name: flaresolverr
     restart: unless-stopped
     environment:
-      TZ: America/Los_Angeles
+      TZ: $TZ
     networks:
       arr_network:
         # Cannot use service name due to limitations with Gluetun network

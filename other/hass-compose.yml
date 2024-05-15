@@ -26,7 +26,7 @@ services:
     volumes:
       - zwavejs2mqtt:/usr/src/app/store
     environment:
-      TZ: America/Los_Angeles
+      TZ: $TZ
       SESSION_SECRET: $ZWAVE_SECRET
       ZWAVEJS_EXTERNAL_CONFIG: /usr/src/app/store/.config-db
     networks:
@@ -43,7 +43,7 @@ services:
       - 1883:1883
       - 9001:9001
     environment:
-      TZ: America/Los_Angeles
+      TZ: $TZ
     volumes:
       - mosquitto:/mosquitto/data
       - /mnt/storage/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf
