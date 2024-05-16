@@ -1,68 +1,107 @@
 services:
-  authelia:
-    image: authelia/authelia:latest
-    container_name: authelia
-    restart: always
-    environment:
-      TZ: $TZ
-      X_AUTHELIA_CONFIG_FILTERS: template
-      AUTHELIA_TOTP_ISSUER: $AUTHELIA_TOTP_ISSUER
-      AUTHELIA_STORAGE_LOCAL_PATH: $AUTHELIA_STORAGE_LOCAL_PATH
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDRESS: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDRESS
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_IMPLEMENTATION: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_IMPLEMENTATION
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDITIONAL_USERS_DN: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDITIONAL_USERS_DN
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_USER: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_USER
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_BASE_DN: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_BASE_DN
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ATTRIBUTES_USERNAME: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ATTRIBUTES_USERNAME
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_USERS_FILTER: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_USERS_FILTER
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ATTRIBUTES_MAIL: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ATTRIBUTES_MAIL
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ATTRIBUTES_DISPLAY_NAME: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ATTRIBUTES_DISPLAY_NAME
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDITIONAL_GROUPS_DN: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDITIONAL_GROUPS_DN
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_GROUPS_FILTER: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_GROUPS_FILTER
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ATTRIBUTES_GROUP_NAME: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ATTRIBUTES_GROUP_NAME
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_TIMEOUT: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_TIMEOUT
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_START_TLS: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_START_TLS
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PERMIT_REFERRALS: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PERMIT_REFERRALS
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PERMIT_UNAUTHENTICATED_BIND: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PERMIT_UNAUTHENTICATED_BIND
-      AUTHELIA_NOTIFIER_SMTP_ADDRESS: $AUTHELIA_NOTIFIER_SMTP_ADDRESS
-      AUTHELIA_NOTIFIER_SMTP_USERNAME: $AUTHELIA_NOTIFIER_SMTP_USERNAME
-      AUTHELIA_NOTIFIER_SMTP_SENDER: $AUTHELIA_NOTIFIER_SMTP_SENDER
-      AUTHELIA_JWT_SECRET_FILE: $AUTHELIA_JWT_SECRET_FILE
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE: $AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE
-      AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE: $AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE
-      AUTHELIA_SESSION_SECRET_FILE: $AUTHELIA_SESSION_SECRET_FILE
-      AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: $AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE
-      AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET_FILE: $AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET_FILE
+  postgresql:
+    image: docker.io/library/postgres:12-alpine
+    container_name: authentik-postgresql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
     volumes:
-      - authelia:/data
-      - /mnt/storage/docker-compose/network/authelia-config.yml:/config/configuration.yml
-      - /mnt/storage/lldap/secrets:/secrets
+      - postgresql:/var/lib/postgresql/data
+    env_file:
+      - ../.auth.env
+    environment:
+      POSTGRES_PASSWORD: $PG_PASS
+      POSTGRES_USER: $PG_USER
+      POSTGRES_DB: $PG_DB
     networks:
-      - proxy
+      - authentik
 
-  lldap:
-    image: lldap/lldap:latest
-    container_name: lldap
-    restart: always
+  redis:
+    image: docker.io/library/redis:alpine
+    container_name: authentik-redis
+    command: --save 60 1 --loglevel warning
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
     volumes:
-      - /mnt/storage/lldap/data:/data
-      - /mnt/storage/lldap/secrets:/secrets
-    environment:
-      UID: 0
-      GID: 0
-      LLDAP_JWT_SECRET_FILE: /secrets/LDAP_JWT_SECRET
-      LLDAP_KEY_SEED_FILE: /secrets/LDAP_KEY_SEED
-      LLDAP_LDAP_USER_PASS_FILE: /secrets/LDAP_USER_PASS
-      TZ: $TZ
-      LLDAP_LDAP_BASE_DN: dc=pauld,dc=link
+      - redis:/data
     networks:
-      - proxy
+      - authentik
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2024.4.2
+    container_name: authentik-server
+    restart: unless-stopped
+    command: server
+    env_file:
+      - ../.auth.env
+    environment:
+      AUTHENTIK_POSTGRESQL__USER: $PG_USER
+      AUTHENTIK_POSTGRESQL__NAME: $PG_DB
+      AUTHENTIK_POSTGRESQL__PASSWORD: $PG_PASS
+    volumes:
+      - /mnt/storage/authentik/media:/media
+      - /mnt/storage/authentik/custom-templates:/templates
+    depends_on:
+      - postgresql
+      - redis
+    networks:
+      authentik:
+      proxy:
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2024.4.2
+    container_name: authentik-worker
+    restart: unless-stopped
+    command: worker
+    env_file:
+      - ../.auth.env
+    environment:
+      AUTHENTIK_POSTGRESQL__USER: $PG_USER
+      AUTHENTIK_POSTGRESQL__NAME: $PG_DB
+      AUTHENTIK_POSTGRESQL__PASSWORD: $PG_PASS
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /mnt/storage/authentik/media:/media
+      - /mnt/storage/authentik/certs/live:/certs
+      - /mnt/storage/authentik/certs/archive:/archive
+      - /mnt/storage/authentik/custom-templates:/templates
+    depends_on:
+      - postgresql
+      - redis
+    networks:
+      - authentik
+
+  certbot:
+    image: certbot/dns-route53:latest
+    container_name: certbot
+    environment:
+      AWS_ACCESS_KEY_ID: $ROUTE_53_ACCESS_KEY
+      AWS_SECRET_ACCESS_KEY: $ROUTE_53_SECRET
+    volumes:
+      - /mnt/storage/authentik/certs:/etc/letsencrypt
+    command:
+      - certonly
+      - --non-interactive
+      - --agree-tos
+      - -m paul.diloreto@gmail.com
+      - -d *.pauld.link
+      - --dns-route53
 
 volumes:
-  lldap-data:
-  lldap-secrets:
-  authelia:
+  redis:
+  postgresql:
 
 networks:
+  authentik:
   proxy:
     external: true
