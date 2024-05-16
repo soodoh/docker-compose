@@ -60,9 +60,9 @@ services:
 volumes:
   omada-data:
   omada-logs:
-  caddy:
   pihole-dnsmasq:
   pihole:
+  caddy:
 
 networks:
   proxy:
