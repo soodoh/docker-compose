@@ -19,7 +19,6 @@ services:
       - proxy
 
   caddy:
-    # TODO use my own image
     image: ghcr.io/williamjacksn/caddy-route53:latest
     container_name: caddy
     restart: always
@@ -38,8 +37,6 @@ services:
       - caddy:/data
     networks:
       proxy:
-        # Necessary for setting homeassistant trusted_proxies
-        ipv4_address: 172.19.0.100
 
   pihole:
     image: pihole/pihole:latest

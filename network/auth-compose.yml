@@ -56,6 +56,8 @@ services:
     networks:
       authentik:
       proxy:
+        # Necessary for setting homeassistant trusted_proxies
+        ipv4_address: 172.19.0.100
 
   authentik-worker:
     image: ghcr.io/goauthentik/server:2024.4.2
@@ -79,7 +81,10 @@ services:
       - postgresql
       - redis
     networks:
-      - authentik
+      authentik:
+      proxy:
+        # Necessary for setting homeassistant trusted_proxies
+        ipv4_address: 172.19.0.101
 
   certbot:
     image: certbot/dns-route53:latest
