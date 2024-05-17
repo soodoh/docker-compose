@@ -42,10 +42,13 @@ services:
       - gluetun:/gluetun
       - /mnt/storage/gluetun/info:/tmp/gluetun
       - /mnt/storage/docker-compose/scripts/mam_seedbox_update_ip.sh:/scripts/ip.sh:ro
+      - /mnt/storage/docker-compose/scripts/update_port.sh:/scripts/port.sh:ro
     labels:
       ofelia.enabled: "true"
       ofelia.job-exec.update-ip.schedule: "@every 5m"
       ofelia.job-exec.update-ip.command: "sh /scripts/ip.sh"
+      ofelia.job-exec.update-port.schedule: "@every 5m"
+      ofelia.job-exec.update-port.command: "sh /scripts/port.sh"
     environment:
       TZ: $TZ
       VPN_SERVICE_PROVIDER: $VPN_SERVICE_PROVIDER
@@ -58,19 +61,6 @@ services:
       MAM_URL: $MAM_URL
     networks:
       - proxy
-      - arr_network
-
-  qbittorrent-port-forward-gluetun-server:
-    image: mjmeli/qbittorrent-port-forward-gluetun-server:latest
-    container_name: qbittorrent-port-forward-gluetun-server
-    restart: unless-stopped
-    environment:
-      TZ: $TZ
-      QBT_USERNAME: $QBT_USERNAME
-      QBT_PASSWORD: $QBT_PASSWORD
-      QBT_ADDR: http://gluetun:8080
-      GTN_ADDR: http://gluetun:8000
-    networks:
       - arr_network
 
   ofelia:
