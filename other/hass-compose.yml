@@ -29,30 +29,29 @@ services:
       TZ: $TZ
       SESSION_SECRET: $ZWAVE_SECRET
       ZWAVEJS_EXTERNAL_CONFIG: /usr/src/app/store/.config-db
+    ports:
+      # HA is on host network, so explicit port mapping is needed
+      - 3000:3000
     networks:
       - proxy
-    ports:
-      - 3000:3000 # HASS is on host network
-
 
   mosquitto:
     image: eclipse-mosquitto
     container_name: mosquitto
     restart: unless-stopped
-    ports:
-      - 1883:1883
-      - 9001:9001
     environment:
       TZ: $TZ
     volumes:
       - mosquitto:/mosquitto/data
       - /mnt/storage/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    ports:
+      # HA is on host network, so explicit port mapping is needed
+      - 1883:1883
 
   frigate:
     container_name: frigate
     restart: unless-stopped
     image: ghcr.io/blakeblackshear/frigate:stable
-    network_mode: host # Necessary to access cameras on LAN
     devices:
       # Ryzen 9 graphics
       - /dev/dri/renderD128:/dev/dri/renderD128
@@ -81,6 +80,8 @@ services:
         target: /tmp/cache
         tmpfs:
           size: 1000000000
+    networks:
+      - proxy
 
 volumes:
   zwavejs2mqtt:

@@ -1,12 +1,3 @@
-(insecure_reverse_proxy) {
-  reverse_proxy {args[0]} {
-    transport http {
-      tls
-      tls_insecure_skip_verify
-    }
-  }
-}
-
 {
   acme_dns route53 {
     access_key_id {$ROUTE_53_ACCESS_KEY}
@@ -15,17 +6,12 @@
 }
 
 *.pauld.link {
-  @hass host hass.pauld.link
-  handle @hass {
-    reverse_proxy hass:8123
-  }
-
   handle {
     reverse_proxy authentik-server:9000
   }
 
-  @jf_server host jellyfin.pauld.link
-  handle @jf_server {
+  @jellyfin host watch.pauld.link
+  handle @jellyfin {
     reverse_proxy jellyfin:8096
   }
 
@@ -33,64 +19,6 @@
   handle @jf_vue {
     reverse_proxy jellyfin-vue:80
   }
-
-  # @jellyseerr host jellyseerr.pauld.link
-  # handle @jellyseerr {
-  #   reverse_proxy jellyseerr:5055
-  # }
-
-  # @readarr host readarr.pauld.link
-  # handle @readarr {
-  #   reverse_proxy http://readarr:8787
-  # }
-
-  # @speakarr host speakarr.pauld.link
-  # handle @speakarr {
-  #   reverse_proxy http://speakarr:8787
-  # }
-
-  # @audiobookshelf host audiobookshelf.pauld.link
-  # handle @audiobookshelf {
-  #  reverse_proxy audiobookshelf:80
-  # }
-
-  # @calibre host calibre.pauld.link
-  # handle @calibre {
-  #   reverse_proxy calibre:8080
-  #   handle_path /server/* {
-  #     reverse_proxy calibre:8081
-  #   }
-  # }
-
-  # @calibreweb host calibreweb.pauld.link
-  # handle @calibreweb {
-  #   reverse_proxy calibre-web:8083
-  # }
-
-  # @sonarr host sonarr.pauld.link
-  # handle @sonarr {
-  #   reverse_proxy sonarr:8989
-  # }
-
-  # @radarr host radarr.pauld.link
-  # handle @radarr {
-  #   reverse_proxy radarr:7878
-  # }
-
-  # @lidarr host lidarr.pauld.link
-  # handle @lidarr {
-  #   reverse_proxy lidarr:8686
-  # }
-
-  # @prowlarr host prowlarr.pauld.link
-  # handle @prowlarr {
-  #   reverse_proxy prowlarr:9696
-  # }
-
-  # @comics host comics.pauld.link
-  # handle @comics {
-  #   reverse_proxy tachidesk-vpn:4567
-  # }
 
   # @pihole host pihole.pauld.link
   # handle @pihole {
