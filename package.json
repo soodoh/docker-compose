@@ -20,9 +20,10 @@
     "media": "docker compose -f ./media/books-compose.yml -f ./media/downloaders-compose.yml -f ./media/videos-compose.yml --env-file ./.env -p media",
     "backup": "docker compose -f ./other/backup-compose.yml --env-file ./.env -p backup",
     "hass": "docker compose -f ./other/hass-compose.yml --env-file ./.env -p hass",
-    "pull": "yarn network pull && yarn media pull && yarn backup pull && yarn hass pull",
-    "down": "yarn network down && yarn media down && yarn backup down && yarn hass down",
-    "upd": "yarn network up -d && yarn media up -d && yarn backup up -d && yarn hass up -d",
+    "wger": "docker compose -f ./other/wger-compose.yml --env-file ./.env -p wger",
+    "pull": "yarn network pull && yarn media pull && yarn backup pull && yarn hass pull && yarn wger pull",
+    "down": "yarn network down && yarn media down && yarn backup down && yarn hass down && yarn wger down",
+    "upd": "yarn network up -d && yarn media up -d && yarn backup up -d && yarn hass up -d && yarn wger up -d",
     "update": "yarn down && yarn pull && yarn upd"
   }
 }
