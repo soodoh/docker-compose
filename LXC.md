@@ -42,7 +42,39 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="VENDOR_ID", ATTRS{idProduct}=="PRODUCT_ID", 
 
 Run `udevadm control --reload-rules && udevadm trigger`, then verify that `/dev/zigbee` has correct permissions and is symlinked to `/dev/ttyUSB0` (or `ttyUSB*`).
 
-## TODO
+1. Install Google Coral TPU drivers
 
-[] Set up Proxmox + Docker hosts to automatically run ssh-agent for git access
-[] Configure SSH access for Proxmox + Docker hosts so that authentication is host-based (or otherwise happens automatically, but securely)
+[Official instructions](https://coral.ai/docs/m2/get-started/#2a-on-linux)
+[Extra steps I needed](https://forum.proxmox.com/threads/update-error-with-coral-tpu-drivers.136888/#post-608975)
+
+Extra steps:
+
+```
+apt install git devscripts dh-dkms
+cd ~
+git clone https://github.com/google/gasket-driver.git
+cd gasket-driver/
+debuild -us -uc -tc -b
+cd ..
+dpkg -i gasket-dkms_1.0-18_all.deb
+apt update && apt upgrade
+```
+
+Modified official steps:
+
+```
+echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" | sudo tee /etc/apt/sources.list.d/coral-edgetpu.list
+apt-get update
+apt-get install libedgetpu1-std
+
+sh -c "echo 'SUBSYSTEM==\"apex\", MODE=\"0660\", GROUP=\"apex\"' >> /etc/udev/rules.d/65-apex.rules"
+groupadd apex
+adduser $USER apex
+```
+
+Reboot & verify:
+
+```
+lspci -nn | grep 089a
+ls /dev/apex_0
+```
