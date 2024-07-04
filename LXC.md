@@ -78,3 +78,6 @@ Reboot & verify:
 lspci -nn | grep 089a
 ls /dev/apex_0
 ```
+
+Helpful link for LXC device passthrough:
+https://github.com/TheHellSite/proxmox_collection/tree/main/lxc/device_passthrough
