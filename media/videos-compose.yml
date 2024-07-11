@@ -13,6 +13,10 @@ services:
     networks:
       - proxy
       - arr_network
+    group_add:
+      - "108"
+    devices:
+      - /dev/dri/renderD128
 
   jellyfin-vue:
     image: jellyfin/jellyfin-vue:unstable

@@ -79,5 +79,12 @@ lspci -nn | grep 089a
 ls /dev/apex_0
 ```
 
-Helpful link for LXC device passthrough:
-https://github.com/TheHellSite/proxmox_collection/tree/main/lxc/device_passthrough
+Helpful links for LXC device passthrough:
+
+-   https://github.com/TheHellSite/proxmox_collection/tree/main/lxc/device_passthrough
+
+GPU passthrough:
+
+-   https://forum.proxmox.com/threads/pci-gpu-passthrough-on-proxmox-ve-8-installation-and-configuration.130218/
+-   https://forum.proxmox.com/threads/simple-working-gpu-passthrough-on-uptodate-pve-and-amd-hardware.145462/
+
