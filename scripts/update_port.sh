@@ -2,7 +2,7 @@
  
 echo "Executing port forwarding script..."
 
-PREVIOUS_PORT=$(cat /tmp/gluetun/previous_port 2>/dev/null || echo "EMPTY")
+PREVIOUS_PORT=$(cat /tmp/gluetun/previous_port 2> /dev/null || echo "EMPTY")
 FORWARDED_PORT=$(cat /tmp/gluetun/forwarded_port 2> /dev/null)
 
 # Install dependencies if needed
