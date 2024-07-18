@@ -94,8 +94,6 @@ services:
       - /mnt/storage/media/books:/books
       - audiobookshelf-config:/config
       - audiobookshelf-metadata:/metadata
-    ports:
-      - 81:80
     networks:
       - proxy
 

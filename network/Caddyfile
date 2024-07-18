@@ -20,9 +20,8 @@
     reverse_proxy jellyfin-vue:80
   }
 
-  # @pihole host pihole.pauld.link
-  # handle @pihole {
-  #   rewrite / /admin
-  #   reverse_proxy pihole:80
-  # }
+  @books host books.pauld.link
+  handle @books {
+    reverse_proxy audiobookshelf:80
+  }
 }
