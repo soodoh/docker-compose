@@ -24,4 +24,9 @@
   handle @books {
     reverse_proxy audiobookshelf:80
   }
+
+  @nextcloud host nextcloud.pauld.link
+  handle @nextcloud {
+    reverse_proxy nextcloud:80
+  }
 }
