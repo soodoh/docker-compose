@@ -60,7 +60,7 @@ services:
     restart: unless-stopped
     ports:
       - "51820:51820/udp"
-      # - "51821:51821/tcp"
+      - "51821:51821/tcp"
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -70,11 +70,10 @@ services:
     environment:
       PASSWORD: $WIREGUARD_PW
       WG_HOST: $WIREGUARD_HOST
+      WG_ALLOWED_IPS: $WG_ALLOWED_IPS
     volumes:
       - /mnt/storage/wireguard/config:/etc/wireguard
       - /lib/modules:/lib/modules
-    networks:
-      - proxy
 
 volumes:
   omada-data:
