@@ -12,11 +12,7 @@ services:
     volumes:
       - postgresql:/var/lib/postgresql/data
     env_file:
-      - ../.auth.env
-    environment:
-      POSTGRES_PASSWORD: $PG_PASS
-      POSTGRES_USER: $PG_USER
-      POSTGRES_DB: $PG_DB
+      - ../.authentik.env
     networks:
       - authentik
 
@@ -42,11 +38,7 @@ services:
     restart: unless-stopped
     command: server
     env_file:
-      - ../.auth.env
-    environment:
-      AUTHENTIK_POSTGRESQL__USER: $PG_USER
-      AUTHENTIK_POSTGRESQL__NAME: $PG_DB
-      AUTHENTIK_POSTGRESQL__PASSWORD: $PG_PASS
+      - ../.authentik.env
     volumes:
       - /mnt/storage/authentik/media:/media
       - /mnt/storage/authentik/custom-templates:/templates
@@ -65,11 +57,7 @@ services:
     restart: unless-stopped
     command: worker
     env_file:
-      - ../.auth.env
-    environment:
-      AUTHENTIK_POSTGRESQL__USER: $PG_USER
-      AUTHENTIK_POSTGRESQL__NAME: $PG_DB
-      AUTHENTIK_POSTGRESQL__PASSWORD: $PG_PASS
+      - ../.authentik.env
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
