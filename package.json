@@ -16,7 +16,7 @@
   },
   "scripts": {
     "update-portainer": "sh ./scripts/update-portainer.sh",
-    "network": "docker compose -f ./network/infra-compose.yml -f ./network/auth-compose.yml -f ./network/nextcloud-compose.yml --env-file ./.env --env-file ./.auth.env -p network",
+    "network": "docker compose -f ./network/infra-compose.yml -f ./network/auth-compose.yml -f ./network/nextcloud-compose.yml --env-file ./.env -p network",
     "media": "docker compose -f ./media/books-compose.yml -f ./media/downloaders-compose.yml -f ./media/videos-compose.yml --env-file ./.env -p media",
     "backup": "docker compose -f ./other/backup-compose.yml --env-file ./.env -p backup",
     "hass": "docker compose -f ./other/hass-compose.yml --env-file ./.env -p hass",
