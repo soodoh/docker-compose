@@ -1,6 +1,6 @@
 services:
   postgresql:
-    image: docker.io/library/postgres:12-alpine
+    image: docker.io/library/postgres:16-alpine
     container_name: authentik-postgresql
     restart: unless-stopped
     healthcheck:
@@ -10,7 +10,7 @@ services:
       retries: 5
       timeout: 5s
     volumes:
-      - postgresql:/var/lib/postgresql/data
+      - /mnt/storage/authentik/postgresql:/var/lib/postgresql/data
     env_file:
       - ../.authentik.env
     networks:
@@ -28,12 +28,12 @@ services:
       retries: 5
       timeout: 3s
     volumes:
-      - redis:/data
+      - /mnt/storage/authentik/redis:/data
     networks:
       - authentik
 
   authentik-server:
-    image: ghcr.io/goauthentik/server:2024.4.2
+    image: ghcr.io/goauthentik/server:2024.6.3
     container_name: authentik-server
     restart: unless-stopped
     command: server
@@ -46,13 +46,11 @@ services:
       - postgresql
       - redis
     networks:
-      authentik:
-      proxy:
-        # Necessary for setting homeassistant trusted_proxies
-        ipv4_address: 172.19.0.100
+      - authentik
+      - proxy
 
   authentik-worker:
-    image: ghcr.io/goauthentik/server:2024.4.2
+    image: ghcr.io/goauthentik/server:2024.6.3
     container_name: authentik-worker
     restart: unless-stopped
     command: worker
@@ -69,10 +67,8 @@ services:
       - postgresql
       - redis
     networks:
-      authentik:
-      proxy:
-        # Necessary for setting homeassistant trusted_proxies
-        ipv4_address: 172.19.0.101
+      - authentik
+      - proxy
 
   certbot:
     image: certbot/dns-route53:latest
@@ -89,12 +85,15 @@ services:
       - -m paul.diloreto@gmail.com
       - -d *.pauld.link
       - --dns-route53
-
-volumes:
-  redis:
-  postgresql:
+    networks:
+      - authentik
 
 networks:
   authentik:
+    ipam:
+      driver: default
+      config:
+        # Necessary for setting homeassistant trusted_proxies
+        - subnet: "172.20.0.0/16"
   proxy:
     external: true
