@@ -6,27 +6,29 @@
 }
 
 *.pauld.link {
-  handle {
-    reverse_proxy authentik-server:9000
-  }
+  reverse_proxy authentik-server:9000
 
   @jellyfin host watch.pauld.link
-  handle @jellyfin {
-    reverse_proxy jellyfin:8096
-  }
+  reverse_proxy @jellyfin jellyfin:8096
 
   @jf_vue host jf.pauld.link
-  handle @jf_vue {
-    reverse_proxy jellyfin-vue:80
-  }
+  reverse_proxy @jf_vue jellyfin-vue:80
 
   @books host books.pauld.link
-  handle @books {
-    reverse_proxy audiobookshelf:80
-  }
+  reverse_proxy @books audiobookshelf:80
 
   @nextcloud host nextcloud.pauld.link
-  handle @nextcloud {
-    reverse_proxy nextcloud:80
+  reverse_proxy @nextcloud nextcloud:80
+
+  @proxmox {
+    host proxmox.pauld.link
+    remote_ip 192.168.0.0/24
   }
+  reverse_proxy @proxmox 192.168.0.123:8006
+
+  @omada {
+    host omada.pauld.link
+    remote_ip 192.168.0.0/24
+  }
+  reverse_proxy @omada omada:8088
 }
