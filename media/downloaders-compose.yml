@@ -41,8 +41,8 @@ services:
     volumes:
       - gluetun:/gluetun
       - /mnt/storage/gluetun/info:/tmp/gluetun
-      - /mnt/storage/docker-compose/scripts/mam_seedbox_update_ip.sh:/scripts/ip.sh:ro
-      - /mnt/storage/docker-compose/scripts/update_port.sh:/scripts/port.sh:ro
+      - /root/docker-compose/scripts/mam_seedbox_update_ip.sh:/scripts/ip.sh:ro
+      - /root/docker-compose/scripts/update_port.sh:/scripts/port.sh:ro
     labels:
       ofelia.enabled: "true"
       ofelia.job-exec.update-ip.schedule: "@every 5m"
@@ -52,7 +52,7 @@ services:
     environment:
       TZ: $TZ
       VPN_SERVICE_PROVIDER: $VPN_SERVICE_PROVIDER
-      VPN_TYPE: openvpn
+      VPN_TYPE: $VPN_TYPE
       OPENVPN_USER: $OPENVPN_USER
       OPENVPN_PASSWORD: $OPENVPN_PASSWORD
       VPN_PORT_FORWARDING: $VPN_PORT_FORWARDING
