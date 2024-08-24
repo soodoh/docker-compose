@@ -6,7 +6,9 @@
 }
 
 *.pauld.link {
-  reverse_proxy authentik-server:9000
+  log {
+    level DEBUG
+  }
 
   @jellyfin host watch.pauld.link
   reverse_proxy @jellyfin jellyfin:8096
@@ -31,4 +33,12 @@
     remote_ip 192.168.0.0/24
   }
   reverse_proxy @omada omada:8088
+
+  @ddns {
+    host ddns.pauld.link
+    remote_ip 192.168.0.0/24
+  }
+  reverse_proxy @ddns ddns-updater:8000
+
+  reverse_proxy authentik-server:9000
 }

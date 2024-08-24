@@ -18,6 +18,21 @@ services:
     networks:
       - proxy
 
+  ddns-updater:
+    image: ghcr.io/qdm12/ddns-updater
+    container_name: ddns-updater
+    restart: always
+    volumes:
+      - /mnt/storage/ddns-updater:/updater/data
+    environment:
+      TZ: $TZ
+      # See: https://pkg.go.dev/time#ParseDuration
+      PERIOD: 5m
+      # Necessary for split dns
+      RESOLVER_ADDRESS: $EXTERNAL_DNS
+    networks:
+      - proxy
+
   caddy:
     image: ghcr.io/williamjacksn/caddy-route53:latest
     container_name: caddy
@@ -36,7 +51,7 @@ services:
       - /root/docker-compose/network/Caddyfile:/etc/caddy/Caddyfile
       - caddy:/data
     networks:
-      proxy:
+      - proxy
 
   pihole:
     image: pihole/pihole:latest
