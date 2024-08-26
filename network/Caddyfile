@@ -1,13 +1,12 @@
-{
-  acme_dns route53 {
-    access_key_id {$ROUTE_53_ACCESS_KEY}
-    secret_access_key {$ROUTE_53_SECRET}
-  }
-}
-
 *.pauld.link {
-  log {
-    level DEBUG
+  tls {
+    dns route53 {
+      access_key_id {$ROUTE_53_ACCESS_KEY}
+      secret_access_key {$ROUTE_53_SECRET}
+      hosted_zone_id {$ROUTE_53_ZONE_ID}
+      wait_for_propagation true
+      region us-east-1
+    }
   }
 
   @jellyfin host watch.pauld.link
@@ -22,17 +21,23 @@
   @nextcloud host nextcloud.pauld.link
   reverse_proxy @nextcloud nextcloud:80
 
+  reverse_proxy authentik-server:9000
+
   @proxmox {
     host proxmox.pauld.link
     remote_ip 192.168.0.0/24
   }
-  reverse_proxy @proxmox 192.168.0.123:8006
+  reverse_proxy @proxmox 192.168.0.123:8006 {
+    transport http {
+      tls_insecure_skip_verify
+    }
+  }
 
   @omada {
     host omada.pauld.link
     remote_ip 192.168.0.0/24
   }
-  reverse_proxy @omada omada:8088
+  reverse_proxy @omada omada-controller:8088
 
   @ddns {
     host ddns.pauld.link
@@ -40,5 +45,9 @@
   }
   reverse_proxy @ddns ddns-updater:8000
 
-  reverse_proxy authentik-server:9000
+  @pihole {
+    host pihole.pauld.link
+    remote_ip 192.168.0.0/24
+  }
+  reverse_proxy @pihole pihole:80/admin
 }
