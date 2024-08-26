@@ -71,6 +71,15 @@ services:
     networks:
       - proxy
 
+  orbital-sync:
+    image: mattwebbio/orbital-sync:1
+    environment:
+      PRIMARY_HOST_BASE_URL: $PIHOLE_PRIMARY_URL
+      PRIMARY_HOST_PASSWORD: $PIHOLE_PRIMARY_PW
+      SECONDARY_HOSTS_1_BASE_URL: $PIHOLE_SECONDARY_URL
+      SECONDARY_HOSTS_1_PASSWORD: $PIHOLE_SECONDARY_PW
+      INTERVAL_MINUTES: 60
+
   wireguard:
     image: ghcr.io/wg-easy/wg-easy
     container_name: wireguard
