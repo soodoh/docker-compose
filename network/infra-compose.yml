@@ -13,8 +13,8 @@ services:
     environment:
       TZ: $TZ
     volumes:
-      - omada-data:/opt/tplink/EAPController/data
-      - omada-logs:/opt/tplink/EAPController/logs
+      - /mnt/storage/omada/data:/opt/tplink/EAPController/data
+      - /mnt/storage/omada/logs:/opt/tplink/EAPController/logs
     networks:
       - proxy
 
@@ -47,9 +47,10 @@ services:
       TZ: $TZ
       ROUTE_53_ACCESS_KEY: $ROUTE_53_ACCESS_KEY
       ROUTE_53_SECRET: $ROUTE_53_SECRET
+      ROUTE_53_ZONE_ID: $ROUTE_53_ZONE_ID
     volumes:
+      - /mnt/storage/caddy:/data
       - /root/docker-compose/network/Caddyfile:/etc/caddy/Caddyfile
-      - caddy:/data
     networks:
       - proxy
 
@@ -65,8 +66,8 @@ services:
       TZ: $TZ
       DNSMASQ_USER: pihole
     volumes:
-      - pihole-dnsmasq:/etc/dnsmasq.d
-      - pihole:/etc/pihole
+      - /mnt/storage/pihole/dnsmasq.d:/etc/dnsmasq.d
+      - /mnt/storage/pihole/config:/etc/pihole
     networks:
       - proxy
 
@@ -90,13 +91,6 @@ services:
     volumes:
       - /mnt/storage/wireguard/config:/etc/wireguard
       - /lib/modules:/lib/modules
-
-volumes:
-  omada-data:
-  omada-logs:
-  pihole-dnsmasq:
-  pihole:
-  caddy:
 
 networks:
   proxy:
