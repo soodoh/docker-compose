@@ -49,5 +49,8 @@
     host pihole.pauld.link
     remote_ip 192.168.0.0/24
   }
-  reverse_proxy @pihole pihole:80/admin
+  handle @pihole {
+    redir / /admin{uri}
+    reverse_proxy pihole:80
+  }
 }
