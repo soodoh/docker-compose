@@ -10,20 +10,12 @@ services:
       BACKUP_PRUNING_PREFIX: backup-
       BACKUP_RETENTION_DAYS: 5
     volumes:
-      # Network volumes:
-      # Infra
-      - network_caddy:/backup/caddy:ro
-      - network_omada-data:/backup/omada-data:ro
-      - network_omada-logs:/backup/omada-logs:ro
-      - network_pihole-dnsmasq:/backup/pihole-dnsmasq:ro
-      - network_pihole:/backup/pihole:ro
       # Media volumes:
       # Books
       - media_audiobookshelf-config:/backup/audiobookshelf-config:ro
       - media_audiobookshelf-metadata:/backup/audiobookshelf-metadata:ro
       - media_calibre-config:/backup/calibre-config:ro
       - media_calibre-plugins:/backup/calibre-plugins:ro
-      - media_calibre-web:/backup/calibre-web:ro
       - media_prowlarr:/backup/prowlarr:ro
       - media_readarr:/backup/readarr:ro
       - media_speakarr:/backup/speakarr:ro
@@ -39,7 +31,6 @@ services:
       - hass_zwavejs2mqtt:/backup/zwavejs2mqtt:ro
       # Local folders to back up (non Docker volumes)
       - /mnt/storage/hass:/backup/hass:ro
-      - /mnt/storage/lldap:/backup/lldap:ro
       - /mnt/storage/tachidesk:/backup/tachidesk:ro
       - /mnt/storage/frigate/config:/backup/frigate-config:ro
       # Local backups
@@ -48,26 +39,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
 volumes:
-  # Network volumes:
-  # Auth
-  network_authelia:
-    external: true
-  network_lldap-data:
-    external: true
-  network_lldap-secrets:
-    external: true
   # Infra
   network_caddy:
     external: true
-  network_omada-data:
-    external: true
-  network_omada-logs:
-    external: true
-  network_pihole-dnsmasq:
-    external: true
-  network_pihole:
-    external: true
-  # Media volumes:
   # Books
   media_audiobookshelf-config:
     external: true
@@ -76,8 +50,6 @@ volumes:
   media_calibre-config:
     external: true
   media_calibre-plugins:
-    external: true
-  media_calibre-web:
     external: true
   media_readarr:
     external: true
