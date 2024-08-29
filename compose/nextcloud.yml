@@ -5,7 +5,7 @@ services:
     restart: always
     command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
     volumes:
-      - nextcloud-db:/var/lib/mysql
+      - ${VOLUME_PATH}/nextcloud/mysql:/var/lib/mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${NEXTCLOUD_ROOT_PW}
       MYSQL_PASSWORD: ${NEXTCLOUD_PW}
@@ -18,10 +18,8 @@ services:
     image: nextcloud
     container_name: nextcloud
     restart: always
-    ports:
-      - 8080:80
     volumes:
-      - /mnt/storage/nextcloud:/var/www/html
+      - ${MEDIA_PATH}/nextcloud:/var/www/html
     environment:
       MYSQL_PASSWORD: ${NEXTCLOUD_PW}
       MYSQL_DATABASE: ${NEXTCLOUD_DB}
@@ -29,9 +27,6 @@ services:
       MYSQL_HOST: nextcloud-db
     networks:
       - proxy
-
-volumes:
-  nextcloud-db:
 
 networks:
   proxy:

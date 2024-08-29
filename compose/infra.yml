@@ -13,8 +13,8 @@ services:
     environment:
       TZ: $TZ
     volumes:
-      - /mnt/storage/omada/data:/opt/tplink/EAPController/data
-      - /mnt/storage/omada/logs:/opt/tplink/EAPController/logs
+      - ${VOLUME_PATH}/omada/data:/opt/tplink/EAPController/data
+      - ${VOLUME_PATH}/omada/logs:/opt/tplink/EAPController/logs
     networks:
       - proxy
 
@@ -23,7 +23,7 @@ services:
     container_name: ddns-updater
     restart: always
     volumes:
-      - /mnt/storage/ddns-updater:/updater/data
+      - ${VOLUME_PATH}/ddns-updater:/updater/data
     environment:
       TZ: $TZ
       # See: https://pkg.go.dev/time#ParseDuration
@@ -49,8 +49,8 @@ services:
       ROUTE_53_SECRET: $ROUTE_53_SECRET
       ROUTE_53_ZONE_ID: $ROUTE_53_ZONE_ID
     volumes:
-      - /mnt/storage/caddy:/data
-      - /root/docker-compose/network/Caddyfile:/etc/caddy/Caddyfile
+      - ${VOLUME_PATH}/caddy/data:/data/caddy
+      - ${VOLUME_PATH}/caddy/Caddyfile:/etc/caddy/Caddyfile
     networks:
       - proxy
 
@@ -66,8 +66,8 @@ services:
       TZ: $TZ
       DNSMASQ_USER: pihole
     volumes:
-      - /mnt/storage/pihole/dnsmasq.d:/etc/dnsmasq.d
-      - /mnt/storage/pihole/config:/etc/pihole
+      - ${VOLUME_PATH}/pihole/dnsmasq.d:/etc/dnsmasq.d
+      - ${VOLUME_PATH}/pihole/config:/etc/pihole
     networks:
       - proxy
 
@@ -89,8 +89,25 @@ services:
       WG_HOST: $WIREGUARD_HOST
       WG_ALLOWED_IPS: $WG_ALLOWED_IPS
     volumes:
-      - /mnt/storage/wireguard/config:/etc/wireguard
+      - ${VOLUME_PATH}/wireguard/config:/etc/wireguard
       - /lib/modules:/lib/modules
+
+  backup:
+    image: offen/docker-volume-backup:v2
+    container_name: docker-volume-backup
+    environment:
+      # AWS_S3_BUCKET_NAME: paul.diloreto.backups
+      # AWS_ACCESS_KEY_ID: $S3_ACCESS_KEY
+      # AWS_SECRET_ACCESS_KEY: $S3_SECRET_KEY
+      BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
+      BACKUP_PRUNING_PREFIX: backup-
+      BACKUP_RETENTION_DAYS: 5
+    volumes:
+      - ${VOLUME_PATH}:/backup/all-volumes:ro
+      # Local backups
+      - ${BACKUP_PATH}:/archive
+      # Required
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
 networks:
   proxy:
