@@ -11,6 +11,8 @@ services:
       timeout: 5s
     volumes:
       - ${VOLUME_PATH}/authentik/postgresql:/var/lib/postgresql/data
+    labels:
+      docker-volume-backup.stop-during-backup: true
     env_file:
       - ../.authentik.env
     networks:
@@ -29,6 +31,8 @@ services:
       timeout: 3s
     volumes:
       - ${VOLUME_PATH}/authentik/redis:/data
+    labels:
+      docker-volume-backup.stop-during-backup: true
     networks:
       - authentik
 

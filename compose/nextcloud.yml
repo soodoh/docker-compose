@@ -11,6 +11,8 @@ services:
       MYSQL_PASSWORD: ${NEXTCLOUD_PW}
       MYSQL_DATABASE: ${NEXTCLOUD_DB}
       MYSQL_USER: ${NEXTCLOUD_USER}
+    labels:
+      docker-volume-backup.stop-during-backup: true
     networks:
       - proxy
 
@@ -25,6 +27,8 @@ services:
       MYSQL_DATABASE: ${NEXTCLOUD_DB}
       MYSQL_USER: ${NEXTCLOUD_USER}
       MYSQL_HOST: nextcloud-db
+    labels:
+      docker-volume-backup.stop-during-backup: true
     networks:
       - proxy
 
