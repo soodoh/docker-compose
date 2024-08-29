@@ -16,14 +16,6 @@
   },
   "scripts": {
     "update-portainer": "sh ./scripts/update-portainer.sh",
-    "network": "docker compose -f ./network/infra-compose.yml -f ./network/auth-compose.yml -f ./network/nextcloud-compose.yml --env-file ./.env -p network",
-    "media": "docker compose -f ./media/books-compose.yml -f ./media/downloaders-compose.yml -f ./media/videos-compose.yml --env-file ./.env -p media",
-    "backup": "docker compose -f ./other/backup-compose.yml --env-file ./.env -p backup",
-    "hass": "docker compose -f ./other/hass-compose.yml --env-file ./.env -p hass",
-    "wger": "docker compose -f ./other/wger-compose.yml --env-file ./.env -p wger",
-    "pull": "yarn network pull && yarn media pull && yarn backup pull && yarn hass pull && yarn wger pull",
-    "down": "yarn network down && yarn media down && yarn backup down && yarn hass down && yarn wger down",
-    "upd": "yarn network up -d && yarn media up -d && yarn backup up -d && yarn hass up -d && yarn wger up -d",
-    "update": "yarn down && yarn pull && yarn upd"
+    "stack": "docker compose -f ./compose/apps.yml -f ./compose/auth.yml -f ./compose/hass.yml -f ./compose/infra.yml -f ./compose/nextcloud.yml -f ./compose/downloaders.yml --env-file .env"
   }
 }

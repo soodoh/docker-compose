@@ -11,7 +11,7 @@ services:
     devices:
       - /dev/zigbee:/dev/zigbee
     volumes:
-      - /mnt/storage/hass/hass:/config
+      - ${VOLUME_PATH}/hass/hass:/config
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
 
@@ -24,7 +24,7 @@ services:
     devices:
       - /dev/zwave:/dev/zwave
     volumes:
-      - zwavejs2mqtt:/usr/src/app/store
+      - ${VOLUME_PATH}/hass/zwavejs2mqtt:/usr/src/app/store
     environment:
       TZ: $TZ
       SESSION_SECRET: $ZWAVE_SECRET
@@ -42,8 +42,8 @@ services:
     environment:
       TZ: $TZ
     volumes:
-      - mosquitto:/mosquitto/data
-      - /mnt/storage/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ${VOLUME_PATH}/hass/moquitto/data:/mosquitto/data
+      - ${VOLUME_PATH}/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf
     ports:
       # HA is on host network, so explicit port mapping is needed
       - 1883:1883
@@ -84,8 +84,8 @@ services:
       FRIGATE_BACK_STUDIO: $FRIGATE_BACK_STUDIO
       FRIGATE_BACK_STUDIO_PW: $FRIGATE_BACK_STUDIO_PW
     volumes:
-      - /mnt/storage/frigate/config:/config
-      - /mnt/storage/frigate/storage:/media/frigate
+      - ${VOLUME_PATH}/frigate:/config
+      - ${MEDIA_PATH}/frigate:/media/frigate
       - type: tmpfs
         target: /tmp/cache
         tmpfs:
@@ -94,11 +94,6 @@ services:
       resources:
         limits:
           memory: 20G
-
-volumes:
-  zwavejs2mqtt:
-  mosquitto:
-  frigate:
 
 networks:
   proxy:

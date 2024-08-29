@@ -10,7 +10,7 @@ services:
       retries: 5
       timeout: 5s
     volumes:
-      - /mnt/storage/authentik/postgresql:/var/lib/postgresql/data
+      - ${VOLUME_PATH}/authentik/postgresql:/var/lib/postgresql/data
     env_file:
       - ../.authentik.env
     networks:
@@ -28,7 +28,7 @@ services:
       retries: 5
       timeout: 3s
     volumes:
-      - /mnt/storage/authentik/redis:/data
+      - ${VOLUME_PATH}/authentik/redis:/data
     networks:
       - authentik
 
@@ -40,8 +40,8 @@ services:
     env_file:
       - ../.authentik.env
     volumes:
-      - /mnt/storage/authentik/media:/media
-      - /mnt/storage/authentik/custom-templates:/templates
+      - ${VOLUME_PATH}/authentik/media:/media
+      - ${VOLUME_PATH}/authentik/custom-templates:/templates
     depends_on:
       - postgresql
       - redis
@@ -59,34 +59,16 @@ services:
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /mnt/storage/authentik/media:/media
-      - /mnt/storage/authentik/certs/live:/certs
-      - /mnt/storage/authentik/certs/archive:/archive
-      - /mnt/storage/authentik/custom-templates:/templates
+      - ${VOLUME_PATH}/authentik/media:/media
+      - ${VOLUME_PATH}/authentik/certs/live:/certs
+      - ${VOLUME_PATH}/authentik/certs/archive:/archive
+      - ${VOLUME_PATH}/authentik/custom-templates:/templates
     depends_on:
       - postgresql
       - redis
     networks:
       - authentik
       - proxy
-
-  certbot:
-    image: certbot/dns-route53:latest
-    container_name: certbot
-    environment:
-      AWS_ACCESS_KEY_ID: $ROUTE_53_ACCESS_KEY
-      AWS_SECRET_ACCESS_KEY: $ROUTE_53_SECRET
-    volumes:
-      - /mnt/storage/authentik/certs:/etc/letsencrypt
-    command:
-      - certonly
-      - --non-interactive
-      - --agree-tos
-      - -m paul.diloreto@gmail.com
-      - -d *.pauld.link
-      - --dns-route53
-    networks:
-      - authentik
 
 networks:
   authentik:

@@ -1,0 +1,56 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    ports:
+      - 8096:8096
+    volumes:
+      - ${VOLUME_PATH}/jellyfin/config:/config
+      - ${VOLUME_PATH}/jellyfin/cache:/cache
+      - ${MEDIA_PATH}/tv_shows:/tv_shows
+      - ${MEDIA_PATH}/movies:/movies
+    group_add:
+      - "108"
+    devices:
+      - /dev/dri/renderD128
+    networks:
+      - proxy
+
+  jellyfin-vue:
+    image: jellyfin/jellyfin-vue:unstable
+    container_name: jellyfin-vue
+    restart: unless-stopped
+    environment:
+      DEFAULT_SERVERS: $JELLYFIN_SERVERS
+    networks:
+      - proxy
+
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    container_name: audiobookshelf
+    restart: unless-stopped
+    volumes:
+      - ${MEDIA_PATH}/books:/books
+      - ${VOLUME_PATH}/audiobookshelf/config:/config
+      - ${VOLUME_PATH}/audiobookshelf/metadata:/metadata
+    networks:
+      - proxy
+
+  calibre:
+    image: linuxserver/calibre
+    container_name: calibre
+    restart: unless-stopped
+    environment:
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - ${VOLUME_PATH}/calibre/config:/config
+      - ${VOLUME_PATH}/calibre/plugins:/plugins
+      - ${MEDIA_PATH}/books:/data/books
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

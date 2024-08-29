@@ -1,0 +1,222 @@
+services:
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    restart: unless-stopped
+    environment:
+      TZ: $TZ
+    volumes:
+      - ${VOLUME_PATH}/jellyseerr:/app/config
+    networks:
+      - proxy
+      - arr_network
+
+  ofelia:
+    image: mcuadros/ofelia:latest
+    container_name: ofelia
+    restart: unless-stopped
+    depends_on:
+      - gluetun
+    command: daemon --docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    restart: always
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - ${VOLUME_PATH}/gluetun/config:/gluetun
+      - ${VOLUME_PATH}/gluetun/info:/tmp/gluetun
+      - ${SCRIPTS_PATH}/mam_seedbox_update_ip.sh:/scripts/ip.sh:ro
+      - ${SCRIPTS_PATH}/update_port.sh:/scripts/port.sh:ro
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.update-ip.schedule: "@every 5m"
+      ofelia.job-exec.update-ip.command: "sh /scripts/ip.sh"
+      ofelia.job-exec.update-port.schedule: "@every 5m"
+      ofelia.job-exec.update-port.command: "sh /scripts/port.sh"
+    environment:
+      TZ: $TZ
+      VPN_SERVICE_PROVIDER: $VPN_SERVICE_PROVIDER
+      VPN_TYPE: $VPN_TYPE
+      OPENVPN_USER: $OPENVPN_USER
+      OPENVPN_PASSWORD: $OPENVPN_PASSWORD
+      VPN_PORT_FORWARDING: $VPN_PORT_FORWARDING
+      VPN_PORT_FORWARDING_PROVIDER: $VPN_SERVICE_PROVIDER
+      MAM_ID: $MAM_ID
+      MAM_URL: $MAM_URL
+    networks:
+      - proxy
+      - arr_network
+
+  tachidesk:
+    image: ghcr.io/suwayomi/tachidesk:preview
+    container_name: tachidesk
+    restart: unless-stopped
+    network_mode: service:gluetun
+    depends_on:
+      - gluetun
+    environment:
+      TZ: $TZ
+      DOWNLOAD_AS_CBZ: true
+      WEB_UI_ENABLED: true
+      WEB_UI_FLAVOR: WebUI
+      WEB_UI_CHANNEL: preview
+      WEB_UI_UPDATE_INTERVAL: 12
+      AUTO_DOWNLOAD_CHAPTERS: true
+      AUTO_DOWNLOAD_EXCLUDE_UNREAD: false
+      AUTO_DOWNLOAD_AHEAD_LIMIT: 20
+      UPDATE_EXCLUDE_UNREAD: false
+      UPDATE_EXCLUDE_STARTED: false
+      UPDATE_EXCLUDE_COMPLETED: true
+      UPDATE_INTERVAL: 12
+      UPDATE_MANGA_INFO: true
+      FLARESOLVERR_ENABLED: true
+      # Cannot use service name due to limitations with Gluetun network
+      FLARESOLVERR_URL: http://172.18.0.99:8191
+    volumes:
+      - ${VOLUME_PATH}/tachidesk:/home/suwayomi/.local/share/Tachidesk
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    environment:
+      TZ: $TZ
+    networks:
+      arr_network:
+        # Cannot use service name due to limitations with Gluetun network
+        ipv4_address: 172.18.0.99
+
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: unless-stopped
+    environment:
+      TZ: $TZ
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - ${VOLUME_PATH}/prowlarr:/config
+    networks:
+      - proxy
+      - arr_network
+
+  unpackerr:
+    image: golift/unpackerr:latest
+    container_name: unpackerr
+    restart: unless-stopped
+    environment:
+      TZ: $TZ
+      UN_SONARR_0_URL: http://sonarr:8989
+      UN_SONARR_0_API_KEY: $SONARR_API_KEY
+      UN_SONARR_0_PATHS_0: /data/downloads/complete
+      UN_RADARR_0_URL: http://radarr:7878
+      UN_RADARR_0_API_KEY: $RADARR_API_KEY
+      UN_RADARR_0_PATHS_0: /data/downloads/complete
+    volumes:
+      - ${MEDIA_PATH}/downloads:/data/downloads
+    networks:
+      - arr_network
+
+  readarr:
+    image: linuxserver/readarr:develop
+    container_name: readarr
+    restart: unless-stopped
+    environment:
+      TZ: $TZ
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - ${VOLUME_PATH}/readarr:/config
+      - ${MEDIA_PATH}:/data
+    networks:
+      - proxy
+
+  speakarr:
+    image: linuxserver/readarr:develop
+    container_name: speakarr
+    restart: unless-stopped
+    environment:
+      TZ: $TZ
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - ${VOLUME_PATH}/speakarr:/config
+      - ${MEDIA_PATH}:/data
+    networks:
+      - proxy
+
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    environment:
+      TZ: $TZ
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - ${VOLUME_PATH}/sonarr:/config
+      - ${MEDIA_PATH}:/data
+    networks:
+      - proxy
+      - arr_network
+
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      TZ: $TZ
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - ${VOLUME_PATH}/radarr:/config
+      - ${MEDIA_PATH}:/data
+    networks:
+      - proxy
+      - arr_network
+
+  lidarr:
+    image: linuxserver/lidarr:latest
+    container_name: lidarr
+    restart: unless-stopped
+    environment:
+      PUID: 999
+      PGID: 999
+      TZ: $TZ
+    volumes:
+      - ${VOLUME_PATH}/lidarr:/config
+      - ${MEDIA_PATH}:/data
+    networks:
+      - proxy
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: $TZ
+    restart: unless-stopped
+    network_mode: service:gluetun
+    depends_on:
+      - gluetun
+    volumes:
+      - ${VOLUME_PATH}/qbittorrent/config:/config
+      - ${VOLUME_PATH}/qbittorrent/vuetorrent:/vuetorrent
+      - ${MEDIA_PATH}/downloads:/data/downloads
+
+networks:
+  proxy:
+    external: true
+  arr_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.18.0.0/16"
