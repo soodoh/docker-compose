@@ -12,9 +12,8 @@ services:
       - ${VOLUME_PATH}/hass/hass:/config
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
-    networks:
-      - hass
-      - proxy
+    # Must use Host network for Homekit bridge, as it uses mDNS
+    network_mode: host
 
   zwave:
     image: zwavejs/zwave-js-ui:latest
@@ -30,6 +29,9 @@ services:
       TZ: $TZ
       SESSION_SECRET: $ZWAVE_SECRET
       ZWAVEJS_EXTERNAL_CONFIG: /usr/src/app/store/.config-db
+    ports:
+      # HA is on host network, so explicit port mapping is needed
+      - 3000:3000
     networks:
       - hass
       - proxy
@@ -43,6 +45,9 @@ services:
     volumes:
       - ${VOLUME_PATH}/hass/moquitto/data:/mosquitto/data
       - ${VOLUME_PATH}/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    ports:
+      # HA is on host network, so explicit port mapping is needed
+      - 1883:1883
     networks:
       - hass
 
@@ -87,6 +92,10 @@ services:
       resources:
         limits:
           memory: 20G
+    ports:
+      # HA is on host network, so explicit port mapping is needed
+      - 5000:5000
+      - 8554:8554
     networks:
       - hass
       - proxy
