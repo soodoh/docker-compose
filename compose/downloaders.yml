@@ -78,7 +78,7 @@ services:
       UPDATE_MANGA_INFO: true
       FLARESOLVERR_ENABLED: true
       # Cannot use service name due to limitations with Gluetun network
-      FLARESOLVERR_URL: http://172.18.0.99:8191
+      FLARESOLVERR_URL: http://172.21.0.99:8191
     volumes:
       - ${VOLUME_PATH}/tachidesk:/home/suwayomi/.local/share/Tachidesk
 
@@ -91,7 +91,7 @@ services:
     networks:
       arr_network:
         # Cannot use service name due to limitations with Gluetun network
-        ipv4_address: 172.18.0.99
+        ipv4_address: 172.21.0.99
 
   prowlarr:
     image: linuxserver/prowlarr:latest
@@ -213,10 +213,8 @@ services:
       - ${MEDIA_PATH}/downloads:/data/downloads
 
 networks:
-  proxy:
-    external: true
   arr_network:
     ipam:
       driver: default
       config:
-        - subnet: "172.18.0.0/16"
+        - subnet: "172.21.0.0/16"

@@ -50,7 +50,3 @@ services:
       - ${MEDIA_PATH}/books:/data/books
     networks:
       - proxy
-
-networks:
-  proxy:
-    external: true

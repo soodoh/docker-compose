@@ -81,5 +81,3 @@ networks:
       config:
         # Necessary for setting homeassistant trusted_proxies
         - subnet: "172.20.0.0/16"
-  proxy:
-    external: true
