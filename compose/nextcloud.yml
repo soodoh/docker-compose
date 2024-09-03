@@ -31,7 +31,3 @@ services:
       docker-volume-backup.stop-during-backup: true
     networks:
       - proxy
-
-networks:
-  proxy:
-    external: true

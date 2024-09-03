@@ -5,8 +5,6 @@ services:
     restart: unless-stopped
     depends_on:
       - zwave
-    # Needs host network for device discovery
-    network_mode: host
     privileged: true
     devices:
       - /dev/zigbee:/dev/zigbee
@@ -14,9 +12,12 @@ services:
       - ${VOLUME_PATH}/hass/hass:/config
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
+    networks:
+      - hass
+      - proxy
 
   zwave:
-    image: zwavejs/zwavejs2mqtt:latest
+    image: zwavejs/zwave-js-ui:latest
     container_name: zwave
     restart: always
     tty: true
@@ -24,15 +25,13 @@ services:
     devices:
       - /dev/zwave:/dev/zwave
     volumes:
-      - ${VOLUME_PATH}/hass/zwavejs2mqtt:/usr/src/app/store
+      - ${VOLUME_PATH}/hass/zwave-js-ui:/usr/src/app/store
     environment:
       TZ: $TZ
       SESSION_SECRET: $ZWAVE_SECRET
       ZWAVEJS_EXTERNAL_CONFIG: /usr/src/app/store/.config-db
-    ports:
-      # HA is on host network, so explicit port mapping is needed
-      - 3000:3000
     networks:
+      - hass
       - proxy
 
   mosquitto:
@@ -44,19 +43,13 @@ services:
     volumes:
       - ${VOLUME_PATH}/hass/moquitto/data:/mosquitto/data
       - ${VOLUME_PATH}/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf
-    ports:
-      # HA is on host network, so explicit port mapping is needed
-      - 1883:1883
+    networks:
+      - hass
 
   frigate:
     container_name: frigate
     restart: unless-stopped
     image: ghcr.io/blakeblackshear/frigate:0.14.0-beta4
-    networks:
-      - proxy
-    ports:
-      - 5000:5000
-      - 8554:8554
     devices:
       # Google Coral TPU m.2
       - /dev/apex_0
@@ -94,7 +87,9 @@ services:
       resources:
         limits:
           memory: 20G
+    networks:
+      - hass
+      - proxy
 
 networks:
-  proxy:
-    external: true
+  hass:
