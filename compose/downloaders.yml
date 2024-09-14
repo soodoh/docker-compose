@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     environment:
       TZ: $TZ
+    ports:
+      - 5055:5055
     volumes:
       - ${VOLUME_PATH}/jellyseerr:/app/config
     networks:
