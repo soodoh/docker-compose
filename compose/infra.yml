@@ -87,6 +87,7 @@ services:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
     environment:
+      TZ: $TZ
       PASSWORD: $WIREGUARD_PW
       WG_HOST: $WIREGUARD_HOST
       WG_ALLOWED_IPS: $WG_ALLOWED_IPS
@@ -98,6 +99,7 @@ services:
     image: offen/docker-volume-backup:v2
     container_name: daily-backup
     environment:
+      TZ: $TZ
       BACKUP_CRON_EXPRESSION: "0 0 * * *" # Every day
       BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
       BACKUP_PRUNING_PREFIX: backup-
@@ -113,6 +115,7 @@ services:
     image: offen/docker-volume-backup:v2
     container_name: weekly-backup
     environment:
+      TZ: $TZ
       BACKUP_CRON_EXPRESSION: "0 0 * * 0" # Every Sunday
       BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
       BACKUP_PRUNING_PREFIX: backup-
