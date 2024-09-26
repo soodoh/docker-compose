@@ -36,7 +36,7 @@ services:
       - proxy
 
   caddy:
-    image: ghcr.io/williamjacksn/caddy-route53:latest
+    image: caddy:latest
     container_name: caddy
     restart: always
     cap_add:
@@ -47,9 +47,6 @@ services:
       - 443:443/udp
     environment:
       TZ: $TZ
-      ROUTE_53_ACCESS_KEY: $ROUTE_53_ACCESS_KEY
-      ROUTE_53_SECRET: $ROUTE_53_SECRET
-      ROUTE_53_ZONE_ID: $ROUTE_53_ZONE_ID
     volumes:
       - ${VOLUME_PATH}/caddy/data:/data/caddy
       - ${VOLUME_PATH}/caddy/Caddyfile:/etc/caddy/Caddyfile
