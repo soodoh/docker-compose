@@ -16,6 +16,6 @@
   },
   "scripts": {
     "update-portainer": "sh ./scripts/update-portainer.sh",
-    "stack": "docker compose -f ./compose/apps.yml -f ./compose/auth.yml -f ./compose/hass.yml -f ./compose/nextcloud.yml -f ./compose/downloaders.yml -f ./compose/infra.yml --env-file .env"
+    "stack": "sh ./scripts/compose.sh"
   }
 }
