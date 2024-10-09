@@ -48,6 +48,7 @@ services:
       - ${VOLUME_PATH}/calibre/config:/config
       - ${VOLUME_PATH}/calibre/plugins:/plugins
       - ${MEDIA_PATH}/books:/data/books
+      - ${MEDIA_PATH}/downloads:/data/downloads
     networks:
       - proxy
 
