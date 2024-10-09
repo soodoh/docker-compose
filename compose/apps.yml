@@ -50,3 +50,14 @@ services:
       - ${MEDIA_PATH}/books:/data/books
     networks:
       - proxy
+
+  kavita:
+    image: jvmilazz0/kavita
+    container_name: kavita
+    restart: unless-stopped
+    volumes:
+      - ${VOLUME_PATH}/tachidesk/downloads/mangas:/comics
+      - ${MEDIA_PATH}/books/calibre:/books
+      - ${VOLUME_PATH}/kavita:/kavita/config
+    networks:
+      - proxy
