@@ -96,8 +96,7 @@ services:
     image: offen/docker-volume-backup:v2
     container_name: daily-backup
     environment:
-      TZ: $TZ
-      BACKUP_CRON_EXPRESSION: "0 0 * * *" # Every day
+      BACKUP_CRON_EXPRESSION: "0 3 * * *" # Every day at 3AM
       BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
       BACKUP_PRUNING_PREFIX: backup-
       BACKUP_RETENTION_DAYS: 5
@@ -107,13 +106,15 @@ services:
       - ${BACKUP_PATH}:/archive
       # Required
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # $TZ variable not supported
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
 
   weekly-backup:
     image: offen/docker-volume-backup:v2
     container_name: weekly-backup
     environment:
-      TZ: $TZ
-      BACKUP_CRON_EXPRESSION: "0 0 * * 0" # Every Sunday
+      BACKUP_CRON_EXPRESSION: "0 4 * * 0" # Every Sunday at 4AM
       BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
       BACKUP_PRUNING_PREFIX: backup-
       BACKUP_RETENTION_DAYS: 14 # Only saving once a week
@@ -124,6 +125,9 @@ services:
       - ${VOLUME_PATH}:/backup/all-volumes:ro
       # Required
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # $TZ variable not supported
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
 
 networks:
   proxy:

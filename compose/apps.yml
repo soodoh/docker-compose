@@ -3,6 +3,8 @@ services:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin
     restart: unless-stopped
+    labels:
+      docker-volume-backup.stop-during-backup: true
     ports:
       - 8096:8096
     volumes:
@@ -17,19 +19,12 @@ services:
     networks:
       - proxy
 
-  jellyfin-vue:
-    image: jellyfin/jellyfin-vue:unstable
-    container_name: jellyfin-vue
-    restart: unless-stopped
-    environment:
-      DEFAULT_SERVERS: $JELLYFIN_SERVERS
-    networks:
-      - proxy
-
   audiobookshelf:
     image: ghcr.io/advplyr/audiobookshelf:latest
     container_name: audiobookshelf
     restart: unless-stopped
+    labels:
+      docker-volume-backup.stop-during-backup: true
     volumes:
       - ${MEDIA_PATH}/books:/books
       - ${VOLUME_PATH}/audiobookshelf/config:/config
@@ -44,6 +39,8 @@ services:
     environment:
       PUID: 1000
       PGID: 1000
+    labels:
+      docker-volume-backup.stop-during-backup: true
     volumes:
       - ${VOLUME_PATH}/calibre/config:/config
       - ${VOLUME_PATH}/calibre/plugins:/plugins
