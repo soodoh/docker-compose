@@ -5,7 +5,6 @@ docker compose --env-file .env \
   -f ./compose/hass.yml \
   -f ./compose/nextcloud.yml \
   -f ./compose/downloaders.yml \
-  # -f ./compose/wger.yml \
   -f ./compose/auth.yml \
   -f ./compose/infra.yml \
   "$@"
