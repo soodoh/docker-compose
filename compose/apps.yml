@@ -37,6 +37,7 @@ services:
     container_name: calibre
     restart: unless-stopped
     environment:
+      TZ: $TZ
       PUID: 1000
       PGID: 1000
     labels:
