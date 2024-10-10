@@ -49,6 +49,8 @@ services:
     depends_on:
       - postgresql
       - redis
+    labels:
+      docker-volume-backup.stop-during-backup: true
     networks:
       - authentik
       - proxy
@@ -61,6 +63,8 @@ services:
     env_file:
       - ../.authentik.env
     user: root
+    labels:
+      docker-volume-backup.stop-during-backup: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${VOLUME_PATH}/authentik/media:/media
