@@ -50,13 +50,29 @@ services:
     networks:
       - proxy
 
+  calibre-web:
+    image: lscr.io/linuxserver/calibre-web:latest
+    container_name: calibre-web
+    restart: unless-stopped
+    environment:
+      TZ: $TZ
+      PUID: 1000
+      PGID: 1000
+      DOCKER_MODS: linuxserver/mods:universal-calibre #optional
+      OAUTHLIB_RELAX_TOKEN_SCOPE: 1 #optional
+    volumes:
+      - ${VOLUME_PATH}/calibre-web:/config
+      - ${MEDIA_PATH}/books:/books
+    networks:
+      - proxy
+
   kavita:
     image: jvmilazz0/kavita
     container_name: kavita
     restart: unless-stopped
     volumes:
       - ${VOLUME_PATH}/tachidesk/downloads/mangas:/comics
-      - ${MEDIA_PATH}/books/calibre:/books
+      - ${MEDIA_PATH}/books:/books
       - ${VOLUME_PATH}/kavita:/kavita/config
     networks:
       - proxy
