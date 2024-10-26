@@ -1,8 +1,15 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: 3
+
 services:
   jellyfin:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin
     restart: unless-stopped
+    logging: *default-logging
     labels:
       docker-volume-backup.stop-during-backup: true
     ports:
@@ -23,6 +30,7 @@ services:
     image: ghcr.io/advplyr/audiobookshelf:latest
     container_name: audiobookshelf
     restart: unless-stopped
+    logging: *default-logging
     labels:
       docker-volume-backup.stop-during-backup: true
     volumes:
@@ -36,6 +44,7 @@ services:
     image: linuxserver/calibre
     container_name: calibre
     restart: unless-stopped
+    logging: *default-logging
     environment:
       TZ: $TZ
       PUID: 1000
@@ -54,6 +63,7 @@ services:
     image: lscr.io/linuxserver/calibre-web:latest
     container_name: calibre-web
     restart: unless-stopped
+    logging: *default-logging
     environment:
       TZ: $TZ
       PUID: 1000
@@ -70,6 +80,7 @@ services:
     image: jvmilazz0/kavita
     container_name: kavita
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - ${VOLUME_PATH}/tachidesk/downloads/mangas:/comics
       - ${MEDIA_PATH}/books:/books

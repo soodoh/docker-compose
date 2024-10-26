@@ -1,8 +1,15 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: 3
+
 services:
   omada-controller:
     image: mbentley/omada-controller:latest
     container_name: omada-controller
     restart: always
+    logging: *default-logging
     ports:
       - 27001:27001/udp
       - 29810:29810/udp
@@ -24,6 +31,7 @@ services:
     image: ghcr.io/qdm12/ddns-updater
     container_name: ddns-updater
     restart: always
+    logging: *default-logging
     volumes:
       - ${VOLUME_PATH}/ddns-updater:/updater/data
     environment:
@@ -39,6 +47,7 @@ services:
     image: caddy:latest
     container_name: caddy
     restart: always
+    logging: *default-logging
     cap_add:
       - NET_ADMIN
     ports:
@@ -57,6 +66,7 @@ services:
     image: pihole/pihole:latest
     container_name: pihole
     restart: always
+    logging: *default-logging
     ports:
       - 53:53/tcp
       - 53:53/udp
@@ -74,9 +84,10 @@ services:
     image: ghcr.io/wg-easy/wg-easy
     container_name: wireguard
     restart: unless-stopped
+    logging: *default-logging
     ports:
-      - "51820:51820/udp"
-      - "51821:51821/tcp"
+      - "51822:51820/udp"
+      - "51822:51821/tcp"
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -91,10 +102,13 @@ services:
     volumes:
       - ${VOLUME_PATH}/wireguard/config:/etc/wireguard
       - /lib/modules:/lib/modules
+    networks:
+      - infra
 
   daily-backup:
     image: offen/docker-volume-backup:v2
     container_name: daily-backup
+    logging: *default-logging
     environment:
       BACKUP_CRON_EXPRESSION: "0 3 * * *" # Every day at 3AM
       BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
@@ -109,10 +123,13 @@ services:
       # $TZ variable not supported
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
+    networks:
+      - infra
 
   weekly-backup:
     image: offen/docker-volume-backup:v2
     container_name: weekly-backup
+    logging: *default-logging
     environment:
       BACKUP_CRON_EXPRESSION: "0 4 * * 0" # Every Sunday at 4AM
       BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
@@ -128,10 +145,17 @@ services:
       # $TZ variable not supported
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
+    networks:
+      - infra
 
 networks:
+  infra:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.22.0.0/16"
   proxy:
     ipam:
       driver: default
       config:
-        - subnet: "172.19.0.0/16"
+        - subnet: "172.23.0.0/16"

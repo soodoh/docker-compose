@@ -1,8 +1,15 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: 3
+
 services:
   nextcloud-db:
     image: mariadb:10.6
     container_name: nextcloud-db
     restart: always
+    logging: *default-logging
     command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
     volumes:
       - ${VOLUME_PATH}/nextcloud/mysql:/var/lib/mysql
@@ -20,6 +27,7 @@ services:
     image: nextcloud
     container_name: nextcloud
     restart: always
+    logging: *default-logging
     volumes:
       - ${MEDIA_PATH}/nextcloud:/var/www/html
     environment:
