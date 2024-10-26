@@ -1,8 +1,15 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: 3
+
 services:
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:stable
     container_name: hass
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       - zwave
     privileged: true
@@ -19,6 +26,7 @@ services:
     image: zwavejs/zwave-js-ui:latest
     container_name: zwave
     restart: always
+    logging: *default-logging
     tty: true
     stop_signal: SIGINT
     devices:
@@ -40,6 +48,7 @@ services:
     image: eclipse-mosquitto
     container_name: mosquitto
     restart: unless-stopped
+    logging: *default-logging
     environment:
       TZ: $TZ
     volumes:
@@ -52,9 +61,10 @@ services:
       - hass
 
   frigate:
+    image: ghcr.io/blakeblackshear/frigate:0.14.0-beta4
     container_name: frigate
     restart: unless-stopped
-    image: ghcr.io/blakeblackshear/frigate:0.14.0-beta4
+    logging: *default-logging
     devices:
       # Google Coral TPU m.2
       - /dev/apex_0

@@ -1,8 +1,15 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: 3
+
 services:
   postgresql:
     image: docker.io/library/postgres:16-alpine
     container_name: authentik-postgresql
     restart: unless-stopped
+    logging: *default-logging
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       start_period: 20s
@@ -23,6 +30,7 @@ services:
     container_name: authentik-redis
     command: --save 60 1 --loglevel warning
     restart: unless-stopped
+    logging: *default-logging
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
       start_period: 20s
@@ -40,6 +48,7 @@ services:
     image: ghcr.io/goauthentik/server:2024.6.3
     container_name: authentik-server
     restart: unless-stopped
+    logging: *default-logging
     command: server
     env_file:
       - ../.authentik.env
@@ -59,6 +68,7 @@ services:
     image: ghcr.io/goauthentik/server:2024.6.3
     container_name: authentik-worker
     restart: unless-stopped
+    logging: *default-logging
     command: worker
     env_file:
       - ../.authentik.env
