@@ -5,6 +5,29 @@ x-logging: &default-logging
     max-file: 3
 
 services:
+  nextcloud:
+    image: nextcloud
+    container_name: nextcloud
+    restart: always
+    logging: *default-logging
+    volumes:
+      - ${MEDIA_PATH}/nextcloud:/var/www/html
+    environment:
+      REDIS_HOST: nextcloud-redis
+      REDIS_HOST_PORT: 6379
+      MYSQL_PASSWORD: ${NEXTCLOUD_PW}
+      MYSQL_DATABASE: ${NEXTCLOUD_DB}
+      MYSQL_USER: ${NEXTCLOUD_USER}
+      MYSQL_HOST: nextcloud-db
+    labels:
+      docker-volume-backup.stop-during-backup: true
+    depends_on:
+      - nextcloud-db
+      - nextcloud-redis
+    networks:
+      - proxy
+      - nextcloud
+
   nextcloud-db:
     image: mariadb:10.6
     container_name: nextcloud-db
@@ -21,21 +44,19 @@ services:
     labels:
       docker-volume-backup.stop-during-backup: true
     networks:
-      - proxy
+      - nextcloud
 
-  nextcloud:
-    image: nextcloud
-    container_name: nextcloud
+  nextcloud-redis:
+    image: redis:alpine
+    container_name: nextcloud-redis
     restart: always
     logging: *default-logging
-    volumes:
-      - ${MEDIA_PATH}/nextcloud:/var/www/html
-    environment:
-      MYSQL_PASSWORD: ${NEXTCLOUD_PW}
-      MYSQL_DATABASE: ${NEXTCLOUD_DB}
-      MYSQL_USER: ${NEXTCLOUD_USER}
-      MYSQL_HOST: nextcloud-db
-    labels:
-      docker-volume-backup.stop-during-backup: true
     networks:
-      - proxy
+      - nextcloud
+
+networks:
+  nextcloud:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.24.0.0/16"
