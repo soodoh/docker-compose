@@ -57,6 +57,8 @@ services:
     environment:
       TZ: $TZ
     volumes:
+      - ${VOLUME_PATH}/wger/static:/wger/static
+      - ${VOLUME_PATH}/wger/media:/wger/media
       - ${VOLUME_PATH}/caddy/data:/data/caddy
       - ${VOLUME_PATH}/caddy/Caddyfile:/etc/caddy/Caddyfile
     networks:
