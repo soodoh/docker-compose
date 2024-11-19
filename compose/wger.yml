@@ -30,6 +30,9 @@ services:
       timeout: 5s
       start_period: 300s
       retries: 5
+    networks:
+      - proxy
+      - wger
 
   wger-db:
     image: postgres:15-alpine
@@ -52,6 +55,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - wger
 
   wger-cache:
     image: redis
@@ -70,6 +75,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - wger
 
   celery_worker:
     image: wger/server:latest
@@ -92,6 +99,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - wger
 
   celery_beat:
     image: wger/server:latest
@@ -108,7 +117,12 @@ services:
     depends_on:
       celery_worker:
         condition: service_healthy
+    networks:
+      - wger
 
 networks:
-  default:
-    name: wger_network
+  wger:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.19.0.0/16"
