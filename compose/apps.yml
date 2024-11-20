@@ -87,3 +87,14 @@ services:
       - ${VOLUME_PATH}/kavita:/kavita/config
     networks:
       - proxy
+
+  karaoke-eternal:
+    image: radrootllc/karaoke-eternal:latest
+    container_name: karaoke-eternal
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - ${VOLUME_PATH}/karaoke-eternal/config:/config
+      - ${MEDIA_PATH}/karaoke:/mnt/karaoke
+    networks:
+      - proxy
