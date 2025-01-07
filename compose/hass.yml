@@ -40,6 +40,7 @@ services:
     ports:
       # HA is on host network, so explicit port mapping is needed
       - 3000:3000
+      - 8091:8091
     networks:
       - hass
       - proxy
