@@ -88,8 +88,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     ports:
-      - "51822:51820/udp"
-      - "51822:51821/tcp"
+      - "51820:51820/udp"
+      - "51821:51821/tcp"
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -98,7 +98,7 @@ services:
       - net.ipv4.conf.all.src_valid_mark=1
     environment:
       TZ: $TZ
-      PASSWORD: $WIREGUARD_PW
+      PASSWORD_HASH: $WIREGUARD_PW_HASH
       WG_HOST: $WIREGUARD_HOST
       WG_ALLOWED_IPS: $WG_ALLOWED_IPS
     volumes:
