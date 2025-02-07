@@ -66,6 +66,8 @@ services:
     container_name: frigate
     restart: unless-stopped
     logging: *default-logging
+    shm_size: "100mb"
+    privileged: true
     devices:
       # Google Coral TPU m.2
       - /dev/apex_0
@@ -99,14 +101,13 @@ services:
         target: /tmp/cache
         tmpfs:
           size: 1000000000
-    deploy:
-      resources:
-        limits:
-          memory: 20G
     ports:
       # HA is on host network, so explicit port mapping is needed
       - 5000:5000
-      - 8554:8554
+      - 8971:8971
+      - 8554:8554 # RTSP feeds
+      - 8555:8555/tcp # WebRTC
+      - 8555:8555/udp
     networks:
       - hass
       - proxy
