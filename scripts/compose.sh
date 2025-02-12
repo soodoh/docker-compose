@@ -2,7 +2,6 @@
 
 docker compose --env-file .env \
   -f ./compose/apps.yml \
-  -f ./compose/wger.yml \
   -f ./compose/hass.yml \
   -f ./compose/nextcloud.yml \
   -f ./compose/downloaders.yml \
