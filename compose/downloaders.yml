@@ -143,8 +143,8 @@ services:
       UN_SONARR_0_URL: http://gluetun:8989
       UN_SONARR_0_API_KEY: $SONARR_API_KEY
       UN_SONARR_0_PATHS_0: /data/downloads/complete
-      UN_RADARR_0_URL: http://gluetun:7878
-      UN_RADARR_0_API_KEY: $RADARR_API_KEY
+      UN_RADARR_0_URL: http://gluetun:7879
+      UN_RADARR_0_API_KEY: $RADARR_4K_API_KEY
       UN_RADARR_0_PATHS_0: /data/downloads/complete
     volumes:
       - ${MEDIA_PATH}/downloads:/data/downloads
@@ -198,13 +198,53 @@ services:
       TZ: $TZ
       PUID: 1000
       PGID: 1000
+      SONARR__AUTH__APIKEY: $SONARR_API_KEY
+      SONARR__SERVER__PORT: 8989
     volumes:
       - ${VOLUME_PATH}/sonarr:/config
       - ${MEDIA_PATH}:/data
 
-  radarr:
+  # sonarr-4k:
+  #   image: linuxserver/sonarr:latest
+  #   container_name: sonarr-4k
+  #   restart: unless-stopped
+  #   logging: *default-logging
+  #   network_mode: service:gluetun
+  #   depends_on:
+  #     gluetun:
+  #       condition: service_healthy
+  #   environment:
+  #     TZ: $TZ
+  #     PUID: 1000
+  #     PGID: 1000
+  #     SONARR__AUTH__APIKEY: $SONARR_4k_API_KEY
+  #     SONARR__SERVER__PORT: 8990
+  #   volumes:
+  #     - ${VOLUME_PATH}/sonarr-4k:/config
+  #     - ${MEDIA_PATH}:/data
+
+  # radarr:
+  #   image: linuxserver/radarr:latest
+  #   container_name: radarr
+  #   restart: unless-stopped
+  #   logging: *default-logging
+  #   network_mode: service:gluetun
+  #   depends_on:
+  #     gluetun:
+  #       condition: service_healthy
+  #   environment:
+  #     TZ: $TZ
+  #     PUID: 1000
+  #     PGID: 1000
+      # RADARR__AUTH__APIKEY: $RADARR_4K_API_KEY
+      # RADARR__SERVER__PORT: 7878
+  #   volumes:
+  #     - ${VOLUME_PATH}/radarr:/config
+  #     - ${MEDIA_PATH}:/data
+
+  radarr-4k:
     image: linuxserver/radarr:latest
-    container_name: radarr
+    container_name: radarr-4k
     restart: unless-stopped
     logging: *default-logging
     network_mode: service:gluetun
@@ -215,8 +255,10 @@ services:
       TZ: $TZ
       PUID: 1000
       PGID: 1000
+      RADARR__AUTH__APIKEY: $RADARR_4K_API_KEY
+      RADARR__SERVER__PORT: 7879
     volumes:
-      - ${VOLUME_PATH}/radarr:/config
+      - ${VOLUME_PATH}/radarr-4k:/config
       - ${MEDIA_PATH}:/data
 
   lidarr:
