@@ -236,9 +236,11 @@ services:
       gluetun:
         condition: service_healthy
     environment:
+      TZ: $TZ
       PUID: 999
       PGID: 999
-      TZ: $TZ
+      LIDARR__AUTH__APIKEY: $LIDARR_API_KEY
+      LIDARR__SERVER__PORT: 8686
     volumes:
       - ${VOLUME_PATH}/lidarr:/config
       - ${MEDIA_PATH}:/data
@@ -256,6 +258,8 @@ services:
       TZ: $TZ
       PUID: 1000
       PGID: 1000
+      READARR__AUTH__APIKEY: $READARR_API_KEY
+      READARR__SERVER__PORT: 8787
     volumes:
       - ${VOLUME_PATH}/readarr:/config
       - ${MEDIA_PATH}:/data
@@ -273,6 +277,8 @@ services:
       TZ: $TZ
       PUID: 1000
       PGID: 1000
+      READARR__AUTH__APIKEY: $SPEAKARR_API_KEY
+      READARR__SERVER__PORT: 8788
     volumes:
       - ${VOLUME_PATH}/speakarr:/config
       - ${MEDIA_PATH}:/data
