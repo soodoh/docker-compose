@@ -19,6 +19,7 @@ services:
       - ${VOLUME_PATH}/jellyfin/cache:/cache
       - ${MEDIA_PATH}/tv_shows:/tv_shows
       - ${MEDIA_PATH}/movies:/movies
+      - ${MEDIA_PATH}/anime:/anime
     group_add:
       - "108"
     devices:
