@@ -290,15 +290,23 @@ services:
     logging: *default-logging
     environment:
       TZ: $TZ
-      UN_SONARR_0_URL: http://gluetun:8989
-      UN_SONARR_0_API_KEY: $SONARR_API_KEY
-      UN_SONARR_0_PATHS_0: /data/downloads/complete
-      UN_RADARR_0_URL: http://gluetun:7878
-      UN_RADARR_0_API_KEY: $RADARR_API_KEY
-      UN_RADARR_0_PATHS_0: /data/downloads/complete
-      UN_RADARR_1_URL: http://gluetun:7879
-      UN_RADARR_1_API_KEY: $RADARR_4K_API_KEY
-      UN_RADARR_1_PATHS_0: /data/downloads/complete
+      # UN_SONARR_0_URL: http://gluetun:8989
+      # UN_SONARR_0_API_KEY: $SONARR_API_KEY
+      # UN_SONARR_0_PATHS_0: /data/downloads/complete
+      # UN_RADARR_0_URL: http://gluetun:7878
+      # UN_RADARR_0_API_KEY: $RADARR_API_KEY
+      # UN_RADARR_0_PATHS_0: /data/downloads/complete
+      # UN_RADARR_1_URL: http://gluetun:7879
+      # UN_RADARR_1_API_KEY: $RADARR_4K_API_KEY
+      # UN_RADARR_1_PATHS_0: /data/downloads/complete
+      ## Watch Folders
+      UN_FOLDER_0_PATH: /data/downloads/complete
+      UN_FOLDER_0_DISABLE_RECURSION: false
+      UN_FOLDER_0_DELETE_FILES: false
+      UN_FOLDER_0_DELETE_ORIGINAL: false
+      UN_FOLDER_0_DISABLE_LOG: false
+      UN_FOLDER_0_MOVE_BACK: false
+      UN_FOLDER_0_EXTRACT_ISOS: false
     volumes:
       - ${MEDIA_PATH}/downloads:/data/downloads
     networks:
