@@ -14,7 +14,7 @@ services:
       - zwave
     privileged: true
     devices:
-      - /dev/zigbee:/dev/zigbee
+      - /dev/ttyUSB0:/dev/zigbee
     volumes:
       - ${VOLUME_PATH}/hass/hass:/config
       - /etc/localtime:/etc/localtime:ro
@@ -30,7 +30,7 @@ services:
     tty: true
     stop_signal: SIGINT
     devices:
-      - /dev/zwave:/dev/zwave
+      - /dev/ttyUSB1:/dev/zwave
     volumes:
       - ${VOLUME_PATH}/hass/zwave-js-ui:/usr/src/app/store
     environment:
@@ -72,7 +72,7 @@ services:
       # Google Coral TPU m.2
       - /dev/apex_0
       # Ryzen 9 graphics
-      - /dev/dri/renderD128
+      - /dev/dri/card0
     environment:
       TZ: $TZ
       LIBVA_DRIVER_NAME: 'radeonsi'
