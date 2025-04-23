@@ -5,9 +5,9 @@ x-logging: &default-logging
     max-file: 3
 
 services:
-  omada-controller:
+  omada:
     image: mbentley/omada-controller:latest
-    container_name: omada-controller
+    container_name: omada
     restart: always
     logging: *default-logging
     ports:
