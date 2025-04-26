@@ -72,7 +72,7 @@ services:
       # Google Coral TPU m.2
       - /dev/apex_0
       # Ryzen 9 graphics
-      - /dev/dri/card0
+      - /dev/dri/renderD128
     environment:
       TZ: $TZ
       LIBVA_DRIVER_NAME: 'radeonsi'

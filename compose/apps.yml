@@ -23,7 +23,7 @@ services:
     group_add:
       - "108"
     devices:
-      - /dev/dri/card0
+      - /dev/dri/renderD128
     networks:
       - proxy
 
