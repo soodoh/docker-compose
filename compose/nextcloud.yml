@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   nextcloud:
-    image: nextcloud
+    image: nextcloud:latest
     container_name: nextcloud
     restart: always
     logging: *default-logging
@@ -29,7 +29,7 @@ services:
       - nextcloud
 
   nextcloud-db:
-    image: mariadb:10.6
+    image: mariadb:latest
     container_name: nextcloud-db
     restart: always
     logging: *default-logging
