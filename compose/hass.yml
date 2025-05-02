@@ -67,12 +67,14 @@ services:
     restart: unless-stopped
     logging: *default-logging
     shm_size: "100mb"
+    mem_limit: 4096m
     privileged: true
     devices:
       # Google Coral TPU m.2
-      - /dev/apex_0
+      - /dev/apex_0:/dev/apex_0
       # Ryzen 9 graphics
-      - /dev/dri/renderD128
+      - /dev/dri/renderD128:/dev/dri/renderD128
+      - /dev/dri/card1:/dev/dri/card1
     environment:
       TZ: $TZ
       LIBVA_DRIVER_NAME: 'radeonsi'
