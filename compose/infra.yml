@@ -64,23 +64,23 @@ services:
     networks:
       - proxy
 
-  pihole:
-    image: pihole/pihole:latest
-    container_name: pihole
-    restart: always
-    logging: *default-logging
-    ports:
-      - 53:53/tcp
-      - 53:53/udp
-      - 81:80
-    environment:
-      TZ: $TZ
-      DNSMASQ_USER: pihole
-    volumes:
-      - ${VOLUME_PATH}/pihole/dnsmasq.d:/etc/dnsmasq.d
-      - ${VOLUME_PATH}/pihole/config:/etc/pihole
-    networks:
-      - proxy
+  # pihole:
+  #   image: pihole/pihole:latest
+  #   container_name: pihole
+  #   restart: always
+  #   logging: *default-logging
+  #   ports:
+  #     - 53:53/tcp
+  #     - 53:53/udp
+  #     - 81:80
+  #   environment:
+  #     TZ: $TZ
+  #     DNSMASQ_USER: pihole
+  #   volumes:
+  #     - ${VOLUME_PATH}/pihole/dnsmasq.d:/etc/dnsmasq.d
+  #     - ${VOLUME_PATH}/pihole/config:/etc/pihole
+  #   networks:
+  #     - proxy
 
   wireguard:
     image: ghcr.io/wg-easy/wg-easy
@@ -107,9 +107,9 @@ services:
     networks:
       - infra
 
-  daily-backup:
+  daily-local-backup:
     image: offen/docker-volume-backup:v2
-    container_name: daily-backup
+    container_name: daily-local-backup
     logging: *default-logging
     environment:
       BACKUP_CRON_EXPRESSION: "0 5 * * 1,3,5" # M/W/F at 5AM
@@ -118,6 +118,9 @@ services:
       BACKUP_RETENTION_DAYS: 5
     volumes:
       - ${VOLUME_PATH}:/backup/all-volumes:ro
+      - ../.env:/backup/.env:ro
+      - ../.authentik.env:/backup/.authentik.env:ro
+      - ${HOME}/.ssh:/backup/.ssh:ro
       # Local backups
       - ${BACKUP_PATH}:/archive
       # Required
@@ -128,9 +131,9 @@ services:
     networks:
       - infra
 
-  weekly-backup:
+  weekly-remote-backup:
     image: offen/docker-volume-backup:v2
-    container_name: weekly-backup
+    container_name: weekly-remote-backup
     logging: *default-logging
     environment:
       BACKUP_CRON_EXPRESSION: "0 5 * * 0" # Every Sunday at 5AM
@@ -142,6 +145,9 @@ services:
       AWS_SECRET_ACCESS_KEY: $S3_SECRET_KEY
     volumes:
       - ${VOLUME_PATH}:/backup/all-volumes:ro
+      - ../.env:/backup/.env:ro
+      - ../.authentik.env:/backup/.authentik.env:ro
+      - ${HOME}/.ssh:/backup/.ssh:ro
       # Required
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # $TZ variable not supported
