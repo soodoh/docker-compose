@@ -49,13 +49,10 @@ services:
     volumes:
       - ${VOLUME_PATH}/gluetun/config:/gluetun
       - ${VOLUME_PATH}/gluetun/info:/tmp/gluetun
-      - ${SCRIPTS_PATH}/mam_seedbox_update_ip.sh:/scripts/ip.sh:ro
-      - ${SCRIPTS_PATH}/update_port.sh:/scripts/port.sh:ro
+      - ../scripts/update_port.sh:/scripts/port.sh:ro
     labels:
       ofelia.enabled: "true"
-      ofelia.job-exec.update-ip.schedule: "@every 5m"
-      ofelia.job-exec.update-ip.command: "sh /scripts/ip.sh"
-      ofelia.job-exec.update-port.schedule: "@every 5m"
+      ofelia.job-exec.update-port.schedule: "@every 10m"
       ofelia.job-exec.update-port.command: "sh /scripts/port.sh"
     environment:
       TZ: $TZ
@@ -65,11 +62,20 @@ services:
       OPENVPN_PASSWORD: $OPENVPN_PASSWORD
       VPN_PORT_FORWARDING: $VPN_PORT_FORWARDING
       VPN_PORT_FORWARDING_PROVIDER: $VPN_SERVICE_PROVIDER
-      MAM_ID: $MAM_ID
-      MAM_URL: $MAM_URL
     networks:
       - proxy
       - arr_network
+
+  seedboxapi:
+    image: myanonamouse/seedboxapi
+    user: 1000:1000 # Run as a non-root user.
+    container_name: seedboxapi
+    network_mode: "service:gluetun"
+    volumes:
+      - ${VOLUME_PATH}/seedboxapi:/config
+    environment:
+      mam_id: $MAM_ID
+      interval: 1
 
   tachidesk:
     image: ghcr.io/suwayomi/tachidesk:preview
