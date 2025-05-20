@@ -58,7 +58,8 @@ services:
       - ${MEDIA_PATH}/books:/data/books
       - ${MEDIA_PATH}/downloads:/data/downloads
     networks:
-      - proxy
+      proxy:
+        ipv4_address: 172.23.0.10
 
   calibre-web:
     image: lscr.io/linuxserver/calibre-web:latest
