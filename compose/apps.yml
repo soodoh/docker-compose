@@ -59,7 +59,7 @@ services:
       - ${MEDIA_PATH}/downloads:/data/downloads
     networks:
       proxy:
-        ipv4_address: 172.23.0.10
+        ipv4_address: 172.23.0.99
 
   calibre-web:
     image: lscr.io/linuxserver/calibre-web:latest
@@ -78,15 +78,16 @@ services:
     networks:
       - proxy
 
-  kavita:
-    image: jvmilazz0/kavita:latest
-    container_name: kavita
+  komga:
+    image: gotson/komga:latest
+    container_name: komga
     restart: unless-stopped
     logging: *default-logging
+    user: "1000:1000"
     volumes:
       - ${VOLUME_PATH}/tachidesk/downloads/mangas:/comics
       - ${MEDIA_PATH}/books:/books
-      - ${VOLUME_PATH}/kavita:/kavita/config
+      - ${VOLUME_PATH}/komga:/config
     networks:
       - proxy
 
