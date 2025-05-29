@@ -296,24 +296,33 @@ services:
     logging: *default-logging
     environment:
       TZ: $TZ
-      # UN_SONARR_0_URL: http://gluetun:8989
-      # UN_SONARR_0_API_KEY: $SONARR_API_KEY
-      # UN_SONARR_0_PATHS_0: /data/downloads/complete
-      # UN_RADARR_0_URL: http://gluetun:7878
-      # UN_RADARR_0_API_KEY: $RADARR_API_KEY
-      # UN_RADARR_0_PATHS_0: /data/downloads/complete
-      # UN_RADARR_1_URL: http://gluetun:7879
-      # UN_RADARR_1_API_KEY: $RADARR_4K_API_KEY
-      # UN_RADARR_1_PATHS_0: /data/downloads/complete
+      UN_SONARR_0_URL: $SONARR_URL
+      UN_SONARR_0_API_KEY: $SONARR_API_KEY
+      UN_SONARR_0_PATHS_0: /data/downloads/complete
+      UN_RADARR_0_URL: $RADARR_URL
+      UN_RADARR_0_API_KEY: $RADARR_API_KEY
+      UN_RADARR_0_PATHS_0: /data/downloads/complete
+      UN_RADARR_1_URL: $RADARR_4K_URL
+      UN_RADARR_1_API_KEY: $RADARR_4K_API_KEY
+      UN_RADARR_1_PATHS_0: /data/downloads/complete
+      UN_READARR_0_URL: $READARR_URL
+      UN_READARR_0_API_KEY: $READARR_API_KEY
+      UN_READARR_0_PATHS_0: /data/downloads/complete
+      UN_READARR_1_URL: $SPEAKARR_URL
+      UN_READARR_1_API_KEY: $SPEAKARR_API_KEY
+      UN_READARR_1_PATHS_0: /data/downloads/complete
+      UN_LIDARR_0_URL: $LIDARR_URL
+      UN_LIDARR_0_API_KEY: $LIDARR_API_KEY
+      UN_LIDARR_0_PATHS_0: /data/downloads/complete
       ## Watch Folders
-      UN_FOLDER_0_PATH: /data/downloads/complete
-      UN_FOLDER_0_DISABLE_RECURSION: false
-      UN_FOLDER_0_DELETE_FILES: false # Do not delete after successful extraction
-      UN_FOLDER_0_DELETE_AFTER: 1h
-      UN_FOLDER_0_DELETE_ORIGINAL: false
-      UN_FOLDER_0_DISABLE_LOG: false
-      UN_FOLDER_0_MOVE_BACK: true # Move extracted items back to original folder
-      UN_FOLDER_0_EXTRACT_ISOS: false
+      # UN_FOLDER_0_PATH: /data/downloads/complete
+      # UN_FOLDER_0_DISABLE_RECURSION: false
+      # UN_FOLDER_0_DELETE_FILES: false # Do not delete after successful extraction
+      # UN_FOLDER_0_DELETE_AFTER: 1h
+      # UN_FOLDER_0_DELETE_ORIGINAL: false
+      # UN_FOLDER_0_DISABLE_LOG: false
+      # UN_FOLDER_0_MOVE_BACK: true # Move extracted items back to original folder
+      # UN_FOLDER_0_EXTRACT_ISOS: false
     volumes:
       - ${MEDIA_PATH}/downloads:/data/downloads
     networks:
