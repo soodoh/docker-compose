@@ -10,17 +10,13 @@ services:
     container_name: jellyseerr
     restart: unless-stopped
     logging: *default-logging
+    network_mode: "service:gluetun"
     environment:
       TZ: $TZ
-    ports:
-      - 5055:5055
     volumes:
       - ${VOLUME_PATH}/jellyseerr:/app/config
     labels:
       docker-volume-backup.stop-during-backup: true
-    networks:
-      - proxy
-      - arr_network
 
   ofelia:
     image: mcuadros/ofelia:latest
