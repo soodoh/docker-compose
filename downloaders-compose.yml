@@ -74,6 +74,7 @@ services:
       interval: 1
 
   tachidesk:
+    # Same image on Dockerhub is outdated
     image: ghcr.io/suwayomi/tachidesk:v2.0.1810
     container_name: tachidesk
     restart: unless-stopped
@@ -136,7 +137,7 @@ services:
       - ${VOLUME_PATH}/prowlarr:/config
 
   recyclarr:
-    image: ghcr.io/recyclarr/recyclarr:7.4.1
+    image: recyclarr/recyclarr:7.4.1
     container_name: recyclarr
     user: 1000:1000
     networks:
