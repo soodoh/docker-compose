@@ -21,12 +21,12 @@ services:
     labels:
       docker-volume-backup.stop-during-backup: true
     env_file:
-      - ../.authentik.env
+      - .authentik.env
     networks:
       - authentik
 
   redis:
-    image: docker.io/library/redis:alpine
+    image: redis:8.2-m01-bookworm
     container_name: authentik-redis
     command: --save 60 1 --loglevel warning
     restart: unless-stopped
@@ -51,7 +51,7 @@ services:
     logging: *default-logging
     command: server
     env_file:
-      - ../.authentik.env
+      - .authentik.env
     volumes:
       - ${VOLUME_PATH}/authentik/media:/media
       - ${VOLUME_PATH}/authentik/custom-templates:/templates
@@ -71,7 +71,7 @@ services:
     logging: *default-logging
     command: worker
     env_file:
-      - ../.authentik.env
+      - .authentik.env
     user: root
     labels:
       docker-volume-backup.stop-during-backup: true
