@@ -1,10 +1,10 @@
 #!/bin/bash
 
 docker compose --env-file .env \
-  -f ./compose/apps.yml \
-  -f ./compose/hass.yml \
-  -f ./compose/nextcloud.yml \
-  -f ./compose/downloaders.yml \
-  -f ./compose/auth.yml \
-  -f ./compose/infra.yml \
+  -f ./apps-compose.yml \
+  -f ./hass-compose.yml \
+  -f ./nextcloud-compose.yml \
+  -f ./downloaders-compose.yml \
+  -f ./auth-compose.yml \
+  -f ./infra-compose.yml \
   "$@"
