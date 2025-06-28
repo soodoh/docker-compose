@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   postgresql:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     container_name: authentik-postgresql
     restart: unless-stopped
     logging: *default-logging
