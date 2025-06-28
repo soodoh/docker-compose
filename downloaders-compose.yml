@@ -19,7 +19,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   ofelia:
-    image: mcuadros/ofelia:0.3.17
+    image: mcuadros/ofelia:v3.0.8
     container_name: ofelia
     restart: unless-stopped
     logging: *default-logging
