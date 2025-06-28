@@ -74,7 +74,7 @@ services:
       interval: 1
 
   tachidesk:
-    image: ghcr.io/suwayomi/tachidesk:v2.0.1809
+    image: ghcr.io/suwayomi/tachidesk:v2.0.1810
     container_name: tachidesk
     restart: unless-stopped
     logging: *default-logging
