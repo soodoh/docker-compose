@@ -46,7 +46,7 @@ services:
       - proxy
 
   mosquitto:
-    image: eclipse-mosquitto:1.6.15-openssl
+    image: eclipse-mosquitto:2.0.21-openssl
     container_name: mosquitto
     restart: unless-stopped
     logging: *default-logging
