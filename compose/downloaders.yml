@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   jellyseerr:
-    image: fallenbagel/jellyseerr:latest
+    image: fallenbagel/jellyseerr:2.7.0
     container_name: jellyseerr
     restart: unless-stopped
     logging: *default-logging
@@ -19,7 +19,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   ofelia:
-    image: mcuadros/ofelia:latest
+    image: mcuadros/ofelia:0.3.17
     container_name: ofelia
     restart: unless-stopped
     logging: *default-logging
@@ -33,7 +33,7 @@ services:
       - arr_network
 
   gluetun:
-    image: qmcgaw/gluetun:latest
+    image: qmcgaw/gluetun:v3.40.0
     container_name: gluetun
     hostname: gluetun
     restart: always
@@ -63,7 +63,7 @@ services:
       - arr_network
 
   seedboxapi:
-    image: myanonamouse/seedboxapi
+    image: myanonamouse/seedboxapi:20250413-0519
     user: 1000:1000 # Run as a non-root user.
     container_name: seedboxapi
     network_mode: "service:gluetun"
@@ -74,7 +74,7 @@ services:
       interval: 1
 
   tachidesk:
-    image: ghcr.io/suwayomi/tachidesk:preview
+    image: ghcr.io/suwayomi/tachidesk:v2.0.1809
     container_name: tachidesk
     restart: unless-stopped
     logging: *default-logging
@@ -153,7 +153,7 @@ services:
       RADARR_4K_API_KEY: $RADARR_4K_API_KEY
 
   sonarr:
-    image: linuxserver/sonarr:latest
+    image: linuxserver/sonarr:4.0.15
     container_name: sonarr
     restart: unless-stopped
     logging: *default-logging
@@ -172,7 +172,7 @@ services:
       - ${MEDIA_PATH}:/data
 
   # sonarr-4k:
-  #   image: linuxserver/sonarr:latest
+  #   image: linuxserver/sonarr:4.0.15
   #   container_name: sonarr-4k
   #   restart: unless-stopped
   #   logging: *default-logging
@@ -191,7 +191,7 @@ services:
   #     - ${MEDIA_PATH}:/data
 
   radarr:
-    image: linuxserver/radarr:latest
+    image: linuxserver/radarr:5.26.2
     container_name: radarr
     restart: unless-stopped
     logging: *default-logging
@@ -210,7 +210,7 @@ services:
       - ${MEDIA_PATH}:/data
 
   radarr-4k:
-    image: linuxserver/radarr:latest
+    image: linuxserver/radarr:5.26.2
     container_name: radarr-4k
     restart: unless-stopped
     logging: *default-logging
@@ -229,7 +229,7 @@ services:
       - ${MEDIA_PATH}:/data
 
   lidarr:
-    image: linuxserver/lidarr:latest
+    image: linuxserver/lidarr:2.12.4
     container_name: lidarr
     restart: unless-stopped
     logging: *default-logging
@@ -248,7 +248,7 @@ services:
       - ${MEDIA_PATH}:/data
 
   readarr:
-    image: linuxserver/readarr:develop
+    image: linuxserver/readarr:0.4.18-develop
     container_name: readarr
     restart: unless-stopped
     logging: *default-logging
@@ -267,7 +267,7 @@ services:
       - ${MEDIA_PATH}:/data
 
   speakarr:
-    image: linuxserver/readarr:develop
+    image: linuxserver/readarr:0.4.18-develop
     container_name: speakarr
     restart: unless-stopped
     logging: *default-logging
@@ -286,7 +286,7 @@ services:
       - ${MEDIA_PATH}:/data
 
   unpackerr:
-    image: golift/unpackerr:latest
+    image: golift/unpackerr:0.14.5
     container_name: unpackerr
     restart: unless-stopped
     logging: *default-logging
@@ -325,7 +325,7 @@ services:
       - arr_network
 
   qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
+    image: linuxserver/qbittorrent:5.1.1
     container_name: qbittorrent
     restart: unless-stopped
     logging: *default-logging
