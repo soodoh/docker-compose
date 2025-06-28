@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   postgresql:
-    image: docker.io/library/postgres:16.9-bullseye
+    image: docker.io/library/postgres:17.5-bullseye
     container_name: authentik-postgresql
     restart: unless-stopped
     logging: *default-logging
