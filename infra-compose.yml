@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   omada:
-    image: mbentley/omada-controller:latest
+    image: mbentley/omada-controller:5.15-chromium
     container_name: omada
     restart: always
     logging: *default-logging
@@ -28,7 +28,7 @@ services:
       - proxy
 
   ddns-updater:
-    image: ghcr.io/qdm12/ddns-updater
+    image: ghcr.io/qdm12/ddns-updater:v2.9.0
     container_name: ddns-updater
     restart: always
     logging: *default-logging
@@ -44,7 +44,7 @@ services:
       - proxy
 
   caddy:
-    image: caddy:latest
+    image: caddy:2.10.0
     container_name: caddy
     restart: always
     logging: *default-logging
@@ -65,7 +65,7 @@ services:
       - proxy
 
   # pihole:
-  #   image: pihole/pihole:latest
+  #   image: pihole/pihole:2025.06.2
   #   container_name: pihole
   #   restart: always
   #   logging: *default-logging
@@ -83,7 +83,7 @@ services:
   #     - proxy
 
   wireguard:
-    image: ghcr.io/wg-easy/wg-easy
+    image: ghcr.io/wg-easy/wg-easy:15
     container_name: wireguard
     restart: unless-stopped
     logging: *default-logging
@@ -118,8 +118,8 @@ services:
       BACKUP_RETENTION_DAYS: 5
     volumes:
       - ${VOLUME_PATH}:/backup/all-volumes:ro
-      - ../.env:/backup/.env:ro
-      - ../.authentik.env:/backup/.authentik.env:ro
+      - .env:/backup/.env:ro
+      - .authentik.env:/backup/.authentik.env:ro
       - ${HOME}/.ssh:/backup/.ssh:ro
       # Local backups
       - ${BACKUP_PATH}:/archive
@@ -145,8 +145,8 @@ services:
       AWS_SECRET_ACCESS_KEY: $S3_SECRET_KEY
     volumes:
       - ${VOLUME_PATH}:/backup/all-volumes:ro
-      - ../.env:/backup/.env:ro
-      - ../.authentik.env:/backup/.authentik.env:ro
+      - .env:/backup/.env:ro
+      - .authentik.env:/backup/.authentik.env:ro
       - ${HOME}/.ssh:/backup/.ssh:ro
       # Required
       - /var/run/docker.sock:/var/run/docker.sock:ro

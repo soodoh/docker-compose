@@ -5,9 +5,9 @@ x-logging: &default-logging
     max-file: 3
 
 services:
-  postgresql:
-    image: docker.io/library/postgres:16.9-bullseye
-    container_name: authentik-postgresql
+  postgres:
+    image: postgres:16-alpine
+    container_name: authentik-postgres
     restart: unless-stopped
     logging: *default-logging
     healthcheck:
@@ -21,12 +21,12 @@ services:
     labels:
       docker-volume-backup.stop-during-backup: true
     env_file:
-      - ../.authentik.env
+      - .authentik.env
     networks:
       - authentik
 
   redis:
-    image: docker.io/library/redis:alpine
+    image: redis:8.2-m01-alpine
     container_name: authentik-redis
     command: --save 60 1 --loglevel warning
     restart: unless-stopped
@@ -45,18 +45,18 @@ services:
       - authentik
 
   authentik-server:
-    image: ghcr.io/goauthentik/server:2024.6.3
+    image: ghcr.io/goauthentik/server:2025.6.3
     container_name: authentik-server
     restart: unless-stopped
     logging: *default-logging
     command: server
     env_file:
-      - ../.authentik.env
+      - .authentik.env
     volumes:
       - ${VOLUME_PATH}/authentik/media:/media
       - ${VOLUME_PATH}/authentik/custom-templates:/templates
     depends_on:
-      - postgresql
+      - postgres
       - redis
     labels:
       docker-volume-backup.stop-during-backup: true
@@ -65,13 +65,13 @@ services:
       - proxy
 
   authentik-worker:
-    image: ghcr.io/goauthentik/server:2024.6.3
+    image: ghcr.io/goauthentik/server:2025.6.3
     container_name: authentik-worker
     restart: unless-stopped
     logging: *default-logging
     command: worker
     env_file:
-      - ../.authentik.env
+      - .authentik.env
     user: root
     labels:
       docker-volume-backup.stop-during-backup: true
@@ -82,7 +82,7 @@ services:
       - ${VOLUME_PATH}/authentik/certs/archive:/archive
       - ${VOLUME_PATH}/authentik/custom-templates:/templates
     depends_on:
-      - postgresql
+      - postgres
       - redis
     networks:
       - authentik

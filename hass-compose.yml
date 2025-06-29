@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:stable
+    image: ghcr.io/home-assistant/home-assistant:2025.6.3
     container_name: hass
     restart: unless-stopped
     logging: *default-logging
@@ -23,7 +23,7 @@ services:
     network_mode: host
 
   zwave:
-    image: zwavejs/zwave-js-ui:latest
+    image: zwavejs/zwave-js-ui:10.7
     container_name: zwave
     restart: always
     logging: *default-logging
@@ -46,7 +46,7 @@ services:
       - proxy
 
   mosquitto:
-    image: eclipse-mosquitto
+    image: eclipse-mosquitto:2.0.21-openssl
     container_name: mosquitto
     restart: unless-stopped
     logging: *default-logging
