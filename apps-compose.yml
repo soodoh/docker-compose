@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   jellyfin:
-    image: jellyfin/jellyfin:2025063005
+    image: jellyfin/jellyfin:2025070705
     container_name: jellyfin
     restart: unless-stopped
     logging: *default-logging
