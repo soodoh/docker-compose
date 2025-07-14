@@ -121,7 +121,7 @@ services:
       network_mode: service:gluetun
 
   prowlarr:
-    image: linuxserver/prowlarr:2.0.0-develop
+    image: linuxserver/prowlarr:2.0.1-develop
     container_name: prowlarr
     restart: unless-stopped
     network_mode: service:gluetun
