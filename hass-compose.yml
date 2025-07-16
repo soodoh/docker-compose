@@ -23,7 +23,7 @@ services:
     network_mode: host
 
   zwave:
-    image: zwavejs/zwave-js-ui:10.7
+    image: zwavejs/zwave-js-ui:10.8
     container_name: zwave
     restart: always
     logging: *default-logging
@@ -62,7 +62,7 @@ services:
       - hass
 
   frigate:
-    image: ghcr.io/blakeblackshear/frigate:0.15.1
+    image: ghcr.io/blakeblackshear/frigate:0.15.2
     container_name: frigate
     restart: unless-stopped
     logging: *default-logging
