@@ -83,7 +83,7 @@ services:
   #     - proxy
 
   wireguard:
-    image: ghcr.io/wg-easy/wg-easy:14
+    image: ghcr.io/wg-easy/wg-easy:15
     container_name: wireguard
     restart: unless-stopped
     logging: *default-logging
@@ -118,8 +118,8 @@ services:
       BACKUP_RETENTION_DAYS: 5
     volumes:
       - ${VOLUME_PATH}:/backup/all-volumes:ro
-      - ../.env:/backup/.env:ro
-      - ../.authentik.env:/backup/.authentik.env:ro
+      - .env:/backup/.env:ro
+      - .authentik.env:/backup/.authentik.env:ro
       - ${HOME}/.ssh:/backup/.ssh:ro
       # Local backups
       - ${BACKUP_PATH}:/archive
@@ -145,8 +145,8 @@ services:
       AWS_SECRET_ACCESS_KEY: $S3_SECRET_KEY
     volumes:
       - ${VOLUME_PATH}:/backup/all-volumes:ro
-      - ../.env:/backup/.env:ro
-      - ../.authentik.env:/backup/.authentik.env:ro
+      - .env:/backup/.env:ro
+      - .authentik.env:/backup/.authentik.env:ro
       - ${HOME}/.ssh:/backup/.ssh:ro
       # Required
       - /var/run/docker.sock:/var/run/docker.sock:ro
