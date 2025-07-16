@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   nextcloud:
-    image: nextcloud:31.0.6-fpm-alpine
+    image: nextcloud:31.0.7-apache
     container_name: nextcloud
     restart: always
     logging: *default-logging

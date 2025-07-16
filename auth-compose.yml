@@ -5,9 +5,9 @@ x-logging: &default-logging
     max-file: 3
 
 services:
-  postgresql:
+  postgres:
     image: postgres:16-alpine
-    container_name: authentik-postgresql
+    container_name: authentik-postgres
     restart: unless-stopped
     logging: *default-logging
     healthcheck:
@@ -56,7 +56,7 @@ services:
       - ${VOLUME_PATH}/authentik/media:/media
       - ${VOLUME_PATH}/authentik/custom-templates:/templates
     depends_on:
-      - postgresql
+      - postgres
       - redis
     labels:
       docker-volume-backup.stop-during-backup: true
@@ -82,7 +82,7 @@ services:
       - ${VOLUME_PATH}/authentik/certs/archive:/archive
       - ${VOLUME_PATH}/authentik/custom-templates:/templates
     depends_on:
-      - postgresql
+      - postgres
       - redis
     networks:
       - authentik

@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   jellyseerr:
-    image: fallenbagel/jellyseerr:2.7.0
+    image: fallenbagel/jellyseerr:2.7.1
     container_name: jellyseerr
     restart: unless-stopped
     logging: *default-logging
@@ -121,7 +121,7 @@ services:
       network_mode: service:gluetun
 
   prowlarr:
-    image: linuxserver/prowlarr:2.0.0-develop
+    image: linuxserver/prowlarr:2.0.1-develop
     container_name: prowlarr
     restart: unless-stopped
     network_mode: service:gluetun
@@ -326,7 +326,7 @@ services:
       - arr_network
 
   qbittorrent:
-    image: linuxserver/qbittorrent:20.04.1
+    image: linuxserver/qbittorrent:5.1.2
     container_name: qbittorrent
     restart: unless-stopped
     logging: *default-logging

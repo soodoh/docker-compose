@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   jellyfin:
-    image: jellyfin/jellyfin:2025062305
+    image: jellyfin/jellyfin:2025071405
     container_name: jellyfin
     restart: unless-stopped
     logging: *default-logging
@@ -29,7 +29,7 @@ services:
       - proxy
 
   audiobookshelf:
-    image: ghcr.io/advplyr/audiobookshelf:2.25.1
+    image: ghcr.io/advplyr/audiobookshelf:2.26.0
     container_name: audiobookshelf
     restart: unless-stopped
     logging: *default-logging
@@ -43,7 +43,7 @@ services:
       - proxy
 
   calibre:
-    image: linuxserver/calibre:8.5.0
+    image: linuxserver/calibre:8.6.0
     container_name: calibre
     restart: unless-stopped
     logging: *default-logging
@@ -63,7 +63,7 @@ services:
         ipv4_address: 172.23.0.99
 
   calibre-web:
-    image: lscr.io/linuxserver/calibre-web:2021.12.16
+    image: linuxserver/calibre-web:0.6.24
     container_name: calibre-web
     restart: unless-stopped
     logging: *default-logging
@@ -80,7 +80,7 @@ services:
       - proxy
 
   komga:
-    image: gotson/komga:1.22.0
+    image: gotson/komga:1.22.1
     container_name: komga
     restart: unless-stopped
     logging: *default-logging
