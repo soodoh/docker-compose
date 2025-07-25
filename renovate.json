@@ -4,6 +4,18 @@
     "config:recommended",
     "group:allNonMajor"
   ],
+  "packageRules": [
+    {
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "postgres"
+      ],
+      "matchCurrentVersion": "!/^16-alpine$/",
+      "enabled": false
+    }
+  ],
   "docker-compose": {
     "managerFilePatterns": [
       "/\\-compose\\.ya?ml$/"
