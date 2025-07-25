@@ -230,7 +230,7 @@ services:
       - ${MEDIA_PATH}:/data
 
   lidarr:
-    image: ghcr.io/linuxserver/lidarr:2.12.4
+    image: linuxserver/lidarr:2.12.4
     container_name: lidarr
     restart: unless-stopped
     logging: *default-logging
