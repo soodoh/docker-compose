@@ -108,7 +108,7 @@ services:
       - infra
 
   daily-local-backup:
-    image: offen/docker-volume-backup:v2
+    image: ghcr.io/offen/docker-volume-backup:v2.43.4
     container_name: daily-local-backup
     logging: *default-logging
     environment:
@@ -132,7 +132,7 @@ services:
       - infra
 
   weekly-remote-backup:
-    image: offen/docker-volume-backup:v2
+    image: ghcr.io/offen/docker-volume-backup:v2.43.4
     container_name: weekly-remote-backup
     logging: *default-logging
     environment:

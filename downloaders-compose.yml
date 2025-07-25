@@ -106,7 +106,7 @@ services:
       - ${VOLUME_PATH}/tachidesk:/home/suwayomi/.local/share/Tachidesk
 
   flaresolverr:
-    image: flaresolverr/flaresolverr:v3.3.25
+    image: ghcr.io/flaresolverr/flaresolverr:v3.3.25
     container_name: flaresolverr
     restart: always
     logging: *default-logging
@@ -121,7 +121,7 @@ services:
       network_mode: service:gluetun
 
   prowlarr:
-    image: linuxserver/prowlarr:2.0.2-develop
+    image: ghcr.io/linuxserver/prowlarr:2.0.2-develop
     container_name: prowlarr
     restart: unless-stopped
     network_mode: service:gluetun
@@ -137,7 +137,7 @@ services:
       - ${VOLUME_PATH}/prowlarr:/config
 
   recyclarr:
-    image: recyclarr/recyclarr:7.4.1
+    image: ghcr.io/recyclarr/recyclarr:7.4.1
     container_name: recyclarr
     user: 1000:1000
     networks:
@@ -154,7 +154,7 @@ services:
       RADARR_4K_API_KEY: $RADARR_4K_API_KEY
 
   sonarr:
-    image: linuxserver/sonarr:4.0.15
+    image: ghcr.io/linuxserver/sonarr:4.0.15
     container_name: sonarr
     restart: unless-stopped
     logging: *default-logging
@@ -173,7 +173,7 @@ services:
       - ${MEDIA_PATH}:/data
 
   # sonarr-4k:
-  #   image: linuxserver/sonarr:4.0.15
+  #   image: ghcr.io/linuxserver/sonarr:4.0.15
   #   container_name: sonarr-4k
   #   restart: unless-stopped
   #   logging: *default-logging
@@ -192,7 +192,7 @@ services:
   #     - ${MEDIA_PATH}:/data
 
   radarr:
-    image: linuxserver/radarr:5.26.2
+    image: ghcr.io/linuxserver/radarr:5.26.2
     container_name: radarr
     restart: unless-stopped
     logging: *default-logging
@@ -211,7 +211,7 @@ services:
       - ${MEDIA_PATH}:/data
 
   radarr-4k:
-    image: linuxserver/radarr:5.26.2
+    image: ghcr.io/linuxserver/radarr:5.26.2
     container_name: radarr-4k
     restart: unless-stopped
     logging: *default-logging
@@ -230,7 +230,7 @@ services:
       - ${MEDIA_PATH}:/data
 
   lidarr:
-    image: linuxserver/lidarr:2.12.4
+    image: ghcr.io/linuxserver/lidarr:2.12.4
     container_name: lidarr
     restart: unless-stopped
     logging: *default-logging
@@ -249,7 +249,7 @@ services:
       - ${MEDIA_PATH}:/data
 
   readarr:
-    image: linuxserver/readarr:0.4.18-develop
+    image: ghcr.io/linuxserver/readarr:0.4.18-develop
     container_name: readarr
     restart: unless-stopped
     logging: *default-logging
@@ -268,7 +268,7 @@ services:
       - ${MEDIA_PATH}:/data
 
   speakarr:
-    image: linuxserver/readarr:0.4.18-develop
+    image: ghcr.io/linuxserver/readarr:0.4.18-develop
     container_name: speakarr
     restart: unless-stopped
     logging: *default-logging
@@ -326,7 +326,7 @@ services:
       - arr_network
 
   qbittorrent:
-    image: linuxserver/qbittorrent:5.1.2
+    image: ghcr.io/linuxserver/qbittorrent:5.1.2
     container_name: qbittorrent
     restart: unless-stopped
     logging: *default-logging

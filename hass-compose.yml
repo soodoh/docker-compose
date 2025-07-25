@@ -23,7 +23,7 @@ services:
     network_mode: host
 
   zwave:
-    image: zwavejs/zwave-js-ui:10.10
+    image: ghcr.io/zwave-js/zwave-js-ui:10.10
     container_name: zwave
     restart: always
     logging: *default-logging
