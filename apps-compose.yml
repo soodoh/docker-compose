@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   jellyfin:
-    image: jellyfin/jellyfin:10.11.0-rc3
+    image: ghcr.io/jellyfin/jellyfin:10.11.0-rc3
     container_name: jellyfin
     restart: unless-stopped
     logging: *default-logging
@@ -44,7 +44,7 @@ services:
       - proxy
 
   calibre:
-    image: linuxserver/calibre:8.7.0
+    image: ghcr.io/linuxserver/calibre:8.7.0
     container_name: calibre
     restart: unless-stopped
     logging: *default-logging
@@ -64,7 +64,7 @@ services:
         ipv4_address: 172.23.0.99
 
   calibre-web:
-    image: linuxserver/calibre-web:0.6.24
+    image: ghcr.io/linuxserver/calibre-web:0.6.24
     container_name: calibre-web
     restart: unless-stopped
     logging: *default-logging
@@ -81,7 +81,7 @@ services:
       - proxy
 
   komga:
-    image: gotson/komga:1.22.1
+    image: ghcr.io/gotson/komga:1.22.1
     container_name: komga
     restart: unless-stopped
     logging: *default-logging
