@@ -326,7 +326,7 @@ services:
       - arr_network
 
   qbittorrent:
-    image: ghcr.io/linuxserver/qbittorrent:5.1.2
+    image: ghcr.io/linuxserver/qbittorrent:14.3.9
     container_name: qbittorrent
     restart: unless-stopped
     logging: *default-logging
