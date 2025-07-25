@@ -12,8 +12,17 @@
       "matchPackageNames": [
         "postgres"
       ],
-      "matchCurrentVersion": "!/^16-alpine$/",
       "enabled": false
+    },
+    {
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "linuxserver/qbittorrent"
+      ],
+      "allowedVersions": "!/^20\\./",
+      "enabled": true
     }
   ],
   "docker-compose": {
