@@ -19,7 +19,7 @@
         "docker"
       ],
       "matchPackageNames": [
-        "linuxserver/qbittorrent"
+        "/linuxserver/qbittorrent/"
       ],
       "allowedVersions": "!/^20\\./",
       "enabled": true
