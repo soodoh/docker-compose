@@ -75,7 +75,7 @@ services:
 
   tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.0.1864
+    image: ghcr.io/suwayomi/tachidesk:v2.1.1874
     container_name: tachidesk
     restart: unless-stopped
     logging: *default-logging
