@@ -6,6 +6,13 @@
   ],
   "packageRules": [
     {
+      "matchDepTypes": [
+        "dependencies",
+        "devDependencies"
+      ],
+      "rangeStrategy": "bump"
+    },
+    {
       "matchDatasources": [
         "docker"
       ],
