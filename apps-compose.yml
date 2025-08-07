@@ -80,18 +80,18 @@ services:
     networks:
       - proxy
 
-  komga:
-    image: ghcr.io/gotson/komga:1.23.1
-    container_name: komga
-    restart: unless-stopped
-    logging: *default-logging
-    user: "1000:1000"
-    volumes:
-      - ${VOLUME_PATH}/tachidesk/downloads/mangas:/comics
-      - ${MEDIA_PATH}/books:/books
-      - ${VOLUME_PATH}/komga:/config
-    networks:
-      - proxy
+  # komga:
+  #   image: ghcr.io/gotson/komga:1.23.1
+  #   container_name: komga
+  #   restart: unless-stopped
+  #   logging: *default-logging
+  #   user: "1000:1000"
+  #   volumes:
+  #     - ${VOLUME_PATH}/tachidesk/downloads/mangas:/comics
+  #     - ${MEDIA_PATH}/books:/books
+  #     - komga-data:/config
+  #   networks:
+  #     - proxy
 
   karaoke-eternal:
     image: radrootllc/karaoke-eternal:latest
@@ -103,3 +103,6 @@ services:
       - ${MEDIA_PATH}/karaoke:/mnt/karaoke
     networks:
       - proxy
+
+volumes:
+  komga-data:
