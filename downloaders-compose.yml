@@ -63,7 +63,7 @@ services:
       - arr_network
 
   seedboxapi:
-    image: myanonamouse/seedboxapi:20250413-0519
+    image: ghcr.io/sudopseudocode/seedboxapi:v0.1.1
     user: 1000:1000 # Run as a non-root user.
     container_name: seedboxapi
     network_mode: "service:gluetun"
