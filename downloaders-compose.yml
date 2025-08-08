@@ -18,20 +18,6 @@ services:
     labels:
       docker-volume-backup.stop-during-backup: true
 
-  ofelia:
-    image: mcuadros/ofelia:v3.0.8
-    container_name: ofelia
-    restart: unless-stopped
-    logging: *default-logging
-    depends_on:
-      gluetun:
-        condition: service_healthy
-    command: daemon --docker
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - arr_network
-
   gluetun:
     image: qmcgaw/gluetun:v3.40.0
     container_name: gluetun
@@ -45,11 +31,7 @@ services:
     volumes:
       - ${VOLUME_PATH}/gluetun/config:/gluetun
       - ${VOLUME_PATH}/gluetun/info:/tmp/gluetun
-      - ./scripts/update_port.sh:/scripts/port.sh:ro
-    labels:
-      ofelia.enabled: "true"
-      ofelia.job-exec.update-port.schedule: "@every 10m"
-      ofelia.job-exec.update-port.command: "sh /scripts/port.sh"
+      - ./scripts/gluetun:/scripts:ro
     environment:
       TZ: $TZ
       VPN_SERVICE_PROVIDER: $VPN_SERVICE_PROVIDER
@@ -58,20 +40,10 @@ services:
       OPENVPN_PASSWORD: $OPENVPN_PASSWORD
       VPN_PORT_FORWARDING: $VPN_PORT_FORWARDING
       VPN_PORT_FORWARDING_PROVIDER: $VPN_SERVICE_PROVIDER
+      VPN_PORT_FORWARDING_UP_COMMAND: /bin/sh /scripts/gluetun_up.sh
     networks:
       - proxy
       - arr_network
-
-  seedboxapi:
-    image: ghcr.io/sudopseudocode/seedboxapi:v0.1.1
-    user: 1000:1000 # Run as a non-root user.
-    container_name: seedboxapi
-    network_mode: "service:gluetun"
-    volumes:
-      - ${VOLUME_PATH}/seedboxapi:/config
-    environment:
-      mam_id: $MAM_ID
-      interval: 1
 
   tachidesk:
     # Same image on Dockerhub is outdated
