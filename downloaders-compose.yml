@@ -45,7 +45,7 @@ services:
     volumes:
       - ${VOLUME_PATH}/gluetun/config:/gluetun
       - ${VOLUME_PATH}/gluetun/info:/tmp/gluetun
-      - ../scripts/update_port.sh:/scripts/port.sh:ro
+      - ./scripts/update_port.sh:/scripts/port.sh:ro
     labels:
       ofelia.enabled: "true"
       ofelia.job-exec.update-port.schedule: "@every 10m"
