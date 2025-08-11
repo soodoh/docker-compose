@@ -10,7 +10,7 @@ services:
     container_name: jellyseerr
     restart: unless-stopped
     logging: *default-logging
-    network_mode: "service:gluetun"
+    network_mode: service:gluetun
     environment:
       TZ: $TZ
     volumes:
@@ -34,6 +34,8 @@ services:
       - ./scripts/gluetun:/scripts:ro
     environment:
       TZ: $TZ
+      # Needed to maintain consistent ASN for MAM session
+      SERVER_COUNTRIES: United States
       VPN_SERVICE_PROVIDER: $VPN_SERVICE_PROVIDER
       VPN_TYPE: $VPN_TYPE
       OPENVPN_USER: $OPENVPN_USER
@@ -44,6 +46,17 @@ services:
     networks:
       - proxy
       - arr_network
+
+  # seedboxapi:
+  #   image: ghcr.io/sudopseudocode/seedboxapi:v0.1.2
+  #   user: 1000:1000 # Run as a non-root user.
+  #   container_name: seedboxapi
+  #   network_mode: service:gluetun
+  #   volumes:
+  #     - ${VOLUME_PATH}/seedboxapi:/config
+  #   environment:
+  #     mam_id: $MAM_ID
+  #     interval: 1
 
   tachidesk:
     # Same image on Dockerhub is outdated
@@ -90,7 +103,6 @@ services:
       - no-new-privileges:true
     environment:
       TZ: $TZ
-      network_mode: service:gluetun
 
   prowlarr:
     image: ghcr.io/linuxserver/prowlarr:2.0.2-develop
