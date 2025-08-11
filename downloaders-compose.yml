@@ -47,17 +47,6 @@ services:
       - proxy
       - arr_network
 
-  # seedboxapi:
-  #   image: ghcr.io/sudopseudocode/seedboxapi:v0.1.2
-  #   user: 1000:1000 # Run as a non-root user.
-  #   container_name: seedboxapi
-  #   network_mode: service:gluetun
-  #   volumes:
-  #     - ${VOLUME_PATH}/seedboxapi:/config
-  #   environment:
-  #     mam_id: $MAM_ID
-  #     interval: 1
-
   tachidesk:
     # Same image on Dockerhub is outdated
     image: ghcr.io/suwayomi/tachidesk:v2.1.1876
