@@ -202,9 +202,10 @@ services:
       - ${VOLUME_PATH}/radarr-4k:/config
       - ${MEDIA_PATH}:/data
 
-  readarr:
-    image: ghcr.io/linuxserver/readarr:0.4.18-develop
-    container_name: readarr
+  # Readarr replacement
+  bookshelf:
+    image: ghcr.io/pennydreadful/bookshelf:hardcover-v0.4.19
+    container_name: bookshelf
     restart: unless-stopped
     logging: *default-logging
     network_mode: service:gluetun
@@ -218,26 +219,7 @@ services:
       READARR__AUTH__APIKEY: $READARR_API_KEY
       READARR__SERVER__PORT: 8787
     volumes:
-      - ${VOLUME_PATH}/readarr:/config
-      - ${MEDIA_PATH}:/data
-
-  speakarr:
-    image: ghcr.io/linuxserver/readarr:0.4.18-develop
-    container_name: speakarr
-    restart: unless-stopped
-    logging: *default-logging
-    network_mode: service:gluetun
-    depends_on:
-      gluetun:
-        condition: service_healthy
-    environment:
-      TZ: $TZ
-      PUID: 1000
-      PGID: 1000
-      READARR__AUTH__APIKEY: $SPEAKARR_API_KEY
-      READARR__SERVER__PORT: 8788
-    volumes:
-      - ${VOLUME_PATH}/speakarr:/config
+      - ${VOLUME_PATH}/bookshelf:/config
       - ${MEDIA_PATH}:/data
 
   unpackerr:
