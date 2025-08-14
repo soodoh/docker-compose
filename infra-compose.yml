@@ -92,6 +92,27 @@ services:
       BACKUP_PRUNING_PREFIX: backup-
       BACKUP_RETENTION_DAYS: 5
     volumes:
+      - jellyfin-data:/backup/jellyfin-data:ro
+      - audiobookshelf-data:/backup/audiobookshelf-data:ro
+      - calibre-data:/backup/calibre-data:ro
+      - calibre-web-data:/backup/calibre-web-data:ro
+      - karaoke-eternal-data:/backup/karaoke-eternal-data:ro
+      - hass-data:/backup/hass-data:ro
+      - zwave-data:/backup/zwave-data:ro
+      - mosquitto-data:/backup/mosquitto-data:ro
+      - frigate-data:/backup/frigate-data:ro
+      - jellyseer-data:/backup/jellyseer-data:ro
+      - gluetun-data:/backup/gluetun-data:ro
+      - tachidesk-data:/backup/tachidesk-data:ro
+      - prowlarr-data:/backup/prowlarr-data:ro
+      - recyclarr-data:/backup/recyclarr-data:ro
+      - sonarr-data:/backup/sonarr-data:ro
+      - radarr-data:/backup/radarr-data:ro
+      - radarr-4k-data:/backup/radarr-4k-data:ro
+      - bookshelf-data:/backup/bookshelf-data:ro
+      - qbittorrent-data:/backup/qbittorrent-data:ro
+      - authentik-data:/backup/authentik-data:ro
+      - nextcloud-db-data:/backup/nextcloud-db-data:ro
       - ${VOLUME_PATH}:/backup/all-volumes:ro
       - .env:/backup/.env:ro
       - .authentik.env:/backup/.authentik.env:ro
@@ -119,6 +140,11 @@ services:
       AWS_ACCESS_KEY_ID: $S3_ACCESS_KEY
       AWS_SECRET_ACCESS_KEY: $S3_SECRET_KEY
     volumes:
+      - jellyfin-data:/backup/jellyfin-data:ro
+      - audiobookshelf-data:/backup/audiobookshelf-data:ro
+      - calibre-data:/backup/calibre-data:ro
+      - calibre-web-data:/backup/calibre-web-data:ro
+      - karaoke-eternal-data:/backup/karaoke-eternal-data:ro
       - ${VOLUME_PATH}:/backup/all-volumes:ro
       - .env:/backup/.env:ro
       - .authentik.env:/backup/.authentik.env:ro

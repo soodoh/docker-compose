@@ -15,8 +15,16 @@ services:
     ports:
       - 8096:8096
     volumes:
-      - ${VOLUME_PATH}/jellyfin/config:/config
-      - ${VOLUME_PATH}/jellyfin/cache:/cache
+      - type: volume
+        source: jellyfin-data
+        target: /config
+        volume:
+          subpath: config
+      - type: volume
+        source: jellyfin-data
+        target: /cache
+        volume:
+          subpath: cache
       - ${MEDIA_PATH}/tv_shows:/tv_shows
       - ${MEDIA_PATH}/movies:/movies
       - ${MEDIA_PATH}/anime:/anime
@@ -38,8 +46,16 @@ services:
       docker-volume-backup.stop-during-backup: true
     volumes:
       - ${MEDIA_PATH}/books:/books
-      - ${VOLUME_PATH}/audiobookshelf/config:/config
-      - ${VOLUME_PATH}/audiobookshelf/metadata:/metadata
+      - type: volume
+        source: audiobookshelf-data
+        target: /config
+        volume:
+          subpath: config
+      - type: volume
+        source: audiobookshelf-data
+        target: /metadata
+        volume:
+          subpath: metadata
     networks:
       - proxy
 
@@ -55,8 +71,16 @@ services:
     labels:
       docker-volume-backup.stop-during-backup: true
     volumes:
-      - ${VOLUME_PATH}/calibre/config:/config
-      - ${VOLUME_PATH}/calibre/plugins:/plugins
+      - type: volume
+        source: calibre-data
+        target: /config
+        volume:
+          subpath: config
+      - type: volume
+        source: calibre-data
+        target: /plugins
+        volume:
+          subpath: plugins
       - ${MEDIA_PATH}/books:/data/books
       - ${MEDIA_PATH}/downloads:/data/downloads
     networks:
@@ -75,7 +99,7 @@ services:
       DOCKER_MODS: linuxserver/mods:universal-calibre #optional
       OAUTHLIB_RELAX_TOKEN_SCOPE: 1 #optional
     volumes:
-      - ${VOLUME_PATH}/calibre-web:/config
+      - calibre-web-data:/config
       - ${MEDIA_PATH}/books:/books
     networks:
       - proxy
@@ -99,10 +123,15 @@ services:
     restart: unless-stopped
     logging: *default-logging
     volumes:
-      - ${VOLUME_PATH}/karaoke-eternal/config:/config
+      - karaoke-eternal-data:/config
       - ${MEDIA_PATH}/karaoke:/mnt/karaoke
     networks:
       - proxy
 
 volumes:
   komga-data:
+  jellyfin-data:
+  audiobookshelf-data:
+  calibre-data:
+  calibre-web-data:
+  karaoke-eternal-data:
