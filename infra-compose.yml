@@ -20,8 +20,16 @@ services:
     environment:
       TZ: $TZ
     volumes:
-      - ${VOLUME_PATH}/omada/data:/opt/tplink/EAPController/data
-      - ${VOLUME_PATH}/omada/logs:/opt/tplink/EAPController/logs
+      - type: volume
+        source: omada-data
+        target: /opt/tplink/EAPController/data
+        volume:
+          subpath: data
+      - type: volume
+        source: omada-data
+        target: /opt/tplink/EAPController/logs
+        volume:
+          subpath: logs
     labels:
       docker-volume-backup.stop-during-backup: true
     networks:
@@ -33,7 +41,7 @@ services:
     restart: always
     logging: *default-logging
     volumes:
-      - ${VOLUME_PATH}/ddns-updater:/updater/data
+      - ddns-updater-data:/updater/data
     environment:
       TZ: $TZ
       # See: https://pkg.go.dev/time#ParseDuration
@@ -57,30 +65,10 @@ services:
     environment:
       TZ: $TZ
     volumes:
-      - ${VOLUME_PATH}/wger/static:/wger/static
-      - ${VOLUME_PATH}/wger/media:/wger/media
-      - ${VOLUME_PATH}/caddy/data:/data/caddy
-      - ${VOLUME_PATH}/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data/caddy
+      - ./Caddyfile:/etc/caddy/Caddyfile
     networks:
       - proxy
-
-  # pihole:
-  #   image: pihole/pihole:2025.06.2
-  #   container_name: pihole
-  #   restart: always
-  #   logging: *default-logging
-  #   ports:
-  #     - 53:53/tcp
-  #     - 53:53/udp
-  #     - 81:80
-  #   environment:
-  #     TZ: $TZ
-  #     DNSMASQ_USER: pihole
-  #   volumes:
-  #     - ${VOLUME_PATH}/pihole/dnsmasq.d:/etc/dnsmasq.d
-  #     - ${VOLUME_PATH}/pihole/config:/etc/pihole
-  #   networks:
-  #     - proxy
 
   daily-local-backup:
     image: ghcr.io/offen/docker-volume-backup:v2.44.0
@@ -92,28 +80,32 @@ services:
       BACKUP_PRUNING_PREFIX: backup-
       BACKUP_RETENTION_DAYS: 5
     volumes:
-      - jellyfin-data:/backup/jellyfin-data:ro
+      # Docker Volumes
       - audiobookshelf-data:/backup/audiobookshelf-data:ro
+      - authentik-data:/backup/authentik-data:ro
+      - bookshelf-data:/backup/bookshelf-data:ro
+      - caddy-data:/backup/caddy-data:ro
       - calibre-data:/backup/calibre-data:ro
       - calibre-web-data:/backup/calibre-web-data:ro
-      - karaoke-eternal-data:/backup/karaoke-eternal-data:ro
-      - hass-data:/backup/hass-data:ro
-      - zwave-data:/backup/zwave-data:ro
-      - mosquitto-data:/backup/mosquitto-data:ro
+      - ddns-updater-data:/backup/ddns-updater-data:ro
       - frigate-data:/backup/frigate-data:ro
-      - jellyseer-data:/backup/jellyseer-data:ro
       - gluetun-data:/backup/gluetun-data:ro
-      - tachidesk-data:/backup/tachidesk-data:ro
+      - hass-data:/backup/hass-data:ro
+      - jellyfin-data:/backup/jellyfin-data:ro
+      - jellyseer-data:/backup/jellyseer-data:ro
+      - karaoke-eternal-data:/backup/karaoke-eternal-data:ro
+      - mosquitto-data:/backup/mosquitto-data:ro
+      - nextcloud-db-data:/backup/nextcloud-db-data:ro
+      - omada-data:/backup/omada-data:ro
       - prowlarr-data:/backup/prowlarr-data:ro
+      - qbittorrent-data:/backup/qbittorrent-data:ro
+      - radarr-4k-data:/backup/radarr-4k-data:ro
+      - radarr-data:/backup/radarr-data:ro
       - recyclarr-data:/backup/recyclarr-data:ro
       - sonarr-data:/backup/sonarr-data:ro
-      - radarr-data:/backup/radarr-data:ro
-      - radarr-4k-data:/backup/radarr-4k-data:ro
-      - bookshelf-data:/backup/bookshelf-data:ro
-      - qbittorrent-data:/backup/qbittorrent-data:ro
-      - authentik-data:/backup/authentik-data:ro
-      - nextcloud-db-data:/backup/nextcloud-db-data:ro
-      - ${VOLUME_PATH}:/backup/all-volumes:ro
+      - tachidesk-data:/backup/tachidesk-data:ro
+      - zwave-data:/backup/zwave-data:ro
+      # Other files
       - .env:/backup/.env:ro
       - .authentik.env:/backup/.authentik.env:ro
       - ${HOME}/.ssh:/backup/.ssh:ro
@@ -140,12 +132,32 @@ services:
       AWS_ACCESS_KEY_ID: $S3_ACCESS_KEY
       AWS_SECRET_ACCESS_KEY: $S3_SECRET_KEY
     volumes:
-      - jellyfin-data:/backup/jellyfin-data:ro
+      # Docker Volumes
       - audiobookshelf-data:/backup/audiobookshelf-data:ro
+      - authentik-data:/backup/authentik-data:ro
+      - bookshelf-data:/backup/bookshelf-data:ro
+      - caddy-data:/backup/caddy-data:ro
       - calibre-data:/backup/calibre-data:ro
       - calibre-web-data:/backup/calibre-web-data:ro
+      - ddns-updater-data:/backup/ddns-updater-data:ro
+      - frigate-data:/backup/frigate-data:ro
+      - gluetun-data:/backup/gluetun-data:ro
+      - hass-data:/backup/hass-data:ro
+      - jellyfin-data:/backup/jellyfin-data:ro
+      - jellyseer-data:/backup/jellyseer-data:ro
       - karaoke-eternal-data:/backup/karaoke-eternal-data:ro
-      - ${VOLUME_PATH}:/backup/all-volumes:ro
+      - mosquitto-data:/backup/mosquitto-data:ro
+      - nextcloud-db-data:/backup/nextcloud-db-data:ro
+      - omada-data:/backup/omada-data:ro
+      - prowlarr-data:/backup/prowlarr-data:ro
+      - qbittorrent-data:/backup/qbittorrent-data:ro
+      - radarr-4k-data:/backup/radarr-4k-data:ro
+      - radarr-data:/backup/radarr-data:ro
+      - recyclarr-data:/backup/recyclarr-data:ro
+      - sonarr-data:/backup/sonarr-data:ro
+      - tachidesk-data:/backup/tachidesk-data:ro
+      - zwave-data:/backup/zwave-data:ro
+      # Other files
       - .env:/backup/.env:ro
       - .authentik.env:/backup/.authentik.env:ro
       - ${HOME}/.ssh:/backup/.ssh:ro
@@ -156,6 +168,11 @@ services:
       - /etc/localtime:/etc/localtime:ro
     networks:
       - infra
+
+volumes:
+  omada-data:
+  caddy-data:
+  ddns-updater-data:
 
 networks:
   infra:
