@@ -77,6 +77,7 @@ services:
       FLARESOLVERR_URL: http://gluetun:8191
     volumes:
       - tachidesk-data:/home/suwayomi/.local/share/Tachidesk
+      - ${MEDIA_PATH}/tachidesk:/home/suwayomi/.local/share/Tachidesk/downloads
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:v3.3.25
