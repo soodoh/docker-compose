@@ -16,7 +16,7 @@ services:
     devices:
       - /dev/ttyUSB0:/dev/zigbee
     volumes:
-      - ${VOLUME_PATH}/hass/hass:/config
+      - hass-data:/config
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
     # Must use Host network for Homekit bridge, as it uses mDNS
@@ -32,7 +32,7 @@ services:
     devices:
       - /dev/ttyUSB1:/dev/zwave
     volumes:
-      - ${VOLUME_PATH}/hass/zwave-js-ui:/usr/src/app/store
+      - zwave-data:/usr/src/app/store
     environment:
       TZ: $TZ
       SESSION_SECRET: $ZWAVE_SECRET
@@ -53,8 +53,7 @@ services:
     environment:
       TZ: $TZ
     volumes:
-      - ${VOLUME_PATH}/hass/moquitto/data:/mosquitto/data
-      - ${VOLUME_PATH}/hass/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto-data:/mosquitto
     ports:
       # HA is on host network, so explicit port mapping is needed
       - 1883:1883
@@ -97,7 +96,7 @@ services:
       FRIGATE_BACK_STUDIO: $FRIGATE_BACK_STUDIO
       FRIGATE_BACK_STUDIO_PW: $FRIGATE_BACK_STUDIO_PW
     volumes:
-      - ${VOLUME_PATH}/frigate:/config
+      - frigate-data:/config
       - ${MEDIA_PATH}/frigate:/media/frigate
       - type: tmpfs
         target: /tmp/cache
@@ -113,6 +112,12 @@ services:
     networks:
       - hass
       - proxy
+
+volumes:
+  hass-data:
+  zwave-data:
+  mosquitto-data:
+  frigate-data:
 
 networks:
   hass:

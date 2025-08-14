@@ -14,7 +14,7 @@ services:
     environment:
       TZ: $TZ
     volumes:
-      - ${VOLUME_PATH}/jellyseerr:/app/config
+      - jellyseer-data:/app/config
     labels:
       docker-volume-backup.stop-during-backup: true
 
@@ -29,8 +29,7 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - ${VOLUME_PATH}/gluetun/config:/gluetun
-      - ${VOLUME_PATH}/gluetun/info:/tmp/gluetun
+      - gluetun-data:/gluetun
       - ./scripts/gluetun:/scripts:ro
     environment:
       TZ: $TZ
@@ -77,7 +76,7 @@ services:
       FLARESOLVERR_ENABLED: true
       FLARESOLVERR_URL: http://gluetun:8191
     volumes:
-      - ${VOLUME_PATH}/tachidesk:/home/suwayomi/.local/share/Tachidesk
+      - tachidesk-data:/home/suwayomi/.local/share/Tachidesk
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:v3.3.25
@@ -107,7 +106,7 @@ services:
       PUID: 1000
       PGID: 1000
     volumes:
-      - ${VOLUME_PATH}/prowlarr:/config
+      - prowlarr-data:/config
 
   recyclarr:
     image: ghcr.io/recyclarr/recyclarr:7.4.1
@@ -116,7 +115,7 @@ services:
     networks:
       - arr_network
     volumes:
-      - ${VOLUME_PATH}/recyclarr:/config
+      - recyclarr-data:/config
     environment:
       TZ: $TZ
       SONARR_URL: $SONARR_URL
@@ -142,27 +141,8 @@ services:
       SONARR__AUTH__APIKEY: $SONARR_API_KEY
       SONARR__SERVER__PORT: 8989
     volumes:
-      - ${VOLUME_PATH}/sonarr:/config
+      - sonarr-data:/config
       - ${MEDIA_PATH}:/data
-
-  # sonarr-4k:
-  #   image: ghcr.io/linuxserver/sonarr:4.0.15
-  #   container_name: sonarr-4k
-  #   restart: unless-stopped
-  #   logging: *default-logging
-  #   network_mode: service:gluetun
-  #   depends_on:
-  #     gluetun:
-  #       condition: service_healthy
-  #   environment:
-  #     TZ: $TZ
-  #     PUID: 1000
-  #     PGID: 1000
-  #     SONARR__AUTH__APIKEY: $SONARR_4k_API_KEY
-  #     SONARR__SERVER__PORT: 8990
-  #   volumes:
-  #     - ${VOLUME_PATH}/sonarr-4k:/config
-  #     - ${MEDIA_PATH}:/data
 
   radarr:
     image: ghcr.io/linuxserver/radarr:5.26.2
@@ -180,7 +160,7 @@ services:
       RADARR__AUTH__APIKEY: $RADARR_API_KEY
       RADARR__SERVER__PORT: 7878
     volumes:
-      - ${VOLUME_PATH}/radarr:/config
+      - radarr-data:/config
       - ${MEDIA_PATH}:/data
 
   radarr-4k:
@@ -199,7 +179,7 @@ services:
       RADARR__AUTH__APIKEY: $RADARR_4K_API_KEY
       RADARR__SERVER__PORT: 7879
     volumes:
-      - ${VOLUME_PATH}/radarr-4k:/config
+      - radarr-4k-data:/config
       - ${MEDIA_PATH}:/data
 
   # Readarr replacement
@@ -219,7 +199,7 @@ services:
       READARR__AUTH__APIKEY: $READARR_API_KEY
       READARR__SERVER__PORT: 8787
     volumes:
-      - ${VOLUME_PATH}/bookshelf:/config
+      - bookshelf-data:/config
       - ${MEDIA_PATH}:/data
 
   unpackerr:
@@ -244,18 +224,6 @@ services:
       UN_READARR_1_URL: $SPEAKARR_URL
       UN_READARR_1_API_KEY: $SPEAKARR_API_KEY
       UN_READARR_1_PATHS_0: /data/downloads/complete
-      UN_LIDARR_0_URL: $LIDARR_URL
-      UN_LIDARR_0_API_KEY: $LIDARR_API_KEY
-      UN_LIDARR_0_PATHS_0: /data/downloads/complete
-      ## Watch Folders
-      # UN_FOLDER_0_PATH: /data/downloads/complete
-      # UN_FOLDER_0_DISABLE_RECURSION: false
-      # UN_FOLDER_0_DELETE_FILES: false # Do not delete after successful extraction
-      # UN_FOLDER_0_DELETE_AFTER: 1h
-      # UN_FOLDER_0_DELETE_ORIGINAL: false
-      # UN_FOLDER_0_DISABLE_LOG: false
-      # UN_FOLDER_0_MOVE_BACK: true # Move extracted items back to original folder
-      # UN_FOLDER_0_EXTRACT_ISOS: false
     volumes:
       - ${MEDIA_PATH}/downloads:/data/downloads
     networks:
@@ -275,9 +243,23 @@ services:
       PGID: 1000
       TZ: $TZ
     volumes:
-      - ${VOLUME_PATH}/qbittorrent/config:/config
+      - qbittorrent-data:/config
+      # TODO move this one elsewhere
       - ${VOLUME_PATH}/qbittorrent/vuetorrent:/vuetorrent
       - ${MEDIA_PATH}/downloads:/data/downloads
+
+volumes:
+  jellyseer-data:
+  gluetun-data:
+  tachidesk-data:
+  prowlarr-data:
+  recyclarr-data:
+  sonarr-data:
+  radarr-data:
+  radarr-4k-data:
+  bookshelf-data:
+  qbittorrent-data:
+
 
 networks:
   arr_network:

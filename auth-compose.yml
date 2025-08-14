@@ -17,7 +17,11 @@ services:
       retries: 5
       timeout: 5s
     volumes:
-      - ${VOLUME_PATH}/authentik/postgresql:/var/lib/postgresql/data
+      - type: volume
+        source: authentik-data
+        target: /var/lib/postgresql/data
+        volume:
+          subpath: postgresql
     labels:
       docker-volume-backup.stop-during-backup: true
     env_file:
@@ -38,7 +42,11 @@ services:
       retries: 5
       timeout: 3s
     volumes:
-      - ${VOLUME_PATH}/authentik/redis:/data
+      - type: volume
+        source: authentik-data
+        target: /data
+        volume:
+          subpath: redis
     labels:
       docker-volume-backup.stop-during-backup: true
     networks:
@@ -53,8 +61,16 @@ services:
     env_file:
       - .authentik.env
     volumes:
-      - ${VOLUME_PATH}/authentik/media:/media
-      - ${VOLUME_PATH}/authentik/custom-templates:/templates
+      - type: volume
+        source: authentik-data
+        target: /media
+        volume:
+          subpath: media
+      - type: volume
+        source: authentik-data
+        target: /templates
+        volume:
+          subpath: custom-templates
     depends_on:
       - postgres
       - redis
@@ -77,16 +93,35 @@ services:
       docker-volume-backup.stop-during-backup: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${VOLUME_PATH}/authentik/media:/media
-      - ${VOLUME_PATH}/authentik/certs/live:/certs
-      - ${VOLUME_PATH}/authentik/certs/archive:/archive
-      - ${VOLUME_PATH}/authentik/custom-templates:/templates
+      - type: volume
+        source: authentik-data
+        target: /media
+        volume:
+          subpath: media
+      - type: volume
+        source: authentik-data
+        target: /certs
+        volume:
+          subpath: certs/live
+      - type: volume
+        source: authentik-data
+        target: /archive
+        volume:
+          subpath: certs/archive
+      - type: volume
+        source: authentik-data
+        target: /templates
+        volume:
+          subpath: custom-templates
     depends_on:
       - postgres
       - redis
     networks:
       - authentik
       - proxy
+
+volumes:
+  authentik-data:
 
 networks:
   authentik:
