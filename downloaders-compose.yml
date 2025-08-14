@@ -108,6 +108,8 @@ services:
       PGID: 1000
     volumes:
       - prowlarr-data:/config
+    labels:
+      docker-volume-backup.stop-during-backup: true
 
   recyclarr:
     image: ghcr.io/recyclarr/recyclarr:7.4.1
@@ -125,6 +127,8 @@ services:
       RADARR_API_KEY: $RADARR_API_KEY
       RADARR_4K_URL: $RADARR_4K_URL
       RADARR_4K_API_KEY: $RADARR_4K_API_KEY
+    labels:
+      docker-volume-backup.stop-during-backup: true
 
   sonarr:
     image: ghcr.io/linuxserver/sonarr:4.0.15
@@ -144,6 +148,8 @@ services:
     volumes:
       - sonarr-data:/config
       - ${MEDIA_PATH}:/data
+    labels:
+      docker-volume-backup.stop-during-backup: true
 
   radarr:
     image: ghcr.io/linuxserver/radarr:5.26.2
@@ -163,6 +169,8 @@ services:
     volumes:
       - radarr-data:/config
       - ${MEDIA_PATH}:/data
+    labels:
+      docker-volume-backup.stop-during-backup: true
 
   radarr-4k:
     image: ghcr.io/linuxserver/radarr:5.26.2
@@ -182,6 +190,8 @@ services:
     volumes:
       - radarr-4k-data:/config
       - ${MEDIA_PATH}:/data
+    labels:
+      docker-volume-backup.stop-during-backup: true
 
   # Readarr replacement
   bookshelf:
@@ -202,6 +212,8 @@ services:
     volumes:
       - bookshelf-data:/config
       - ${MEDIA_PATH}:/data
+    labels:
+      docker-volume-backup.stop-during-backup: true
 
   unpackerr:
     image: golift/unpackerr:0.14.5
@@ -247,6 +259,8 @@ services:
       - qbittorrent-data:/config
       - ${VUETORRENT_PATH}:/vuetorrent
       - ${MEDIA_PATH}/downloads:/data/downloads
+    labels:
+      docker-volume-backup.stop-during-backup: true
 
 volumes:
   jellyseer-data:
