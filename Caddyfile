@@ -1,0 +1,42 @@
+auth.pauld.link,
+calibre.pauld.link,
+comics.pauld.link,
+ddns.pauld.link,
+frigate.pauld.link,
+hass.pauld.link,
+jellyseerr.pauld.link,
+omada.pauld.link,
+prowlarr.pauld.link,
+proxmox.pauld.link,
+qb.pauld.link,
+radarr-4k.pauld.link,
+radarr.pauld.link,
+readarr.pauld.link,
+sonarr-4k.pauld.link,
+sonarr.pauld.link,
+zwave.pauld.link {
+  reverse_proxy authentik-server:9000
+}
+
+watch.pauld.link {
+  reverse_proxy jellyfin:8096
+}
+
+audiobookshelf.pauld.link {
+  reverse_proxy audiobookshelf:80
+}
+
+calibre-web.pauld.link {
+  reverse_proxy calibre-web:8083 {
+    header_up X-Scheme {http.request.scheme}
+  }
+}
+
+nextcloud.pauld.link {
+  reverse_proxy nextcloud:80
+}
+
+karaoke.pauld.link {
+  @local remote_ip 192.168.0.0/24
+  reverse_proxy @local karaoke-eternal:8080
+}

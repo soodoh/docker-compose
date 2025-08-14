@@ -244,8 +244,7 @@ services:
       TZ: $TZ
     volumes:
       - qbittorrent-data:/config
-      # TODO move this one elsewhere
-      - ${VOLUME_PATH}/qbittorrent/vuetorrent:/vuetorrent
+      - ${VUETORRENT_PATH}:/vuetorrent
       - ${MEDIA_PATH}/downloads:/data/downloads
 
 volumes:
