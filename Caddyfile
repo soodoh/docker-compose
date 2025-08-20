@@ -1,3 +1,7 @@
+{
+  debug
+}
+
 auth.pauld.link,
 calibre.pauld.link,
 comics.pauld.link,
@@ -5,6 +9,7 @@ ddns.pauld.link,
 frigate.pauld.link,
 hass.pauld.link,
 jellyseerr.pauld.link,
+karaoke.pauld.link,
 omada.pauld.link,
 prowlarr.pauld.link,
 proxmox.pauld.link,
@@ -34,9 +39,4 @@ calibre-web.pauld.link {
 
 nextcloud.pauld.link {
   reverse_proxy nextcloud:80
-}
-
-karaoke.pauld.link {
-  @local remote_ip 192.168.0.0/24
-  reverse_proxy @local karaoke-eternal:8080
 }
