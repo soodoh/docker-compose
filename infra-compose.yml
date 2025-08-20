@@ -76,7 +76,7 @@ services:
     logging: *default-logging
     user: 1000:1000
     environment:
-      BACKUP_CRON_EXPRESSION: "0 5 * * 1,3,5" # M/W/F at 5AM
+      BACKUP_CRON_EXPRESSION: "0 6 * * *" # Every day at 6AM
       BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
       BACKUP_PRUNING_PREFIX: backup-
       BACKUP_RETENTION_DAYS: 5
