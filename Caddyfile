@@ -6,6 +6,7 @@ frigate.pauld.link,
 hass.pauld.link,
 jellyseerr.pauld.link,
 omada.pauld.link,
+pihole.pauld.link,
 prowlarr.pauld.link,
 proxmox.pauld.link,
 qb.pauld.link,
@@ -36,14 +37,18 @@ nextcloud.pauld.link {
   reverse_proxy nextcloud:80
 }
 
-karaoke.int.pauld.link {
-  tls internal
-  reverse_proxy karaoke-eternal:8080 {
+karaoke.pauld.link {
+  @internal {
+    remote_ip 10.0.0.0/8
+    remote_ip 172.16.0.0/12
+    remote_ip 192.168.0.0/16
+    remote_ip fc00::/7
+  }
+
+  reverse_proxy @internal karaoke-eternal:8080 {
     header_up X-Local-Network "true"
   }
-}
 
-karaoke.pauld.link {
   reverse_proxy authentik-server:9000 {
     header_up X-Local-Network "false"
   }

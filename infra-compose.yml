@@ -70,6 +70,23 @@ services:
     networks:
       - proxy
 
+  pihole:
+    image: pihole/pihole:2025.08.0
+    container_name: pihole
+    restart: always
+    logging: *default-logging
+    ports:
+      - 53:53/tcp
+      - 53:53/udp
+      # - 81:80
+    environment:
+      TZ: $TZ
+      DNSMASQ_USER: pihole
+    volumes:
+      - pihole-data:/etc/pihole
+    networks:
+      - proxy
+
   daily-local-backup:
     image: ghcr.io/offen/docker-volume-backup:v2.44.0
     container_name: daily-local-backup
@@ -98,6 +115,7 @@ services:
       - mosquitto-data:/backup/mosquitto-data:ro
       - nextcloud-db-data:/backup/nextcloud-db-data:ro
       - omada-data:/backup/omada-data:ro
+      - pihole-data:/backup/pihole-data:ro
       - prowlarr-data:/backup/prowlarr-data:ro
       - qbittorrent-data:/backup/qbittorrent-data:ro
       - radarr-4k-data:/backup/radarr-4k-data:ro
@@ -151,6 +169,7 @@ services:
       - mosquitto-data:/backup/mosquitto-data:ro
       - nextcloud-db-data:/backup/nextcloud-db-data:ro
       - omada-data:/backup/omada-data:ro
+      - pihole-data:/backup/pihole-data:ro
       - prowlarr-data:/backup/prowlarr-data:ro
       - qbittorrent-data:/backup/qbittorrent-data:ro
       - radarr-4k-data:/backup/radarr-4k-data:ro
@@ -172,6 +191,7 @@ services:
       - infra
 
 volumes:
+  pihole-data:
   omada-data:
   caddy-data:
   ddns-updater-data:
