@@ -53,7 +53,21 @@ services:
     environment:
       TZ: $TZ
     volumes:
-      - mosquitto-data:/mosquitto
+      - type: volume
+        source: mosquitto-data
+        target: /mosquitto/config
+        volume:
+          subpath: config
+      - type: volume
+        source: mosquitto-data
+        target: /mosquitto/data
+        volume:
+          subpath: data
+      - type: volume
+        source: mosquitto-data
+        target: /mosquitto/log
+        volume:
+          subpath: log
     ports:
       # HA is on host network, so explicit port mapping is needed
       - 1883:1883
