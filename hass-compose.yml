@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:2025.8.1
+    image: ghcr.io/home-assistant/home-assistant:2025.9.0
     container_name: hass
     restart: unless-stopped
     logging: *default-logging
@@ -23,7 +23,7 @@ services:
     network_mode: host
 
   zwave:
-    image: ghcr.io/zwave-js/zwave-js-ui:11.1
+    image: ghcr.io/zwave-js/zwave-js-ui:11.2
     container_name: zwave
     restart: always
     logging: *default-logging
@@ -75,7 +75,7 @@ services:
       - hass
 
   frigate:
-    image: ghcr.io/blakeblackshear/frigate:0.15.2
+    image: ghcr.io/blakeblackshear/frigate:0.16.1
     container_name: frigate
     restart: unless-stopped
     logging: *default-logging
