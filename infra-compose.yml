@@ -52,7 +52,7 @@ services:
       - proxy
 
   caddy:
-    image: caddy:2.10.0
+    image: caddy:2.10.2
     container_name: caddy
     restart: always
     logging: *default-logging
