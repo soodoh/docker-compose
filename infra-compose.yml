@@ -4,6 +4,48 @@ x-logging: &default-logging
     max-size: 10m
     max-file: 3
 
+x-backup-env: &backup-env
+  BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
+  BACKUP_PRUNING_PREFIX: backup-
+
+x-backup-volumes: &backup-volumes
+  - audiobookshelf-data:/backup/audiobookshelf-data:ro
+  - authentik-data:/backup/authentik-data:ro
+  - bookshelf-data:/backup/bookshelf-data:ro
+  - caddy-data:/backup/caddy-data:ro
+  - calibre-data:/backup/calibre-data:ro
+  - calibre-web-data:/backup/calibre-web-data:ro
+  - ddns-updater-data:/backup/ddns-updater-data:ro
+  - frigate-data:/backup/frigate-data:ro
+  - gluetun-data:/backup/gluetun-data:ro
+  - hass-data:/backup/hass-data:ro
+  - jellyfin-data:/backup/jellyfin-data:ro
+  - jellyseer-data:/backup/jellyseer-data:ro
+  - karaoke-eternal-data:/backup/karaoke-eternal-data:ro
+  - mosquitto-data:/backup/mosquitto-data:ro
+  - nextcloud-db-data:/backup/nextcloud-db-data:ro
+  - omada-data:/backup/omada-data:ro
+  - pihole-data:/backup/pihole-data:ro
+  - prowlarr-data:/backup/prowlarr-data:ro
+  - qbittorrent-data:/backup/qbittorrent-data:ro
+  - radarr-4k-data:/backup/radarr-4k-data:ro
+  - radarr-data:/backup/radarr-data:ro
+  - recyclarr-data:/backup/recyclarr-data:ro
+  - sonarr-data:/backup/sonarr-data:ro
+  - tachidesk-data:/backup/tachidesk-data:ro
+  - zwave-data:/backup/zwave-data:ro
+  # Other files
+  - .env:/backup/.env:ro
+  - .authentik.env:/backup/.authentik.env:ro
+  - ${HOME}/.ssh:/backup/.ssh:ro
+  # Required
+  - /var/run/docker.sock:/var/run/docker.sock:ro
+  # $TZ variable not supported
+  - /etc/timezone:/etc/timezone:ro
+  - /etc/localtime:/etc/localtime:ro
+  # Local backups
+  - ${BACKUP_PATH}:/archive
+
 services:
   omada:
     image: mbentley/omada-controller:5.15-chromium
@@ -91,50 +133,12 @@ services:
     image: ghcr.io/offen/docker-volume-backup:v2.44.0
     container_name: daily-local-backup
     logging: *default-logging
-    user: 1000:1000
     environment:
-      BACKUP_CRON_EXPRESSION: "0 6 * * *" # Every day at 6AM
-      BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
-      BACKUP_PRUNING_PREFIX: backup-
+      <<: *backup-env
+      # Every day at 6AM, except Sunday, since weekly-remote-backup will run then
+      BACKUP_CRON_EXPRESSION: "0 6 * * 1-6"
       BACKUP_RETENTION_DAYS: 5
-    volumes:
-      # Docker Volumes
-      - audiobookshelf-data:/backup/audiobookshelf-data:ro
-      - authentik-data:/backup/authentik-data:ro
-      - bookshelf-data:/backup/bookshelf-data:ro
-      - caddy-data:/backup/caddy-data:ro
-      - calibre-data:/backup/calibre-data:ro
-      - calibre-web-data:/backup/calibre-web-data:ro
-      - ddns-updater-data:/backup/ddns-updater-data:ro
-      - frigate-data:/backup/frigate-data:ro
-      - gluetun-data:/backup/gluetun-data:ro
-      - hass-data:/backup/hass-data:ro
-      - jellyfin-data:/backup/jellyfin-data:ro
-      - jellyseer-data:/backup/jellyseer-data:ro
-      - karaoke-eternal-data:/backup/karaoke-eternal-data:ro
-      - mosquitto-data:/backup/mosquitto-data:ro
-      - nextcloud-db-data:/backup/nextcloud-db-data:ro
-      - omada-data:/backup/omada-data:ro
-      - pihole-data:/backup/pihole-data:ro
-      - prowlarr-data:/backup/prowlarr-data:ro
-      - qbittorrent-data:/backup/qbittorrent-data:ro
-      - radarr-4k-data:/backup/radarr-4k-data:ro
-      - radarr-data:/backup/radarr-data:ro
-      - recyclarr-data:/backup/recyclarr-data:ro
-      - sonarr-data:/backup/sonarr-data:ro
-      - tachidesk-data:/backup/tachidesk-data:ro
-      - zwave-data:/backup/zwave-data:ro
-      # Other files
-      - .env:/backup/.env:ro
-      - .authentik.env:/backup/.authentik.env:ro
-      - ${HOME}/.ssh:/backup/.ssh:ro
-      # Local backups
-      - ${BACKUP_PATH}:/archive
-      # Required
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      # $TZ variable not supported
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
+    volumes: *backup-volumes
     networks:
       - infra
 
@@ -142,51 +146,14 @@ services:
     image: ghcr.io/offen/docker-volume-backup:v2.44.0
     container_name: weekly-remote-backup
     logging: *default-logging
-    user: 1000:1000
     environment:
-      BACKUP_CRON_EXPRESSION: "0 5 * * 0" # Every Sunday at 5AM
-      BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
-      BACKUP_PRUNING_PREFIX: backup-
+      <<: *backup-env
+      BACKUP_CRON_EXPRESSION: "0 6 * * 0" # Every Sunday at 6AM
       BACKUP_RETENTION_DAYS: 14 # Only saving once a week
       AWS_S3_BUCKET_NAME: paul.diloreto.backups
       AWS_ACCESS_KEY_ID: $S3_ACCESS_KEY
       AWS_SECRET_ACCESS_KEY: $S3_SECRET_KEY
-    volumes:
-      # Docker Volumes
-      - audiobookshelf-data:/backup/audiobookshelf-data:ro
-      - authentik-data:/backup/authentik-data:ro
-      - bookshelf-data:/backup/bookshelf-data:ro
-      - caddy-data:/backup/caddy-data:ro
-      - calibre-data:/backup/calibre-data:ro
-      - calibre-web-data:/backup/calibre-web-data:ro
-      - ddns-updater-data:/backup/ddns-updater-data:ro
-      - frigate-data:/backup/frigate-data:ro
-      - gluetun-data:/backup/gluetun-data:ro
-      - hass-data:/backup/hass-data:ro
-      - jellyfin-data:/backup/jellyfin-data:ro
-      - jellyseer-data:/backup/jellyseer-data:ro
-      - karaoke-eternal-data:/backup/karaoke-eternal-data:ro
-      - mosquitto-data:/backup/mosquitto-data:ro
-      - nextcloud-db-data:/backup/nextcloud-db-data:ro
-      - omada-data:/backup/omada-data:ro
-      - pihole-data:/backup/pihole-data:ro
-      - prowlarr-data:/backup/prowlarr-data:ro
-      - qbittorrent-data:/backup/qbittorrent-data:ro
-      - radarr-4k-data:/backup/radarr-4k-data:ro
-      - radarr-data:/backup/radarr-data:ro
-      - recyclarr-data:/backup/recyclarr-data:ro
-      - sonarr-data:/backup/sonarr-data:ro
-      - tachidesk-data:/backup/tachidesk-data:ro
-      - zwave-data:/backup/zwave-data:ro
-      # Other files
-      - .env:/backup/.env:ro
-      - .authentik.env:/backup/.authentik.env:ro
-      - ${HOME}/.ssh:/backup/.ssh:ro
-      # Required
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      # $TZ variable not supported
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
+    volumes: *backup-volumes
     networks:
       - infra
 
