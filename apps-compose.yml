@@ -38,7 +38,7 @@ services:
       - proxy
 
   audiobookshelf:
-    image: ghcr.io/advplyr/audiobookshelf:2.28.0
+    image: ghcr.io/advplyr/audiobookshelf:2.29.0
     container_name: audiobookshelf
     restart: unless-stopped
     logging: *default-logging
@@ -60,7 +60,7 @@ services:
       - proxy
 
   calibre:
-    image: ghcr.io/linuxserver/calibre:8.8.0
+    image: ghcr.io/linuxserver/calibre:8.9.0
     container_name: calibre
     restart: unless-stopped
     logging: *default-logging
@@ -88,7 +88,7 @@ services:
         ipv4_address: 172.23.0.99
 
   calibre-web:
-    image: linuxserver/calibre-web:0.6.24
+    image: linuxserver/calibre-web:0.6.25
     container_name: calibre-web
     restart: unless-stopped
     logging: *default-logging
