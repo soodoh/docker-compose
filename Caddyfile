@@ -33,6 +33,10 @@ calibre-web.pauld.link {
   }
 }
 
+books.pauld.link {
+  reverse_proxy komga:25600
+}
+
 nextcloud.pauld.link {
   reverse_proxy nextcloud:80
 }
