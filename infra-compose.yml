@@ -22,6 +22,7 @@ x-backup-volumes: &backup-volumes
   - jellyfin-data:/backup/jellyfin-data:ro
   - jellyseer-data:/backup/jellyseer-data:ro
   - karaoke-eternal-data:/backup/karaoke-eternal-data:ro
+  - komga-data:/backup/komga-data:ro
   - mosquitto-data:/backup/mosquitto-data:ro
   - nextcloud-db-data:/backup/nextcloud-db-data:ro
   - omada-data:/backup/omada-data:ro
