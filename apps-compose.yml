@@ -92,7 +92,9 @@ services:
         ipv4_address: 172.23.0.99
 
   calibre-web-automated:
-    image: ghcr.io/crocodilestick/calibre-web-automated:V3.1.4
+    # image: ghcr.io/crocodilestick/calibre-web-automated:V3.1.4
+    # Using dev tag for new OIDC feature
+    image: ghcr.io/crocodilestick/calibre-web-automated:dev
     container_name: calibre-web-automated
     restart: unless-stopped
     logging: *default-logging
