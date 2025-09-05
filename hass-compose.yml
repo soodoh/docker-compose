@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:2025.9.0
+    image: ghcr.io/home-assistant/home-assistant:2025.9.1
     container_name: hass
     restart: unless-stopped
     logging: *default-logging
