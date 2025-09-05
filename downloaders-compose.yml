@@ -212,6 +212,11 @@ services:
     volumes:
       - bookshelf-data:/config
       - ${MEDIA_PATH}:/data
+      - type: volume
+        source: calibre-data
+        target: /books
+        volume:
+          subpath: books
     labels:
       docker-volume-backup.stop-during-backup: true
 

@@ -83,10 +83,10 @@ services:
           subpath: plugins
       - type: volume
         source: calibre-data
-        target: /data/books
+        target: /books
         volume:
           subpath: books
-      - ${MEDIA_PATH}/downloads:/data/downloads
+      - ${MEDIA_PATH}/downloads:/downloads
     networks:
       proxy:
         ipv4_address: 172.23.0.99
