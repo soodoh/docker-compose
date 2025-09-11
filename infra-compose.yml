@@ -15,6 +15,7 @@ x-backup-volumes: &backup-volumes
   - caddy-data:/backup/caddy-data:ro
   - calibre-data:/backup/calibre-data:ro
   - calibre-web-data:/backup/calibre-web-data:ro
+  - caro-tachidesk-data:/backup/caro-tachidesk-data:ro
   - ddns-updater-data:/backup/ddns-updater-data:ro
   - frigate-data:/backup/frigate-data:ro
   - gluetun-data:/backup/gluetun-data:ro
