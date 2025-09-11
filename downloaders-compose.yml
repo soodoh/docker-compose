@@ -75,9 +75,43 @@ services:
       UPDATE_MANGA_INFO: true
       FLARESOLVERR_ENABLED: true
       FLARESOLVERR_URL: http://gluetun:8191
+      BIND_PORT: 4567
     volumes:
       - tachidesk-data:/home/suwayomi/.local/share/Tachidesk
       - ${MEDIA_PATH}/tachidesk:/home/suwayomi/.local/share/Tachidesk/downloads
+
+  caro-tachidesk:
+    # Same image on Dockerhub is outdated
+    image: ghcr.io/suwayomi/tachidesk:v2.1.1910
+    container_name: caro-tachidesk
+    restart: unless-stopped
+    logging: *default-logging
+    network_mode: service:gluetun
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    labels:
+      docker-volume-backup.stop-during-backup: true
+    environment:
+      TZ: $TZ
+      DOWNLOAD_AS_CBZ: true
+      WEB_UI_ENABLED: true
+      WEB_UI_FLAVOR: WebUI
+      WEB_UI_CHANNEL: preview
+      WEB_UI_UPDATE_INTERVAL: 12
+      AUTO_DOWNLOAD_CHAPTERS: true
+      AUTO_DOWNLOAD_EXCLUDE_UNREAD: false
+      AUTO_DOWNLOAD_AHEAD_LIMIT: 20
+      UPDATE_EXCLUDE_UNREAD: false
+      UPDATE_EXCLUDE_STARTED: false
+      UPDATE_EXCLUDE_COMPLETED: true
+      UPDATE_INTERVAL: 12
+      UPDATE_MANGA_INFO: true
+      FLARESOLVERR_ENABLED: true
+      FLARESOLVERR_URL: http://gluetun:8191
+      BIND_PORT: 4568
+    volumes:
+      - caro-tachidesk-data:/home/suwayomi/.local/share/Tachidesk
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:v3.4.0
@@ -268,16 +302,17 @@ services:
       docker-volume-backup.stop-during-backup: true
 
 volumes:
-  jellyseer-data:
+  bookshelf-data:
+  caro-tachidesk-data:
   gluetun-data:
-  tachidesk-data:
+  jellyseer-data:
   prowlarr-data:
+  qbittorrent-data:
+  radarr-4k-data:
+  radarr-data:
   recyclarr-data:
   sonarr-data:
-  radarr-data:
-  radarr-4k-data:
-  bookshelf-data:
-  qbittorrent-data:
+  tachidesk-data:
 
 
 networks:
