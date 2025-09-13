@@ -242,12 +242,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^24.3.2":
-  version: 24.3.2
-  resolution: "@types/node@npm:24.3.2"
+"@types/node@npm:^24.3.3":
+  version: 24.3.3
+  resolution: "@types/node@npm:24.3.3"
   dependencies:
     undici-types: "npm:~7.10.0"
-  checksum: 10c0/178ec152b66b399956a5fd8f266b03c3b350bc4699480fba8f997c0cfe4925fe9482a93085ca3c4caa1f18465ad22dcf780ee005162cdf5e2f71696f65a0cf13
+  checksum: 10c0/5324108314b3d9abaafd82ea04a91ea6904580c1fbe47c52600881ae250fef3b2d3d28c7d68cb979b07241d29fe889b66bd9f92346902bea65a3e562937c7d9a
   languageName: node
   linkType: hard
 
@@ -468,7 +468,7 @@ __metadata:
     "@commitlint/cli": "npm:^19.8.1"
     "@commitlint/config-conventional": "npm:^19.8.1"
     "@commitlint/types": "npm:^19.8.1"
-    "@types/node": "npm:^24.3.2"
+    "@types/node": "npm:^24.3.3"
     husky: "npm:^9.1.7"
   languageName: unknown
   linkType: soft
