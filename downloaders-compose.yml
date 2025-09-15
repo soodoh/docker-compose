@@ -48,7 +48,7 @@ services:
 
   tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.1.1928
+    image: ghcr.io/suwayomi/tachidesk:v2.1.1933
     container_name: tachidesk
     restart: unless-stopped
     logging: *default-logging
@@ -82,7 +82,7 @@ services:
 
   caro-tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.1.1928
+    image: ghcr.io/suwayomi/tachidesk:v2.1.1933
     container_name: caro-tachidesk
     restart: unless-stopped
     logging: *default-logging
@@ -114,7 +114,7 @@ services:
       - caro-tachidesk-data:/home/suwayomi/.local/share/Tachidesk
 
   flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:v3.4.0
+    image: ghcr.io/flaresolverr/flaresolverr:v3.4.1
     container_name: flaresolverr
     restart: always
     logging: *default-logging
