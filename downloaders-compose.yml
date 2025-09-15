@@ -128,7 +128,7 @@ services:
       TZ: $TZ
 
   prowlarr:
-    image: ghcr.io/linuxserver/prowlarr:2.1.0-develop
+    image: ghcr.io/linuxserver/prowlarr:2.1.1-develop
     container_name: prowlarr
     restart: unless-stopped
     network_mode: service:gluetun
