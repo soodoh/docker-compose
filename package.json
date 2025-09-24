@@ -6,7 +6,7 @@
   "repository": "git@github.com:pauldiloreto/docker-compose.git",
   "author": "Paul DiLoreto <paul.diloreto@gmail.com>",
   "license": "MIT",
-  "packageManager": "yarn@4.10.0",
+  "packageManager": "yarn@4.10.3",
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
