@@ -24,6 +24,9 @@ services:
     hostname: gluetun
     restart: always
     logging: *default-logging
+    ports:
+      # Suwayomi for local OPDS
+      - 4567:4567
     cap_add:
       - NET_ADMIN
     devices:
@@ -313,7 +316,6 @@ volumes:
   recyclarr-data:
   sonarr-data:
   tachidesk-data:
-
 
 networks:
   arr_network:
