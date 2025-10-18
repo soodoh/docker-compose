@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   jellyfin:
-    image: ghcr.io/jellyfin/jellyfin:10.10.7
+    image: ghcr.io/jellyfin/jellyfin:10.11.0-rc3
     container_name: jellyfin
     restart: unless-stopped
     logging: *default-logging
