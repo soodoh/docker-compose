@@ -38,7 +38,7 @@ services:
       - proxy
 
   audiobookshelf:
-    image: ghcr.io/advplyr/audiobookshelf:2.29.0
+    image: ghcr.io/advplyr/audiobookshelf:2.30.0
     container_name: audiobookshelf
     restart: unless-stopped
     logging: *default-logging
@@ -60,7 +60,7 @@ services:
       - proxy
 
   calibre:
-    image: ghcr.io/linuxserver/calibre:8.12.0
+    image: ghcr.io/linuxserver/calibre:8.13.0
     container_name: calibre
     restart: unless-stopped
     logging: *default-logging
