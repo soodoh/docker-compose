@@ -114,7 +114,7 @@ services:
       - proxy
 
   pihole:
-    image: pihole/pihole:2025.08.0
+    image: pihole/pihole:2025.10.0
     container_name: pihole
     restart: always
     logging: *default-logging
