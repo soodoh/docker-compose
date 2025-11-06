@@ -117,7 +117,7 @@ services:
       - caro-tachidesk-data:/home/suwayomi/.local/share/Tachidesk
 
   flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:v3.4.3
+    image: ghcr.io/flaresolverr/flaresolverr:v3.4.4
     container_name: flaresolverr
     restart: always
     logging: *default-logging
@@ -168,7 +168,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   sonarr:
-    image: ghcr.io/linuxserver/sonarr:4.0.15
+    image: ghcr.io/linuxserver/sonarr:4.0.16
     container_name: sonarr
     restart: unless-stopped
     logging: *default-logging
