@@ -131,7 +131,7 @@ services:
       - proxy
 
   daily-local-backup:
-    image: ghcr.io/offen/docker-volume-backup:v2.46.0
+    image: ghcr.io/offen/docker-volume-backup:v2.46.1
     container_name: daily-local-backup
     logging: *default-logging
     environment:
@@ -144,7 +144,7 @@ services:
       - infra
 
   weekly-remote-backup:
-    image: ghcr.io/offen/docker-volume-backup:v2.46.0
+    image: ghcr.io/offen/docker-volume-backup:v2.46.1
     container_name: weekly-remote-backup
     logging: *default-logging
     environment:
