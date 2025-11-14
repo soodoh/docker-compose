@@ -232,7 +232,7 @@ services:
 
   # Readarr replacement
   bookshelf:
-    image: ghcr.io/pennydreadful/bookshelf:hardcover-v0.4.19
+    image: ghcr.io/pennydreadful/bookshelf:hardcover-v0.4.20
     container_name: bookshelf
     restart: unless-stopped
     logging: *default-logging
