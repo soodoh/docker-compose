@@ -6,12 +6,12 @@
   "repository": "git@github.com:pauldiloreto/docker-compose.git",
   "author": "Paul DiLoreto <paul.diloreto@gmail.com>",
   "license": "MIT",
-  "packageManager": "yarn@4.10.3",
+  "packageManager": "yarn@4.11.0",
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",
     "@commitlint/config-conventional": "^20.0.0",
     "@commitlint/types": "^20.0.0",
-    "@types/node": "^24.10.0",
+    "@types/node": "^24.10.1",
     "husky": "^9.1.7"
   },
   "scripts": {
