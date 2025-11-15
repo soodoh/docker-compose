@@ -19,7 +19,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   gluetun:
-    image: qmcgaw/gluetun:v3.40.0
+    image: qmcgaw/gluetun:v3.40.1
     container_name: gluetun
     hostname: gluetun
     restart: always
