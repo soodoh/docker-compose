@@ -189,7 +189,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   radarr:
-    image: ghcr.io/linuxserver/radarr:5.28.0
+    image: ghcr.io/linuxserver/radarr:6.0.4
     container_name: radarr
     restart: unless-stopped
     logging: *default-logging
@@ -210,7 +210,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   radarr-4k:
-    image: ghcr.io/linuxserver/radarr:5.28.0
+    image: ghcr.io/linuxserver/radarr:6.0.4
     container_name: radarr-4k
     restart: unless-stopped
     logging: *default-logging
