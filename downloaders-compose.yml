@@ -19,7 +19,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   gluetun:
-    image: qmcgaw/gluetun:v3.40.0
+    image: qmcgaw/gluetun:v3.40.3
     container_name: gluetun
     hostname: gluetun
     restart: always
@@ -131,7 +131,7 @@ services:
       TZ: $TZ
 
   prowlarr:
-    image: ghcr.io/linuxserver/prowlarr:2.1.5-develop
+    image: ghcr.io/linuxserver/prowlarr:2.3.0-develop
     container_name: prowlarr
     restart: unless-stopped
     network_mode: service:gluetun
