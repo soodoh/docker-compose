@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   jellyfin:
-    image: ghcr.io/jellyfin/jellyfin:10.11.3
+    image: ghcr.io/jellyfin/jellyfin:10.11.4
     container_name: jellyfin
     restart: unless-stopped
     logging: *default-logging
@@ -38,7 +38,7 @@ services:
       - proxy
 
   audiobookshelf:
-    image: ghcr.io/advplyr/audiobookshelf:2.30.0
+    image: ghcr.io/advplyr/audiobookshelf:2.31.0
     container_name: audiobookshelf
     restart: unless-stopped
     logging: *default-logging
