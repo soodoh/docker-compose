@@ -8,10 +8,10 @@
   "license": "MIT",
   "packageManager": "yarn@4.12.0",
   "devDependencies": {
-    "@commitlint/cli": "^20.1.0",
-    "@commitlint/config-conventional": "^20.0.0",
-    "@commitlint/types": "^20.0.0",
-    "@types/node": "^24.10.1",
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.2.0",
+    "@commitlint/types": "^20.2.0",
+    "@types/node": "^24.10.4",
     "husky": "^9.1.7"
   },
   "scripts": {

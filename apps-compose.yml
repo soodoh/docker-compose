@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   jellyfin:
-    image: ghcr.io/jellyfin/jellyfin:10.11.4
+    image: ghcr.io/jellyfin/jellyfin:10.11.5
     container_name: jellyfin
     restart: unless-stopped
     logging: *default-logging
@@ -60,7 +60,7 @@ services:
       - proxy
 
   calibre:
-    image: ghcr.io/linuxserver/calibre:8.15.0
+    image: ghcr.io/linuxserver/calibre:8.16.2
     container_name: calibre
     restart: unless-stopped
     logging: *default-logging
