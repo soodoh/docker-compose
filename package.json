@@ -6,7 +6,7 @@
   "repository": "git@github.com:pauldiloreto/docker-compose.git",
   "author": "Paul DiLoreto <paul.diloreto@gmail.com>",
   "license": "MIT",
-  "packageManager": "yarn@4.12.0",
+  "packageManager": "pnpm@9.15.4",
   "devDependencies": {
     "@commitlint/cli": "^20.3.0",
     "@commitlint/config-conventional": "^20.3.0",
@@ -15,7 +15,6 @@
     "husky": "^9.1.7"
   },
   "scripts": {
-    "update-portainer": "sh ./scripts/update-portainer.sh",
     "stack": "sh ./scripts/compose.sh"
   }
 }
