@@ -12,7 +12,7 @@
     "url": "git+https://github.com/soodoh/docker-compose.git"
   },
   "license": "MIT",
-  "packageManager": "pnpm@9.15.4",
+  "packageManager": "pnpm@9.15.9",
   "devDependencies": {
     "@commitlint/cli": "^20.3.0",
     "@commitlint/config-conventional": "^20.3.0",
