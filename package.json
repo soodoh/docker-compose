@@ -3,8 +3,14 @@
   "version": "1.0.0",
   "description": "My docker compose files for my home server",
   "main": "./",
-  "repository": "git@github.com:pauldiloreto/docker-compose.git",
-  "author": "Paul DiLoreto <paul.diloreto@gmail.com>",
+  "author": "Paul DiLoreto <soodohh@pm.me>",
+  "bugs": {
+    "url": "https://github.com/soodoh/docker-compose/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/soodoh/docker-compose.git"
+  },
   "license": "MIT",
   "packageManager": "pnpm@9.15.4",
   "devDependencies": {
