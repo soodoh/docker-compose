@@ -1,0 +1,38 @@
+services:
+  openfit:
+    image: ghcr.io/soodoh/open-fit:latest
+    container_name: openfit
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Internal URL for server-side communication
+      - CONVEX_SELF_HOSTED_URL=http://convex-backend:3210
+      - INSTANCE_NAME=convex-self-hosted
+      - NEXT_PUBLIC_CONVEX_URL=https://convex.pauld.link
+    depends_on:
+      convex-backend:
+        condition: service_healthy
+    networks:
+      - proxy
+
+  convex-backend:
+    image: ghcr.io/get-convex/convex-backend:latest
+    container_name: convex-backend
+    restart: unless-stopped
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    env_file: .env
+    environment:
+      - TZ=UTC
+      - CONVEX_SITE_ORIGIN=http://127.0.0.1:3211
+    volumes:
+      - convex-data:/convex/data
+    healthcheck:
+      test: curl -f http://localhost:3210/version
+      interval: 5s
+      start_period: 10s
+    networks:
+      - proxy
+
+volumes:
+  convex-data:
