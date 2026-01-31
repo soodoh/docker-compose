@@ -60,7 +60,7 @@ services:
       - proxy
 
   calibre:
-    image: ghcr.io/linuxserver/calibre:8.16.2
+    image: ghcr.io/linuxserver/calibre:9.1.0
     container_name: calibre
     restart: unless-stopped
     logging: *default-logging
