@@ -21,10 +21,6 @@ zwave.pauld.link {
   reverse_proxy authentik-server:9000
 }
 
-convex.pauld.link {
-  reverse_proxy convex-backend:3210
-}
-
 watch.pauld.link {
   reverse_proxy jellyfin:8096
 }
