@@ -49,11 +49,12 @@ x-backup-volumes: &backup-volumes
 
 services:
   omada:
-    image: mbentley/omada-controller:5.15-chromium
+    image: mbentley/omada-controller:6.0
     container_name: omada
     restart: always
     logging: *default-logging
     ports:
+      - 29817:29817/tcp
       - 27001:27001/udp
       - 29810:29810/udp
       - 29811-29816:29811-29816
