@@ -4,20 +4,17 @@ services:
     container_name: openfit
     restart: unless-stopped
     volumes:
-      - convex-data:/convex/data
+      - openfit-data:/app/data
     env_file:
-      - .env
-    environment:
-      # Public URL for browser connections (change for external access)
-      - NEXT_PUBLIC_CONVEX_URL=http://localhost:${APP_PORT:-3000}/convex
-      # Auth callback URL (change for external access)
-      - CONVEX_AUTH_SITE_URL=http://localhost:${APP_PORT:-3000}
+      - .openfit.env
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:3000/"]
       interval: 30s
       timeout: 10s
       start_period: 60s
       retries: 3
+    networks:
+      - proxy
 
 volumes:
-  convex-data:
+  openfit-data:
