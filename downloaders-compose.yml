@@ -19,7 +19,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   gluetun:
-    image: qmcgaw/gluetun:v3.41.0
+    image: qmcgaw/gluetun:v3.41.1
     container_name: gluetun
     hostname: gluetun
     restart: always
@@ -51,7 +51,7 @@ services:
 
   tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.1.2065
+    image: ghcr.io/suwayomi/tachidesk:v2.1.2071
     container_name: tachidesk
     restart: unless-stopped
     logging: *default-logging
@@ -85,7 +85,7 @@ services:
 
   caro-tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.1.2065
+    image: ghcr.io/suwayomi/tachidesk:v2.1.2071
     container_name: caro-tachidesk
     restart: unless-stopped
     logging: *default-logging
