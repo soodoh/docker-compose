@@ -12,12 +12,12 @@ services:
     logging: *default-logging
     volumes:
       - ${MEDIA_PATH}/nextcloud:/var/www/html
+    env_file:
+      - .shared.env
+      - .nextcloud.env
     environment:
       REDIS_HOST: nextcloud-redis
       REDIS_HOST_PORT: 6379
-      MYSQL_PASSWORD: ${NEXTCLOUD_PW}
-      MYSQL_DATABASE: ${NEXTCLOUD_DB}
-      MYSQL_USER: ${NEXTCLOUD_USER}
       MYSQL_HOST: nextcloud-db
     labels:
       docker-volume-backup.stop-during-backup: true
@@ -36,11 +36,9 @@ services:
     command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
     volumes:
       - nextcloud-db-data:/var/lib/mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: ${NEXTCLOUD_ROOT_PW}
-      MYSQL_PASSWORD: ${NEXTCLOUD_PW}
-      MYSQL_DATABASE: ${NEXTCLOUD_DB}
-      MYSQL_USER: ${NEXTCLOUD_USER}
+    env_file:
+      - .shared.env
+      - .nextcloud.env
     labels:
       docker-volume-backup.stop-during-backup: true
     networks:
@@ -51,6 +49,8 @@ services:
     container_name: nextcloud-redis
     restart: always
     logging: *default-logging
+    env_file:
+      - .shared.env
     networks:
       - nextcloud
 

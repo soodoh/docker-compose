@@ -60,8 +60,9 @@ services:
       - 8088:8088
       - 8043:8043
       - 8843:8843
-    environment:
-      TZ: $TZ
+    env_file:
+      - .shared.env
+      - .infra.env
     volumes:
       - type: volume
         source: omada-data
@@ -85,12 +86,12 @@ services:
     logging: *default-logging
     volumes:
       - ddns-updater-data:/updater/data
+    env_file:
+      - .shared.env
+      - .infra.env
     environment:
-      TZ: $TZ
       # See: https://pkg.go.dev/time#ParseDuration
       PERIOD: 5m
-      # Necessary for split dns
-      RESOLVER_ADDRESS: $EXTERNAL_DNS
     networks:
       - proxy
 
@@ -105,8 +106,9 @@ services:
       - 80:80
       - 443:443/tcp
       - 443:443/udp
-    environment:
-      TZ: $TZ
+    env_file:
+      - .shared.env
+      - .infra.env
     volumes:
       - caddy-data:/data/caddy
       - ./Caddyfile:/etc/caddy/Caddyfile
@@ -122,9 +124,9 @@ services:
       - 53:53/tcp
       - 53:53/udp
       # - 81:80
-    environment:
-      TZ: $TZ
-      DNSMASQ_USER: pihole
+    env_file:
+      - .shared.env
+      - .infra.env
     volumes:
       - pihole-data:/etc/pihole
     networks:
@@ -134,6 +136,9 @@ services:
     image: ghcr.io/offen/docker-volume-backup:v2.47.0
     container_name: daily-local-backup
     logging: *default-logging
+    env_file:
+      - .shared.env
+      - .infra.env
     environment:
       <<: *backup-env
       # Every day at 6AM, except Sunday, since weekly-remote-backup will run then
@@ -147,13 +152,13 @@ services:
     image: ghcr.io/offen/docker-volume-backup:v2.47.0
     container_name: weekly-remote-backup
     logging: *default-logging
+    env_file:
+      - .shared.env
+      - .infra.env
     environment:
       <<: *backup-env
       BACKUP_CRON_EXPRESSION: "0 6 * * 0" # Every Sunday at 6AM
       BACKUP_RETENTION_DAYS: 14 # Only saving once a week
-      AWS_S3_BUCKET_NAME: paul.diloreto.backups
-      AWS_ACCESS_KEY_ID: $S3_ACCESS_KEY
-      AWS_SECRET_ACCESS_KEY: $S3_SECRET_KEY
     volumes: *backup-volumes
     networks:
       - infra

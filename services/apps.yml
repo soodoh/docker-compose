@@ -29,11 +29,12 @@ services:
       - ${MEDIA_PATH}/movies:/movies
       - ${MEDIA_PATH}/anime:/anime
       - ${MEDIA_PATH}/books:/books
+    env_file:
+      - .shared.env
+      - .apps.env
     environment:
-      TZ: $TZ
       PUID: 1000
       PGID: 1000
-      JELLYFIN_PublishedServerUrl: "https://watch.pauld.link"
     networks:
       - proxy
 
@@ -44,6 +45,9 @@ services:
     logging: *default-logging
     labels:
       docker-volume-backup.stop-during-backup: true
+    env_file:
+      - .shared.env
+      - .apps.env
     volumes:
       - ${MEDIA_PATH}/books:/books
       - type: volume
@@ -64,8 +68,10 @@ services:
     container_name: calibre
     restart: unless-stopped
     logging: *default-logging
+    env_file:
+      - .shared.env
+      - .apps.env
     environment:
-      TZ: $TZ
       PUID: 1000
       PGID: 1000
     labels:
@@ -98,14 +104,15 @@ services:
     container_name: calibre-web-automated
     restart: unless-stopped
     logging: *default-logging
+    env_file:
+      - .shared.env
+      - .apps.env
     environment:
       PUID: 1000
       PGID: 1000
-      HARDCOVER_TOKEN: $HARDCOVER_TOKEN
       # If your library is on a network share (e.g., NFS/SMB), disable WAL to reduce locking issues
       # Accepts: true/false (default: false)
       NETWORK_SHARE_MODE: false
-      TZ: $TZ
       CWA_PORT_OVERRIDE: 8083
     volumes:
       - calibre-web-data:/config
