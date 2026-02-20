@@ -19,8 +19,5 @@
     "@commitlint/types": "^20.4.0",
     "@types/node": "^25.2.3",
     "husky": "^9.1.7"
-  },
-  "scripts": {
-    "stack": "sh ./scripts/compose.sh"
   }
 }

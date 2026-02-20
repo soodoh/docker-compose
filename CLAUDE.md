@@ -4,22 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Docker Compose configuration for a personal home server running on Proxmox LXC. Services are split across multiple compose files organized by function, all merged together via a wrapper script.
+Docker Compose configuration for a personal home server running on Proxmox LXC. Services are split across multiple compose files organized by function, all merged together through `docker-compose.yml` using Compose `include`.
 
 ## Commands
 
 ```bash
-# Run any docker compose command across all stacks (pass args like up -d, down, logs, etc.)
-bun run stack -- <docker-compose-args>
+# Run any docker compose command across all stacks
+docker compose <docker-compose-args>
 
 # Examples:
-bun run stack -- up -d              # Start all services
-bun run stack -- up -d jellyfin     # Start a single service
-bun run stack -- logs -f caddy      # Tail logs for a service
-bun run stack -- pull               # Pull latest images
+docker compose up -d                # Start all services
+docker compose up -d jellyfin       # Start a single service
+docker compose logs -f caddy        # Tail logs for a service
+docker compose pull                 # Pull latest images
 ```
 
-The `stack` script (`scripts/compose.sh`) merges all `*-compose.yml` files and passes `--env-file .env` automatically. Always use it instead of raw `docker compose`.
+`docker-compose.yml` includes all `*-compose.yml` files. Docker Compose automatically loads `.env` from the project root.
 
 ## Architecture
 
@@ -53,7 +53,7 @@ Most downloaders use `network_mode: service:gluetun` to route traffic through VP
 
 ### Environment
 
-All services read from `.env` (loaded by `scripts/compose.sh`). Authentik uses a separate `.authentik.env`. OpenFit uses `.openfit.env`. Key variables include `$TZ`, `$MEDIA_PATH`, `$BACKUP_PATH`, and various API keys.
+All services read from `.env` (loaded automatically by Docker Compose). Authentik uses a separate `.authentik.env`. OpenFit uses `.openfit.env`. Key variables include `$TZ`, `$MEDIA_PATH`, `$BACKUP_PATH`, and various API keys.
 
 ### Backups
 
