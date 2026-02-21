@@ -20,7 +20,7 @@ x-backup-volumes: &backup-volumes
   - frigate-data:/backup/frigate-data:ro
   - gluetun-data:/backup/gluetun-data:ro
   - jellyfin-data:/backup/jellyfin-data:ro
-  - jellyseer-data:/backup/jellyseer-data:ro
+  - seerr-data:/backup/seerr-data:ro
   - karaoke-eternal-data:/backup/karaoke-eternal-data:ro
   - mosquitto-data:/backup/mosquitto-data:ro
   - nextcloud-db-data:/backup/nextcloud-db-data:ro
