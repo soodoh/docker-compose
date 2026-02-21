@@ -15,8 +15,8 @@ services:
     privileged: true
     devices:
       - /dev/ttyUSB0:/dev/zigbee
-    env_file:
-      - .shared.env
+    environment:
+      TZ: $TZ
     volumes:
       - hass-data:/config
       - /etc/localtime:/etc/localtime:ro
@@ -36,9 +36,9 @@ services:
     volumes:
       - zwave-data:/usr/src/app/store
     env_file:
-      - .shared.env
       - .hass.env
     environment:
+      TZ: $TZ
       ZWAVEJS_EXTERNAL_CONFIG: /usr/src/app/store/.config-db
     ports:
       # HA is on host network, so explicit port mapping is needed
@@ -54,8 +54,9 @@ services:
     restart: unless-stopped
     logging: *default-logging
     env_file:
-      - .shared.env
       - .hass.env
+    environment:
+      TZ: $TZ
     volumes:
       - type: volume
         source: mosquitto-data
@@ -93,9 +94,9 @@ services:
       - /dev/dri/renderD128:/dev/dri/renderD128
       - /dev/dri/card1:/dev/dri/card1
     env_file:
-      - .shared.env
       - .hass.env
     environment:
+      TZ: $TZ
       LIBVA_DRIVER_NAME: "radeonsi"
     volumes:
       - frigate-data:/config

@@ -6,8 +6,9 @@ services:
     volumes:
       - openfit-data:/app/data
     env_file:
-      - .shared.env
       - .openfit.env
+    environment:
+      TZ: $TZ
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:3000/"]
       interval: 30s

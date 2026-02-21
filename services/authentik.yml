@@ -25,8 +25,9 @@ services:
     labels:
       docker-volume-backup.stop-during-backup: true
     env_file:
-      - .shared.env
       - .authentik.env
+    environment:
+      TZ: $TZ
     networks:
       - authentik
 
@@ -42,8 +43,8 @@ services:
       interval: 30s
       retries: 5
       timeout: 3s
-    env_file:
-      - .shared.env
+    environment:
+      TZ: $TZ
     volumes:
       - type: volume
         source: authentik-data
@@ -62,8 +63,9 @@ services:
     logging: *default-logging
     command: server
     env_file:
-      - .shared.env
       - .authentik.env
+    environment:
+      TZ: $TZ
     volumes:
       - type: volume
         source: authentik-data
@@ -91,8 +93,9 @@ services:
     logging: *default-logging
     command: worker
     env_file:
-      - .shared.env
       - .authentik.env
+    environment:
+      TZ: $TZ
     user: root
     labels:
       docker-volume-backup.stop-during-backup: true

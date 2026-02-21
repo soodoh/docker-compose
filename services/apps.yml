@@ -30,9 +30,9 @@ services:
       - ${MEDIA_PATH}/anime:/anime
       - ${MEDIA_PATH}/books:/books
     env_file:
-      - .shared.env
       - .apps.env
     environment:
+      TZ: $TZ
       PUID: 1000
       PGID: 1000
     networks:
@@ -46,8 +46,9 @@ services:
     labels:
       docker-volume-backup.stop-during-backup: true
     env_file:
-      - .shared.env
       - .apps.env
+    environment:
+      TZ: $TZ
     volumes:
       - ${MEDIA_PATH}/books:/books
       - type: volume
@@ -69,9 +70,9 @@ services:
     restart: unless-stopped
     logging: *default-logging
     env_file:
-      - .shared.env
       - .apps.env
     environment:
+      TZ: $TZ
       PUID: 1000
       PGID: 1000
     labels:
@@ -105,9 +106,9 @@ services:
     restart: unless-stopped
     logging: *default-logging
     env_file:
-      - .shared.env
       - .apps.env
     environment:
+      TZ: $TZ
       PUID: 1000
       PGID: 1000
       # If your library is on a network share (e.g., NFS/SMB), disable WAL to reduce locking issues
@@ -129,6 +130,8 @@ services:
     container_name: karaoke-eternal
     restart: unless-stopped
     logging: *default-logging
+    environment:
+      TZ: $TZ
     volumes:
       - karaoke-eternal-data:/config
       - ${MEDIA_PATH}/karaoke:/mnt/karaoke

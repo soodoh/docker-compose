@@ -13,9 +13,9 @@ services:
     volumes:
       - ${MEDIA_PATH}/nextcloud:/var/www/html
     env_file:
-      - .shared.env
       - .nextcloud.env
     environment:
+      TZ: $TZ
       REDIS_HOST: nextcloud-redis
       REDIS_HOST_PORT: 6379
       MYSQL_HOST: nextcloud-db
@@ -37,8 +37,9 @@ services:
     volumes:
       - nextcloud-db-data:/var/lib/mysql
     env_file:
-      - .shared.env
       - .nextcloud.env
+    environment:
+      TZ: $TZ
     labels:
       docker-volume-backup.stop-during-backup: true
     networks:
@@ -49,8 +50,8 @@ services:
     container_name: nextcloud-redis
     restart: always
     logging: *default-logging
-    env_file:
-      - .shared.env
+    environment:
+      TZ: $TZ
     networks:
       - nextcloud
 

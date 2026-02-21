@@ -61,8 +61,9 @@ services:
       - 8043:8043
       - 8843:8843
     env_file:
-      - .shared.env
       - .infra.env
+    environment:
+      TZ: $TZ
     volumes:
       - type: volume
         source: omada-data
@@ -87,9 +88,9 @@ services:
     volumes:
       - ddns-updater-data:/updater/data
     env_file:
-      - .shared.env
       - .infra.env
     environment:
+      TZ: $TZ
       # See: https://pkg.go.dev/time#ParseDuration
       PERIOD: 5m
     networks:
@@ -107,8 +108,9 @@ services:
       - 443:443/tcp
       - 443:443/udp
     env_file:
-      - .shared.env
       - .infra.env
+    environment:
+      TZ: $TZ
     volumes:
       - caddy-data:/data/caddy
       - ./Caddyfile:/etc/caddy/Caddyfile
@@ -125,8 +127,9 @@ services:
       - 53:53/udp
       # - 81:80
     env_file:
-      - .shared.env
       - .infra.env
+    environment:
+      TZ: $TZ
     volumes:
       - pihole-data:/etc/pihole
     networks:
@@ -137,9 +140,9 @@ services:
     container_name: daily-local-backup
     logging: *default-logging
     env_file:
-      - .shared.env
       - .infra.env
     environment:
+      TZ: $TZ
       <<: *backup-env
       # Every day at 6AM, except Sunday, since weekly-remote-backup will run then
       BACKUP_CRON_EXPRESSION: "0 6 * * 1-6"
@@ -153,9 +156,9 @@ services:
     container_name: weekly-remote-backup
     logging: *default-logging
     env_file:
-      - .shared.env
       - .infra.env
     environment:
+      TZ: $TZ
       <<: *backup-env
       BACKUP_CRON_EXPRESSION: "0 6 * * 0" # Every Sunday at 6AM
       BACKUP_RETENTION_DAYS: 14 # Only saving once a week
