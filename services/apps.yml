@@ -30,7 +30,7 @@ services:
       - ${MEDIA_PATH}/anime:/anime
       - ${MEDIA_PATH}/books:/books
     env_file:
-      - .apps.env
+      - ./env/.apps.env
     environment:
       TZ: $TZ
       PUID: 1000
@@ -46,7 +46,7 @@ services:
     labels:
       docker-volume-backup.stop-during-backup: true
     env_file:
-      - .apps.env
+      - ./env/.apps.env
     environment:
       TZ: $TZ
     volumes:
@@ -70,7 +70,7 @@ services:
     restart: unless-stopped
     logging: *default-logging
     env_file:
-      - .apps.env
+      - ./env/.apps.env
     environment:
       TZ: $TZ
       PUID: 1000
@@ -106,7 +106,7 @@ services:
     restart: unless-stopped
     logging: *default-logging
     env_file:
-      - .apps.env
+      - ./env/.apps.env
     environment:
       TZ: $TZ
       PUID: 1000

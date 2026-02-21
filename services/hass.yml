@@ -18,7 +18,7 @@ services:
     environment:
       TZ: $TZ
     volumes:
-      - hass-data:/config
+      - ${HASS_PATH}:/config
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
     # Must use Host network for Homekit bridge, as it uses mDNS
@@ -36,7 +36,7 @@ services:
     volumes:
       - zwave-data:/usr/src/app/store
     env_file:
-      - .hass.env
+      - ./env/.hass.env
     environment:
       TZ: $TZ
       ZWAVEJS_EXTERNAL_CONFIG: /usr/src/app/store/.config-db
@@ -54,7 +54,7 @@ services:
     restart: unless-stopped
     logging: *default-logging
     env_file:
-      - .hass.env
+      - ./env/.hass.env
     environment:
       TZ: $TZ
     volumes:
@@ -94,7 +94,7 @@ services:
       - /dev/dri/renderD128:/dev/dri/renderD128
       - /dev/dri/card1:/dev/dri/card1
     env_file:
-      - .hass.env
+      - ./env/.hass.env
     environment:
       TZ: $TZ
       LIBVA_DRIVER_NAME: "radeonsi"
@@ -117,7 +117,6 @@ services:
       - proxy
 
 volumes:
-  hass-data:
   zwave-data:
   mosquitto-data:
   frigate-data:

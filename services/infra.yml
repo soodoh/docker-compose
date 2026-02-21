@@ -19,7 +19,6 @@ x-backup-volumes: &backup-volumes
   - ddns-updater-data:/backup/ddns-updater-data:ro
   - frigate-data:/backup/frigate-data:ro
   - gluetun-data:/backup/gluetun-data:ro
-  - hass-data:/backup/hass-data:ro
   - jellyfin-data:/backup/jellyfin-data:ro
   - jellyseer-data:/backup/jellyseer-data:ro
   - karaoke-eternal-data:/backup/karaoke-eternal-data:ro
@@ -35,9 +34,11 @@ x-backup-volumes: &backup-volumes
   - sonarr-data:/backup/sonarr-data:ro
   - tachidesk-data:/backup/tachidesk-data:ro
   - zwave-data:/backup/zwave-data:ro
+  # Non-volumes
+  - ${HASS_PATH}:/backup/hass-data:ro
   # Other files
-  - .env:/backup/.env:ro
-  - .authentik.env:/backup/.authentik.env:ro
+  - ../.env:/backup/.env:ro
+  - ./env:/backup/env:ro
   - ${HOME}/.ssh:/backup/.ssh:ro
   # Required
   - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -61,7 +62,7 @@ services:
       - 8043:8043
       - 8843:8843
     env_file:
-      - .infra.env
+      - ./env/.infra.env
     environment:
       TZ: $TZ
     volumes:
@@ -88,7 +89,7 @@ services:
     volumes:
       - ddns-updater-data:/updater/data
     env_file:
-      - .infra.env
+      - ./env/.infra.env
     environment:
       TZ: $TZ
       # See: https://pkg.go.dev/time#ParseDuration
@@ -108,12 +109,12 @@ services:
       - 443:443/tcp
       - 443:443/udp
     env_file:
-      - .infra.env
+      - ./env/.infra.env
     environment:
       TZ: $TZ
     volumes:
       - caddy-data:/data/caddy
-      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./data/Caddyfile:/etc/caddy/Caddyfile
     networks:
       - proxy
 
@@ -127,7 +128,7 @@ services:
       - 53:53/udp
       # - 81:80
     env_file:
-      - .infra.env
+      - ./env/.infra.env
     environment:
       TZ: $TZ
     volumes:
@@ -140,7 +141,7 @@ services:
     container_name: daily-local-backup
     logging: *default-logging
     env_file:
-      - .infra.env
+      - ./env/.infra.env
     environment:
       TZ: $TZ
       <<: *backup-env
@@ -156,7 +157,7 @@ services:
     container_name: weekly-remote-backup
     logging: *default-logging
     env_file:
-      - .infra.env
+      - ./env/.infra.env
     environment:
       TZ: $TZ
       <<: *backup-env

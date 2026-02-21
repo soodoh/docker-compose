@@ -6,7 +6,7 @@ services:
     volumes:
       - openfit-data:/app/data
     env_file:
-      - .openfit.env
+      - ./env/.openfit.env
     environment:
       TZ: $TZ
     healthcheck:

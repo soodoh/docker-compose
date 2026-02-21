@@ -25,7 +25,7 @@ services:
     labels:
       docker-volume-backup.stop-during-backup: true
     env_file:
-      - .authentik.env
+      - ./env/.authentik.env
     environment:
       TZ: $TZ
     networks:
@@ -63,7 +63,7 @@ services:
     logging: *default-logging
     command: server
     env_file:
-      - .authentik.env
+      - ./env/.authentik.env
     environment:
       TZ: $TZ
     volumes:
@@ -93,7 +93,7 @@ services:
     logging: *default-logging
     command: worker
     env_file:
-      - .authentik.env
+      - ./env/.authentik.env
     environment:
       TZ: $TZ
     user: root

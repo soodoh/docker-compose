@@ -13,7 +13,7 @@ services:
     volumes:
       - ${MEDIA_PATH}/nextcloud:/var/www/html
     env_file:
-      - .nextcloud.env
+      - ./env/.nextcloud.env
     environment:
       TZ: $TZ
       REDIS_HOST: nextcloud-redis
@@ -37,7 +37,7 @@ services:
     volumes:
       - nextcloud-db-data:/var/lib/mysql
     env_file:
-      - .nextcloud.env
+      - ./env/.nextcloud.env
     environment:
       TZ: $TZ
     labels:
