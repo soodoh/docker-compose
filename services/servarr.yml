@@ -36,6 +36,7 @@ services:
     ports:
       # Suwayomi for local OPDS
       - 4567:4567
+      - 8081:8080
     cap_add:
       - NET_ADMIN
     devices:
@@ -300,10 +301,30 @@ services:
       TZ: $TZ
       PUID: 1000
       PGID: 1000
+      WEBUI_PORT: 8081
     volumes:
       - qbittorrent-data:/config
       - ${VUETORRENT_PATH}:/vuetorrent
       - ${MEDIA_PATH}/downloads:/data/downloads
+    labels:
+      docker-volume-backup.stop-during-backup: true
+
+  sabnzbd:
+    image: ghcr.io/linuxserver/sabnzbd:4.5.5
+    container_name: sabnzbd
+    restart: unless-stopped
+    logging: *default-logging
+    network_mode: service:gluetun
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      TZ: $TZ
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - sabnzbd-data:/config
+      - ${MEDIA_PATH}:/data
     labels:
       docker-volume-backup.stop-during-backup: true
 
@@ -316,6 +337,7 @@ volumes:
   radarr-4k-data:
   radarr-data:
   recyclarr-data:
+  sabnzbd-data:
   seerr-data:
   sonarr-data:
   tachidesk-data:

@@ -31,6 +31,7 @@ x-backup-volumes: &backup-volumes
   - radarr-4k-data:/backup/radarr-4k-data:ro
   - radarr-data:/backup/radarr-data:ro
   - recyclarr-data:/backup/recyclarr-data:ro
+  - sabnzbd-data:/backup/sabnzbd-data:ro
   - sonarr-data:/backup/sonarr-data:ro
   - tachidesk-data:/backup/tachidesk-data:ro
   - zwave-data:/backup/zwave-data:ro
