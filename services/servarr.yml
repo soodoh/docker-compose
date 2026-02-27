@@ -56,7 +56,7 @@ services:
       # Use DoH instead of DoT — port 853 gets reset by ProtonVPN (gluetun#3121)
       DNS_UPSTREAM_RESOLVER_TYPE: doh
       # Needed to maintain consistent ASN for MAM session
-      SERVER_COUNTRIES: $VPN_COUNTRIES
+      SERVER_COUNTRIES: $SERVER_COUNTRIES
     networks:
       - proxy
       - arr_network
