@@ -5,10 +5,12 @@ services:
     restart: unless-stopped
     volumes:
       - openfit-data:/app/data
-    env_file:
-      - ./env/.openfit.env
     environment:
       TZ: $TZ
+      BETTER_AUTH_BASE_URL: $BETTER_AUTH_BASE_URL
+      BETTER_AUTH_SECRET: $BETTER_AUTH_SECRET
+      ADMIN_USER: $ADMIN_USER
+      ADMIN_PASSWORD: $ADMIN_PASSWORD
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:3000/"]
       interval: 30s

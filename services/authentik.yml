@@ -24,10 +24,11 @@ services:
           subpath: postgresql
     labels:
       docker-volume-backup.stop-during-backup: true
-    env_file:
-      - ./env/.authentik.env
     environment:
       TZ: $TZ
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_DB: $POSTGRES_DB
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
     networks:
       - authentik
 
@@ -62,10 +63,22 @@ services:
     restart: unless-stopped
     logging: *default-logging
     command: server
-    env_file:
-      - ./env/.authentik.env
     environment:
       TZ: $TZ
+      AUTHENTIK_POSTGRESQL__USER: $POSTGRES_USER
+      AUTHENTIK_POSTGRESQL__NAME: $POSTGRES_DB
+      AUTHENTIK_POSTGRESQL__PASSWORD: $POSTGRES_PASSWORD
+      AUTHENTIK_REDIS__HOST: $AUTHENTIK_REDIS__HOST
+      AUTHENTIK_POSTGRESQL__HOST: $AUTHENTIK_POSTGRESQL__HOST
+      AUTHENTIK_SECRET_KEY: $AUTHENTIK_SECRET_KEY
+      AUTHENTIK_EMAIL__HOST: $AUTHENTIK_EMAIL__HOST
+      AUTHENTIK_EMAIL__PORT: $AUTHENTIK_EMAIL__PORT
+      AUTHENTIK_EMAIL__USERNAME: $AUTHENTIK_EMAIL__USERNAME
+      AUTHENTIK_EMAIL__PASSWORD: $AUTHENTIK_EMAIL__PASSWORD
+      AUTHENTIK_EMAIL__FROM: $AUTHENTIK_EMAIL__FROM
+      AUTHENTIK_EMAIL__USE_TLS: $AUTHENTIK_EMAIL__USE_TLS
+      AUTHENTIK_EMAIL__USE_SSL: $AUTHENTIK_EMAIL__USE_SSL
+      AUTHENTIK_EMAIL__TIMEOUT: $AUTHENTIK_EMAIL__TIMEOUT
     volumes:
       - type: volume
         source: authentik-data
@@ -92,10 +105,22 @@ services:
     restart: unless-stopped
     logging: *default-logging
     command: worker
-    env_file:
-      - ./env/.authentik.env
     environment:
       TZ: $TZ
+      AUTHENTIK_POSTGRESQL__USER: $POSTGRES_USER
+      AUTHENTIK_POSTGRESQL__NAME: $POSTGRES_DB
+      AUTHENTIK_POSTGRESQL__PASSWORD: $POSTGRES_PASSWORD
+      AUTHENTIK_REDIS__HOST: $AUTHENTIK_REDIS__HOST
+      AUTHENTIK_POSTGRESQL__HOST: $AUTHENTIK_POSTGRESQL__HOST
+      AUTHENTIK_SECRET_KEY: $AUTHENTIK_SECRET_KEY
+      AUTHENTIK_EMAIL__HOST: $AUTHENTIK_EMAIL__HOST
+      AUTHENTIK_EMAIL__PORT: $AUTHENTIK_EMAIL__PORT
+      AUTHENTIK_EMAIL__USERNAME: $AUTHENTIK_EMAIL__USERNAME
+      AUTHENTIK_EMAIL__PASSWORD: $AUTHENTIK_EMAIL__PASSWORD
+      AUTHENTIK_EMAIL__FROM: $AUTHENTIK_EMAIL__FROM
+      AUTHENTIK_EMAIL__USE_TLS: $AUTHENTIK_EMAIL__USE_TLS
+      AUTHENTIK_EMAIL__USE_SSL: $AUTHENTIK_EMAIL__USE_SSL
+      AUTHENTIK_EMAIL__TIMEOUT: $AUTHENTIK_EMAIL__TIMEOUT
     user: root
     labels:
       docker-volume-backup.stop-during-backup: true

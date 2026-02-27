@@ -39,7 +39,6 @@ x-backup-volumes: &backup-volumes
   - ${HASS_PATH}:/backup/hass-data:ro
   # Other files
   - ../.env:/backup/.env:ro
-  - ./env:/backup/env:ro
   - ${HOME}/.ssh:/backup/.ssh:ro
   # Required
   - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -62,8 +61,6 @@ services:
       - 8088:8088
       - 8043:8043
       - 8843:8843
-    env_file:
-      - ./env/.infra.env
     environment:
       TZ: $TZ
     volumes:
@@ -89,10 +86,9 @@ services:
     logging: *default-logging
     volumes:
       - ddns-updater-data:/updater/data
-    env_file:
-      - ./env/.infra.env
     environment:
       TZ: $TZ
+      RESOLVER_ADDRESS: $RESOLVER_ADDRESS
       # See: https://pkg.go.dev/time#ParseDuration
       PERIOD: 5m
     networks:
@@ -109,10 +105,11 @@ services:
       - 80:80
       - 443:443/tcp
       - 443:443/udp
-    env_file:
-      - ./env/.infra.env
     environment:
       TZ: $TZ
+      ROUTE_53_ACCESS_KEY: $ROUTE_53_ACCESS_KEY
+      ROUTE_53_SECRET: $ROUTE_53_SECRET
+      ROUTE_53_ZONE_ID: $ROUTE_53_ZONE_ID
     volumes:
       - caddy-data:/data/caddy
       - ./data/Caddyfile:/etc/caddy/Caddyfile
@@ -128,10 +125,13 @@ services:
       - 53:53/tcp
       - 53:53/udp
       # - 81:80
-    env_file:
-      - ./env/.infra.env
     environment:
       TZ: $TZ
+      DNSMASQ_USER: $DNSMASQ_USER
+      PIHOLE_PRIMARY_URL: $PIHOLE_PRIMARY_URL
+      PIHOLE_PRIMARY_PW: $PIHOLE_PRIMARY_PW
+      PIHOLE_SECONDARY_URL: $PIHOLE_SECONDARY_URL
+      PIHOLE_SECONDARY_PW: $PIHOLE_SECONDARY_PW
     volumes:
       - pihole-data:/etc/pihole
     networks:
@@ -141,11 +141,12 @@ services:
     image: ghcr.io/offen/docker-volume-backup:v2.47.0
     container_name: daily-local-backup
     logging: *default-logging
-    env_file:
-      - ./env/.infra.env
     environment:
       TZ: $TZ
       <<: *backup-env
+      AWS_S3_BUCKET_NAME: $AWS_S3_BUCKET_NAME
+      AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
       # Every day at 6AM, except Sunday, since weekly-remote-backup will run then
       BACKUP_CRON_EXPRESSION: "0 6 * * 1-6"
       BACKUP_RETENTION_DAYS: 5
@@ -157,11 +158,12 @@ services:
     image: ghcr.io/offen/docker-volume-backup:v2.47.0
     container_name: weekly-remote-backup
     logging: *default-logging
-    env_file:
-      - ./env/.infra.env
     environment:
       TZ: $TZ
       <<: *backup-env
+      AWS_S3_BUCKET_NAME: $AWS_S3_BUCKET_NAME
+      AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
       BACKUP_CRON_EXPRESSION: "0 6 * * 0" # Every Sunday at 6AM
       BACKUP_RETENTION_DAYS: 14 # Only saving once a week
     volumes: *backup-volumes

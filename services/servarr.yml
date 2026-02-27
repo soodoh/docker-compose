@@ -44,11 +44,19 @@ services:
     volumes:
       - gluetun-data:/gluetun
       - ./data/gluetun:/scripts:ro
-    env_file:
-      - ./env/.gluetun.env
     environment:
       TZ: $TZ
       VPN_PORT_FORWARDING_UP_COMMAND: /bin/sh /scripts/gluetun_up.sh
+      VPN_TYPE: openvpn
+      OPENVPN_USER: $OPENVPN_USER
+      OPENVPN_PASSWORD: $OPENVPN_PASSWORD
+      VPN_SERVICE_PROVIDER: $VPN_PROVIDER
+      VPN_PORT_FORWARDING_PROVIDER: $VPN_PROVIDER
+      VPN_PORT_FORWARDING: on
+      # Use DoH instead of DoT — port 853 gets reset by ProtonVPN (gluetun#3121)
+      DNS_UPSTREAM_RESOLVER_TYPE: doh
+      # Needed to maintain consistent ASN for MAM session
+      SERVER_COUNTRIES: $VPN_COUNTRIES
     networks:
       - proxy
       - arr_network

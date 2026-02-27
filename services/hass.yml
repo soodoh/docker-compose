@@ -35,10 +35,10 @@ services:
       - /dev/ttyUSB1:/dev/zwave
     volumes:
       - zwave-data:/usr/src/app/store
-    env_file:
-      - ./env/.hass.env
     environment:
       TZ: $TZ
+      ZWAVE_SECRET: $ZWAVE_SECRET
+      SESSION_SECRET: $SESSION_SECRET
       ZWAVEJS_EXTERNAL_CONFIG: /usr/src/app/store/.config-db
     ports:
       # HA is on host network, so explicit port mapping is needed
@@ -53,8 +53,6 @@ services:
     container_name: mosquitto
     restart: unless-stopped
     logging: *default-logging
-    env_file:
-      - ./env/.hass.env
     environment:
       TZ: $TZ
     volumes:
@@ -93,11 +91,26 @@ services:
       # Ryzen 9 graphics
       - /dev/dri/renderD128:/dev/dri/renderD128
       - /dev/dri/card1:/dev/dri/card1
-    env_file:
-      - ./env/.hass.env
     environment:
       TZ: $TZ
       LIBVA_DRIVER_NAME: "radeonsi"
+      FRIGATE_MQTT_USER: $FRIGATE_MQTT_USER
+      FRIGATE_MQTT_PASSWORD: $FRIGATE_MQTT_PASSWORD
+      FRIGATE_CAM_USER: $FRIGATE_CAM_USER
+      FRIGATE_BACKYARD: $FRIGATE_BACKYARD
+      FRIGATE_BACKYARD_PW: $FRIGATE_BACKYARD_PW
+      FRIGATE_DOORBELL: $FRIGATE_DOORBELL
+      FRIGATE_DOORBELL_PW: $FRIGATE_DOORBELL_PW
+      FRIGATE_DRIVEWAY: $FRIGATE_DRIVEWAY
+      FRIGATE_DRIVEWAY_PW: $FRIGATE_DRIVEWAY_PW
+      FRIGATE_BACK_STUDIO: $FRIGATE_BACK_STUDIO
+      FRIGATE_BACK_STUDIO_PW: $FRIGATE_BACK_STUDIO_PW
+      FRIGATE_FRONTYARD: $FRIGATE_FRONTYARD
+      FRIGATE_FRONTYARD_PW: $FRIGATE_FRONTYARD_PW
+      FRIGATE_STUDIO: $FRIGATE_STUDIO
+      FRIGATE_STUDIO_PW: $FRIGATE_STUDIO_PW
+      FRIGATE_BACK_HOUSE: $FRIGATE_BACK_HOUSE
+      FRIGATE_BACK_HOUSE_PW: $FRIGATE_BACK_HOUSE_PW
     volumes:
       - frigate-data:/config
       - ${MEDIA_PATH}/frigate:/media/frigate
