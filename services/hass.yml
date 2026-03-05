@@ -11,7 +11,10 @@ services:
     restart: unless-stopped
     logging: *default-logging
     depends_on:
-      - zwave
+      zwave:
+        condition: service_started
+      authentik-server:
+        condition: service_healthy
     privileged: true
     devices:
       - /dev/ttyUSB0:/dev/zigbee

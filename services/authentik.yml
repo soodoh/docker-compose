@@ -63,6 +63,12 @@ services:
     restart: unless-stopped
     logging: *default-logging
     command: server
+    healthcheck:
+      test: ["CMD", "ak", "healthcheck"]
+      start_period: 30s
+      interval: 30s
+      retries: 5
+      timeout: 5s
     environment:
       TZ: $TZ
       AUTHENTIK_POSTGRESQL__USER: $POSTGRES_USER
