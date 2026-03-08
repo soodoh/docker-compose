@@ -42,9 +42,9 @@ x-backup-volumes: &backup-volumes
   - ${HOME}/.ssh:/backup/.ssh:ro
   # Required
   - /var/run/docker.sock:/var/run/docker.sock:ro
-  # $TZ variable not supported
-  - /etc/timezone:/etc/timezone:ro
+  # Needed so that the container reflects the $TZ timezone
   - /etc/localtime:/etc/localtime:ro
+  - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
   # Local backups
   - ${BACKUP_PATH}:/archive
 
