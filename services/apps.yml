@@ -29,10 +29,14 @@ services:
       - ${MEDIA_PATH}/movies:/movies
       - ${MEDIA_PATH}/anime:/anime
       - ${MEDIA_PATH}/books:/books
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+      - /dev/dri/card1:/dev/dri/card1
     environment:
       TZ: $TZ
       PUID: 1000
       PGID: 1000
+      LIBVA_DRIVER_NAME: radeonsi
       JELLYFIN_SERVERS: $JELLYFIN_SERVERS
       JELLYFIN_PublishedServerUrl: $JELLYFIN_PublishedServerUrl
     networks:
