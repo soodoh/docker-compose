@@ -19,18 +19,18 @@ docker compose logs -f caddy        # Tail logs for a service
 docker compose pull                 # Pull latest images
 ```
 
-`docker-compose.yml` includes all `*-compose.yml` files. Docker Compose automatically loads `.env` from the project root.
+`docker-compose.yml` includes all `services/*.yml` files. Docker Compose automatically loads `.env` from the project root.
 
 ## Architecture
 
 ### Compose Stacks
 
-Each `*-compose.yml` file is a logical group. All are loaded together as one compose project:
+Each `services/*.yml` file is a logical group. All are loaded together as one compose project via `docker-compose.yml`:
 
 - **infra** - Core infrastructure: Caddy (reverse proxy), Pi-hole (DNS), Omada (network controller), DDNS updater, backup jobs (daily local + weekly S3)
-- **auth** - Authentik SSO with its own Postgres and Redis
+- **authentik** - Authentik SSO with its own Postgres and Redis
 - **apps** - Media/content apps: Jellyfin, Audiobookshelf, Calibre, Calibre-Web-Automated, Karaoke Eternal
-- **downloaders** - Arr stack behind Gluetun VPN: Sonarr, Radarr (+ 4K instance), Bookshelf (Readarr fork), Prowlarr, qBittorrent, Recyclarr, Unpackerr, Jellyseerr, Tachidesk (x2), FlareSolverr
+- **servarr** - Arr stack behind Gluetun VPN: Sonarr, Radarr (+ 4K instance), Bookshelf (Readarr fork), Prowlarr, qBittorrent, SABnzbd, Recyclarr, Unpackerr, Seerr, Tachidesk (x2), FlareSolverr
 - **hass** - Home Assistant (host network), Z-Wave JS UI, Mosquitto MQTT, Frigate NVR (with Coral TPU + AMD GPU)
 - **nextcloud** - Nextcloud with MariaDB and Redis
 - **openfit** - OpenFit fitness app
@@ -49,7 +49,7 @@ Most downloaders use `network_mode: service:gluetun` to route traffic through VP
 
 ### Reverse Proxy
 
-`Caddyfile` defines routing. Most subdomains forward to `authentik-server:9000` for SSO. Specific services (Jellyfin, Audiobookshelf, Calibre-Web, Nextcloud, Karaoke Eternal) get direct reverse proxy entries.
+`services/data/Caddyfile` defines routing. Most subdomains forward to `authentik-server:9000` for SSO. Specific services (Jellyfin, Audiobookshelf, Calibre-Web, Nextcloud, Karaoke Eternal) get direct reverse proxy entries.
 
 ### Environment
 
@@ -57,11 +57,11 @@ All services read from `.env` (loaded automatically by Docker Compose). Authenti
 
 ### Backups
 
-`docker-volume-backup` runs two schedules via `infra-compose.yml`: daily local (Mon-Sat 6AM, 5-day retention) and weekly remote to S3 (Sun 6AM, 14-day retention). Services labeled `docker-volume-backup.stop-during-backup: true` are stopped during backup.
+`docker-volume-backup` runs two schedules via `services/infra.yml`: daily local (Mon-Sat 6AM, 5-day retention) and weekly remote to S3 (Sun 6AM, 14-day retention). Services labeled `docker-volume-backup.stop-during-backup: true` are stopped during backup.
 
 ### VPN Scripts
 
-`scripts/gluetun/` contains post-VPN-connect hooks:
+`services/data/gluetun/` contains post-VPN-connect hooks:
 - `gluetun_up.sh` - Entry point, called by Gluetun's `VPN_PORT_FORWARDING_UP_COMMAND`
 - `qbittorrent_port.sh` - Updates qBittorrent's listening port to match VPN forwarded port
 - `mam_seedbox.sh` - Updates MAM dynamic seedbox IP using cookie-based auth
