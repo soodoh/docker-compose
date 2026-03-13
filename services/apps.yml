@@ -153,7 +153,6 @@ services:
       SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION: false
       SSO_CLIENT_CACHE_EXPIRATION: 0
       SSO_ONLY: true
-      SSO_AUTH_ONLY_NOT_SESSION: true
       SSO_SIGNUPS_MATCH_EMAIL: true
     extra_hosts:
       - auth.pauld.link:${INTERNAL_HOST_IP}
