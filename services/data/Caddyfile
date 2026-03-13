@@ -22,6 +22,10 @@ zwave.pauld.link {
   reverse_proxy authentik-server:9000
 }
 
+vaultwarden.pauld.link {
+  reverse_proxy vaultwarden:80
+}
+
 watch.pauld.link {
   reverse_proxy jellyfin:8096
 }
