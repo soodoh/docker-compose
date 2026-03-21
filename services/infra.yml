@@ -35,6 +35,7 @@ x-backup-volumes: &backup-volumes
   - sonarr-data:/backup/sonarr-data:ro
   - tachidesk-data:/backup/tachidesk-data:ro
   - vaultwarden-data:/backup/vaultwarden-data:ro
+  - vikunja-data:/backup/vikunja-data:ro
   - zwave-data:/backup/zwave-data:ro
   # Non-volumes
   - ${HASS_PATH}:/backup/hass-data:ro

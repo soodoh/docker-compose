@@ -161,6 +161,30 @@ services:
     networks:
       - proxy
 
+  vikunja:
+    image: ghcr.io/go-vikunja/vikunja:2.2.0
+    container_name: vikunja
+    restart: unless-stopped
+    logging: *default-logging
+    user: "0:0"
+    environment:
+      TZ: $TZ
+      VIKUNJA_SERVICE_PUBLICURL: https://todo.pauld.link
+      VIKUNJA_SERVICE_JWTSECRET: $VIK_SERVICE_JWTSECRET
+      VIKUNJA_DATABASE_TYPE: sqlite
+      VIKUNJA_DATABASE_PATH: /app/vikunja/files/vikunja.db
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: false
+      VIKUNJA_SERVICE_ENABLELINKSHARING: false
+      VIKUNJA_AUTH_OPENID_ENABLED: true
+      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_NAME: Authentik
+      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_AUTHURL: $VIK_AUTHENTIK_URL
+      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_CLIENTID: $VIK_OIDC_CLIENT_ID
+      VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_CLIENTSECRET: $VIK_OIDC_CLIENT_SECRET
+    volumes:
+      - vikunja-data:/app/vikunja/files
+    networks:
+      - proxy
+
 volumes:
   audiobookshelf-data:
   calibre-data:
@@ -168,3 +192,4 @@ volumes:
   jellyfin-data:
   karaoke-eternal-data:
   vaultwarden-data:
+  vikunja-data:
