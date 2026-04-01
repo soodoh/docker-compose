@@ -68,7 +68,7 @@ All services read from `.env` (loaded automatically by Docker Compose). Authenti
 
 ## Conventions
 
-- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) (enforced by commitlint + husky)
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) (enforced by commitlint + lefthook)
 - Package manager is **Bun** (not npm/pnpm)
 - Renovate manages dependency updates (Docker image tags and npm packages)
 - YAML anchors (`x-logging`, `x-backup-env`, `x-backup-volumes`) are used for shared config across services
