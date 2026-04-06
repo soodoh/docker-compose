@@ -14,10 +14,10 @@
   "license": "MIT",
   "packageManager": "bun@1.2.4",
   "devDependencies": {
-    "@commitlint/cli": "^20.4.4",
-    "@commitlint/config-conventional": "^20.4.4",
-    "@commitlint/types": "^20.4.4",
-    "@types/node": "^25.5.0",
-    "lefthook": "^2.1.4"
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@commitlint/types": "^20.5.0",
+    "@types/node": "^25.5.2",
+    "lefthook": "^2.1.5"
   }
 }
