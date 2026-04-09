@@ -1,0 +1,52 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: 3
+
+services:
+  happier-devbox:
+    build:
+      context: ..
+      dockerfile: ./services/data/happier/Dockerfile
+    container_name: happier-devbox
+    restart: unless-stopped
+    privileged: true
+    logging: *default-logging
+    labels:
+      docker-volume-backup.stop-during-backup: true
+    environment:
+      TZ: $TZ
+      HAPPIER_SERVER_NAME: ${HAPPIER_SERVER_NAME:-default}
+      HAPPIER_SERVER_URL: ${HAPPIER_SERVER_URL:-https://api.happier.dev}
+      HAPPIER_WEBAPP_URL: ${HAPPIER_WEBAPP_URL:-https://app.happier.dev}
+      HAPPIER_DEVBOX_USER: devbox
+      HAPPIER_DEVBOX_HOME: /var/lib/happier
+      HAPPIER_WORKSPACE_DIR: /workspace
+    volumes:
+      - happier-workspace:/workspace
+      - happier-home-data:/var/lib/happier
+      - happier-docker-data:/var/lib/docker
+      - ${HAPPIER_SSH_KEY_PATH:-/dev/null}:/run/secrets/github_ssh_key:ro
+      - ${HAPPIER_SSH_PUBLIC_KEY_PATH:-/dev/null}:/run/secrets/github_ssh_key.pub:ro
+      - ${HAPPIER_SSH_KNOWN_HOSTS_PATH:-/dev/null}:/run/secrets/known_hosts:ro
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/happier-healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    networks:
+      - happier
+
+volumes:
+  happier-workspace:
+  happier-home-data:
+  happier-docker-data:
+
+networks:
+  happier:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.25.0.0/16"
