@@ -1,7 +1,7 @@
 FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PATH=/root/.bun/bin:/root/.local/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ENV NODE_VERSION=20.18.2
 
 RUN apt-get update \
@@ -28,11 +28,8 @@ RUN apt-get update \
     golang-go \
   && rm -rf /var/lib/apt/lists/*
 
-RUN pipx install uv
-RUN curl -fsSL https://bun.sh/install | bash
-
-RUN ln -sf /root/.bun/bin/bun /usr/local/bin/bun \
-  && ln -sf /root/.local/bin/uv /usr/local/bin/uv
+RUN curl -fsSL https://bun.sh/install | env BUN_INSTALL=/usr/local bash
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
 
 RUN ln -sf /usr/bin/docker /usr/local/bin/docker \
   && ln -sf /usr/bin/git /usr/local/bin/git \
