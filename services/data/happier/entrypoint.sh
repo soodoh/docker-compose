@@ -14,6 +14,10 @@ fi
 mkdir -p /var/run /var/log/happier "${DEVBOX_HOME}"
 chown "${DEVBOX_USER}:${DEVBOX_USER}" "${DEVBOX_HOME}" /var/log/happier /workspace
 
+if find /workspace -xdev \( ! -user "${DEVBOX_USER}" -o ! -group "${DEVBOX_USER}" \) -print -quit | grep -q .; then
+  chown -R "${DEVBOX_USER}:${DEVBOX_USER}" /workspace
+fi
+
 dockerd --host=unix:///var/run/docker.sock --storage-driver=vfs \
   > >(tee -a /var/log/happier/dockerd.log) \
   2> >(tee -a /var/log/happier/dockerd.log >&2) &
