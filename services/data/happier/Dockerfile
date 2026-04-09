@@ -68,10 +68,12 @@ RUN ln -sf "$(npm root -g)/@happier-dev/cli/bin/happier.mjs" /usr/local/bin/happ
 COPY services/data/happier/bootstrap-ssh.sh /usr/local/bin/bootstrap-ssh
 COPY services/data/happier/healthcheck.sh /usr/local/bin/happier-healthcheck
 COPY services/data/happier/entrypoint.sh /usr/local/bin/happier-entrypoint
+COPY services/data/happier/github_known_hosts /usr/local/share/happier/github_known_hosts
 
 RUN chmod +x \
   /usr/local/bin/bootstrap-ssh \
   /usr/local/bin/happier-healthcheck \
-  /usr/local/bin/happier-entrypoint
+  /usr/local/bin/happier-entrypoint \
+  /usr/local/share/happier/github_known_hosts
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/happier-entrypoint"]

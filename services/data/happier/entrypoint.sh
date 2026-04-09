@@ -46,7 +46,7 @@ su - "${DEVBOX_USER}" -c "happier server add --name '${SERVER_NAME}' --server-ur
 su - "${DEVBOX_USER}" -c "happier server use '${SERVER_NAME}'"
 
 if [[ "${is_authenticated}" -eq 1 ]]; then
-  su - "${DEVBOX_USER}" -c "happier daemon start || true"
+  su - "${DEVBOX_USER}" -c "happier daemon start"
 fi
 
 wait "${DOCKERD_PID}"
