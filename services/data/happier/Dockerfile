@@ -34,6 +34,13 @@ RUN curl -fsSL https://bun.sh/install | bash
 RUN ln -sf /root/.bun/bin/bun /usr/local/bin/bun \
   && ln -sf /root/.local/bin/uv /usr/local/bin/uv
 
+RUN ln -sf /usr/bin/docker /usr/local/bin/docker \
+  && ln -sf /usr/bin/git /usr/local/bin/git \
+  && ln -sf /usr/bin/gh /usr/local/bin/gh \
+  && ln -sf /usr/bin/python3 /usr/local/bin/python \
+  && ln -sf /usr/bin/python3 /usr/local/bin/python3 \
+  && ln -sf /usr/lib/go-1.19/bin/go /usr/local/bin/go
+
 RUN set -eux; \
   arch="$(dpkg --print-architecture)"; \
   case "$arch" in \

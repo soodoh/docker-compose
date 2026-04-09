@@ -25,6 +25,13 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
+auth_status_output="$(su - "${DEVBOX_USER}" -c "happier auth status" 2>&1 || true)"
+is_authenticated=1
+if printf '%s\n' "${auth_status_output}" | grep -q 'Not authenticated'; then
+  is_authenticated=0
+  echo "Happier is not linked yet. Run 'docker exec -it -u devbox happier-devbox happier auth login' after the container starts."
+fi
+
 for _ in $(seq 1 30); do
   if docker info >/dev/null 2>&1; then
     break
@@ -33,15 +40,13 @@ for _ in $(seq 1 30); do
 done
 
 docker info >/dev/null 2>&1
-bootstrap-ssh
+bootstrap-ssh >/dev/null 2>&1
 
 su - "${DEVBOX_USER}" -c "happier server add --name '${SERVER_NAME}' --server-url '${SERVER_URL}' --webapp-url '${WEBAPP_URL}' >/dev/null 2>&1 || true"
 su - "${DEVBOX_USER}" -c "happier server use '${SERVER_NAME}'"
 
-if su - "${DEVBOX_USER}" -c "happier auth status" >/dev/null 2>&1; then
+if [[ "${is_authenticated}" -eq 1 ]]; then
   su - "${DEVBOX_USER}" -c "happier daemon start || true"
-else
-  echo "Happier is not linked yet. Run 'docker exec -it -u devbox happier-devbox happier auth login' after the container starts."
 fi
 
 wait "${DOCKERD_PID}"
