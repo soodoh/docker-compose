@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DEVBOX_USER="${HAPPIER_DEVBOX_USER:-devbox}"
+DEVBOX_HOME="${HAPPIER_DEVBOX_HOME:-/var/lib/happier}"
+SERVER_NAME="${HAPPIER_SERVER_NAME:-default}"
+SERVER_URL="${HAPPIER_SERVER_URL:-https://api.happier.dev}"
+WEBAPP_URL="${HAPPIER_WEBAPP_URL:-https://app.happier.dev}"
+
+if [[ $# -gt 0 ]]; then
+  exec "$@"
+fi
+
+mkdir -p /var/run /var/log/happier "${DEVBOX_HOME}"
+chown -R "${DEVBOX_USER}:${DEVBOX_USER}" "${DEVBOX_HOME}" /var/log/happier /workspace /var/lib/docker
+
+dockerd --host=unix:///var/run/docker.sock --storage-driver=vfs > /var/log/happier/dockerd.log 2>&1 &
+DOCKERD_PID=$!
+
+cleanup() {
+  su - "${DEVBOX_USER}" -c "happier daemon stop" >/dev/null 2>&1 || true
+  kill "${DOCKERD_PID}" >/dev/null 2>&1 || true
+  wait "${DOCKERD_PID}" || true
+}
+
+trap cleanup EXIT INT TERM
+
+for _ in $(seq 1 30); do
+  if docker info >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+
+docker info >/dev/null 2>&1
+bootstrap-ssh
+
+su - "${DEVBOX_USER}" -c "happier server add --name '${SERVER_NAME}' --server-url '${SERVER_URL}' --webapp-url '${WEBAPP_URL}' >/dev/null 2>&1 || true"
+su - "${DEVBOX_USER}" -c "happier server use '${SERVER_NAME}'"
+
+if su - "${DEVBOX_USER}" -c "happier auth status" >/dev/null 2>&1; then
+  su - "${DEVBOX_USER}" -c "happier daemon start || true"
+else
+  echo "Happier is not linked yet. Run 'docker exec -it -u devbox happier-devbox happier auth login' after the container starts."
+fi
+
+wait "${DOCKERD_PID}"
