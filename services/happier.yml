@@ -13,6 +13,8 @@ services:
     restart: unless-stopped
     privileged: true
     logging: *default-logging
+    labels:
+      docker-volume-backup.stop-during-backup: true
     environment:
       TZ: $TZ
       HAPPIER_SERVER_NAME: ${HAPPIER_SERVER_NAME:-default}

@@ -12,9 +12,11 @@ if [[ $# -gt 0 ]]; then
 fi
 
 mkdir -p /var/run /var/log/happier "${DEVBOX_HOME}"
-chown -R "${DEVBOX_USER}:${DEVBOX_USER}" "${DEVBOX_HOME}" /var/log/happier /workspace /var/lib/docker
+chown -R "${DEVBOX_USER}:${DEVBOX_USER}" "${DEVBOX_HOME}" /var/log/happier /workspace
 
-dockerd --host=unix:///var/run/docker.sock --storage-driver=vfs > /var/log/happier/dockerd.log 2>&1 &
+dockerd --host=unix:///var/run/docker.sock --storage-driver=vfs \
+  > >(tee -a /var/log/happier/dockerd.log) \
+  2> >(tee -a /var/log/happier/dockerd.log >&2) &
 DOCKERD_PID=$!
 
 cleanup() {
@@ -40,7 +42,7 @@ for _ in $(seq 1 30); do
 done
 
 docker info >/dev/null 2>&1
-bootstrap-ssh >/dev/null 2>&1
+bootstrap-ssh
 
 su - "${DEVBOX_USER}" -c "happier server add --name '${SERVER_NAME}' --server-url '${SERVER_URL}' --webapp-url '${WEBAPP_URL}' >/dev/null 2>&1 || true"
 su - "${DEVBOX_USER}" -c "happier server use '${SERVER_NAME}'"
