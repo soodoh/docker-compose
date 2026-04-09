@@ -6,3 +6,4 @@ include:
   - ./services/servarr.yml
   - ./services/authentik.yml
   - ./services/infra.yml
+  - ./services/happier.yml
