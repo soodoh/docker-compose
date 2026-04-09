@@ -12,7 +12,7 @@ if [[ $# -gt 0 ]]; then
 fi
 
 mkdir -p /var/run /var/log/happier "${DEVBOX_HOME}"
-chown -R "${DEVBOX_USER}:${DEVBOX_USER}" "${DEVBOX_HOME}" /var/log/happier /workspace
+chown "${DEVBOX_USER}:${DEVBOX_USER}" "${DEVBOX_HOME}" /var/log/happier /workspace
 
 dockerd --host=unix:///var/run/docker.sock --storage-driver=vfs \
   > >(tee -a /var/log/happier/dockerd.log) \
