@@ -186,7 +186,7 @@ services:
       - proxy
 
   happier:
-    image: happierdev/relay-server:dev
+    image: ghcr.io/happier-dev/relay-server:dev
     container_name: happier
     restart: unless-stopped
     logging: *default-logging
@@ -197,7 +197,7 @@ services:
       NODE_ENV: production
       PORT: 3005
       HAPPIER_PUBLIC_SERVER_URL: $HAPPIER_PUBLIC_SERVER_URL
-      HAPPIER_WEBAPP_URL: $HAPPIER_PUBLIC_SERVER_URL
+      HAPPIER_WEBAPP_URL: $HAPPIER_WEBAPP_URL
       HAPPIER_SERVER_TRUST_PROXY: "1"
       HANDY_MASTER_SECRET: $HAPPIER_MASTER_SECRET
       HAPPIER_DB_PROVIDER: sqlite
@@ -205,7 +205,7 @@ services:
       AUTH_ANONYMOUS_SIGNUP_ENABLED: false
       AUTH_SIGNUP_PROVIDERS: authentik
       AUTH_REQUIRED_LOGIN_PROVIDERS: authentik
-      HAPPIER_FEATURE_AUTH_LOGIN__KEY_CHALLENGE_ENABLED: "0"
+      HAPPIER_FEATURE_AUTH_LOGIN__KEY_CHALLENGE_ENABLED: "1"
       HAPPIER_FEATURE_AUTH_UI__AUTO_REDIRECT_ENABLED: "1"
       HAPPIER_FEATURE_AUTH_UI__AUTO_REDIRECT_PROVIDER_ID: authentik
       AUTH_PROVIDERS_CONFIG_JSON: >-
