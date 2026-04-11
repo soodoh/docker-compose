@@ -170,7 +170,7 @@ services:
     environment:
       TZ: $TZ
       VIKUNJA_SERVICE_PUBLICURL: https://todo.pauld.link
-      VIKUNJA_SERVICE_JWTSECRET: $VIK_SERVICE_JWTSECRET
+      VIKUNJA_SERVICE_JWTSECRET: $VIK_SERVICE_JWT_SECRET
       VIKUNJA_DATABASE_TYPE: sqlite
       VIKUNJA_DATABASE_PATH: /app/vikunja/files/vikunja.db
       VIKUNJA_SERVICE_ENABLEREGISTRATION: false
