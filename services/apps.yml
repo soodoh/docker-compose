@@ -196,10 +196,10 @@ services:
       TZ: $TZ
       NODE_ENV: production
       PORT: 3005
-      HAPPIER_PUBLIC_SERVER_URL: https://happier.pauld.link
-      HAPPIER_WEBAPP_URL: https://happier.pauld.link
+      HAPPIER_PUBLIC_SERVER_URL: $HAPPIER_PUBLIC_SERVER_URL
+      HAPPIER_WEBAPP_URL: $HAPPIER_PUBLIC_SERVER_URL
       HAPPIER_SERVER_TRUST_PROXY: "1"
-      HANDY_MASTER_SECRET: $HAPPIER_HANDY_MASTER_SECRET
+      HANDY_MASTER_SECRET: $HAPPIER_MASTER_SECRET
       HAPPIER_DB_PROVIDER: sqlite
       HAPPIER_FILES_BACKEND: local
       AUTH_ANONYMOUS_SIGNUP_ENABLED: false
@@ -210,6 +210,8 @@ services:
       HAPPIER_FEATURE_AUTH_UI__AUTO_REDIRECT_PROVIDER_ID: authentik
       AUTH_PROVIDERS_CONFIG_JSON: >-
         [{"id":"authentik","type":"oidc","displayName":"Authentik","issuer":"${HAPPIER_AUTHENTIK_ISSUER_URL}","clientId":"${HAPPIER_AUTHENTIK_CLIENT_ID}","clientSecret":"${HAPPIER_AUTHENTIK_CLIENT_SECRET}","redirectUrl":"https://happier.pauld.link/v1/oauth/authentik/callback","scopes":"openid profile email"}]
+    extra_hosts:
+      - auth.pauld.link:${INTERNAL_HOST_IP}
     volumes:
       - happier-data:/data
     networks:
