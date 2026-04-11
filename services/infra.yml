@@ -19,6 +19,7 @@ x-backup-volumes: &backup-volumes
   - ddns-updater-data:/backup/ddns-updater-data:ro
   - frigate-data:/backup/frigate-data:ro
   - gluetun-data:/backup/gluetun-data:ro
+  - happier-data:/backup/happier-data:ro
   - jellyfin-data:/backup/jellyfin-data:ro
   - seerr-data:/backup/seerr-data:ro
   - karaoke-eternal-data:/backup/karaoke-eternal-data:ro
