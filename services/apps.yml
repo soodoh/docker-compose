@@ -170,7 +170,7 @@ services:
     environment:
       TZ: $TZ
       VIKUNJA_SERVICE_PUBLICURL: https://todo.pauld.link
-      VIKUNJA_SERVICE_JWTSECRET: $VIK_SERVICE_JWTSECRET
+      VIKUNJA_SERVICE_JWTSECRET: $VIK_SERVICE_JWT_SECRET
       VIKUNJA_DATABASE_TYPE: sqlite
       VIKUNJA_DATABASE_PATH: /app/vikunja/files/vikunja.db
       VIKUNJA_SERVICE_ENABLEREGISTRATION: false
@@ -185,10 +185,43 @@ services:
     networks:
       - proxy
 
+  happier:
+    image: ghcr.io/happier-dev/relay-server:dev
+    container_name: happier
+    restart: unless-stopped
+    logging: *default-logging
+    labels:
+      docker-volume-backup.stop-during-backup: true
+    environment:
+      TZ: $TZ
+      NODE_ENV: production
+      PORT: 3005
+      HAPPIER_PUBLIC_SERVER_URL: $HAPPIER_PUBLIC_SERVER_URL
+      HAPPIER_WEBAPP_URL: $HAPPIER_WEBAPP_URL
+      HAPPIER_SERVER_TRUST_PROXY: "1"
+      HANDY_MASTER_SECRET: $HAPPIER_MASTER_SECRET
+      HAPPIER_DB_PROVIDER: sqlite
+      HAPPIER_FILES_BACKEND: local
+      AUTH_ANONYMOUS_SIGNUP_ENABLED: false
+      AUTH_SIGNUP_PROVIDERS: authentik
+      AUTH_REQUIRED_LOGIN_PROVIDERS: authentik
+      HAPPIER_FEATURE_AUTH_LOGIN__KEY_CHALLENGE_ENABLED: "1"
+      HAPPIER_FEATURE_AUTH_UI__AUTO_REDIRECT_ENABLED: "1"
+      HAPPIER_FEATURE_AUTH_UI__AUTO_REDIRECT_PROVIDER_ID: authentik
+      AUTH_PROVIDERS_CONFIG_JSON: >-
+        [{"id":"authentik","type":"oidc","displayName":"Authentik","issuer":"${HAPPIER_AUTHENTIK_ISSUER_URL}","clientId":"${HAPPIER_AUTHENTIK_CLIENT_ID}","clientSecret":"${HAPPIER_AUTHENTIK_CLIENT_SECRET}","redirectUrl":"https://happier.pauld.link/v1/oauth/authentik/callback","scopes":"openid profile email"}]
+    extra_hosts:
+      - auth.pauld.link:${INTERNAL_HOST_IP}
+    volumes:
+      - happier-data:/data
+    networks:
+      - proxy
+
 volumes:
   audiobookshelf-data:
   calibre-data:
   calibre-web-data:
+  happier-data:
   jellyfin-data:
   karaoke-eternal-data:
   vaultwarden-data:
