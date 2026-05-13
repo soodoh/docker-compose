@@ -56,13 +56,8 @@ services:
     container_name: omada
     restart: always
     logging: *default-logging
-    ports:
-      - 27001:27001/udp
-      - 29810:29810/udp
-      - 29811-29817:29811-29817
-      - 8088:8088
-      - 8043:8043
-      - 8843:8843
+    # Recommended for easier device discovery
+    network_mode: host
     environment:
       TZ: $TZ
     volumes:
@@ -78,8 +73,6 @@ services:
           subpath: logs
     labels:
       docker-volume-backup.stop-during-backup: true
-    networks:
-      - proxy
 
   ddns-updater:
     image: ghcr.io/qdm12/ddns-updater:v2.9.0
