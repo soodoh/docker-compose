@@ -52,7 +52,7 @@ x-backup-volumes: &backup-volumes
 
 services:
   omada:
-    image: mbentley/omada-controller:6.1
+    image: mbentley/omada-controller:6.2
     container_name: omada
     restart: always
     logging: *default-logging
