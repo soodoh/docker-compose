@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   seerr:
-    image: ghcr.io/seerr-team/seerr:v3.0.1
+    image: ghcr.io/seerr-team/seerr:v3.2.0
     init: true
     container_name: seerr
     restart: unless-stopped
@@ -63,7 +63,7 @@ services:
 
   tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.1.2071
+    image: ghcr.io/suwayomi/tachidesk:v2.2.2166
     container_name: tachidesk
     restart: unless-stopped
     logging: *default-logging
@@ -97,7 +97,7 @@ services:
 
   caro-tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.1.2071
+    image: ghcr.io/suwayomi/tachidesk:v2.2.2166
     container_name: caro-tachidesk
     restart: unless-stopped
     logging: *default-logging
@@ -143,7 +143,7 @@ services:
       TZ: $TZ
 
   prowlarr:
-    image: ghcr.io/linuxserver/prowlarr:2.3.2-develop
+    image: ghcr.io/linuxserver/prowlarr:2.3.7-develop
     container_name: prowlarr
     restart: unless-stopped
     network_mode: service:gluetun
@@ -180,7 +180,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   sonarr:
-    image: ghcr.io/linuxserver/sonarr:4.0.16
+    image: ghcr.io/linuxserver/sonarr:4.0.17
     container_name: sonarr
     restart: unless-stopped
     logging: *default-logging
@@ -201,7 +201,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   radarr:
-    image: ghcr.io/linuxserver/radarr:6.0.4
+    image: ghcr.io/linuxserver/radarr:6.1.1
     container_name: radarr
     restart: unless-stopped
     logging: *default-logging
@@ -222,7 +222,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   radarr-4k:
-    image: ghcr.io/linuxserver/radarr:6.0.4
+    image: ghcr.io/linuxserver/radarr:6.1.1
     container_name: radarr-4k
     restart: unless-stopped
     logging: *default-logging
@@ -270,7 +270,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   unpackerr:
-    image: golift/unpackerr:0.14.5
+    image: golift/unpackerr:0.15.2
     container_name: unpackerr
     restart: unless-stopped
     logging: *default-logging
@@ -297,7 +297,7 @@ services:
       - arr_network
 
   qbittorrent:
-    image: ghcr.io/linuxserver/qbittorrent:5.1.4
+    image: ghcr.io/linuxserver/qbittorrent:5.2.0
     container_name: qbittorrent
     restart: unless-stopped
     logging: *default-logging

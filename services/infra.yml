@@ -75,7 +75,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   ddns-updater:
-    image: ghcr.io/qdm12/ddns-updater:v2.9.0
+    image: ghcr.io/qdm12/ddns-updater:v2.10.0
     container_name: ddns-updater
     restart: always
     logging: *default-logging
@@ -90,7 +90,7 @@ services:
       - proxy
 
   caddy:
-    image: caddy:2.10.2
+    image: caddy:2.11.3
     container_name: caddy
     restart: always
     logging: *default-logging
@@ -133,7 +133,7 @@ services:
       - proxy
 
   daily-local-backup:
-    image: ghcr.io/offen/docker-volume-backup:v2.47.0
+    image: ghcr.io/offen/docker-volume-backup:v2.48.0
     container_name: daily-local-backup
     logging: *default-logging
     environment:
@@ -150,7 +150,7 @@ services:
       - infra
 
   weekly-remote-backup:
-    image: ghcr.io/offen/docker-volume-backup:v2.47.0
+    image: ghcr.io/offen/docker-volume-backup:v2.48.0
     container_name: weekly-remote-backup
     logging: *default-logging
     environment:
