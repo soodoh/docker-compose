@@ -34,7 +34,7 @@
   ],
   "docker-compose": {
     "managerFilePatterns": [
-      "/\\-compose\\.ya?ml$/"
+      "/(^|/)services/[^/]+\\.ya?ml$/"
     ]
   }
 }
