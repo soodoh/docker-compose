@@ -99,7 +99,7 @@ services:
         ipv4_address: 172.23.0.99
 
   calibre-web-automated:
-    image: ghcr.io/crocodilestick/calibre-web-automated@v4.0.6
+    image: ghcr.io/crocodilestick/calibre-web-automated:v4.0.6
     container_name: calibre-web-automated
     restart: unless-stopped
     logging: *default-logging
