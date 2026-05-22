@@ -99,9 +99,7 @@ services:
         ipv4_address: 172.23.0.99
 
   calibre-web-automated:
-    # image: ghcr.io/crocodilestick/calibre-web-automated:V3.1.4
-    # Using specific SHA for new OIDC feature until next release
-    image: ghcr.io/crocodilestick/calibre-web-automated@sha256:3b6b7b9a2ff8f7bd5edcf126196cdc41d92d4f3528fdc16253a09e17c429a7ff
+    image: ghcr.io/crocodilestick/calibre-web-automated@v4.0.6
     container_name: calibre-web-automated
     restart: unless-stopped
     logging: *default-logging
