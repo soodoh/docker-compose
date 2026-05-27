@@ -129,7 +129,7 @@ services:
       - caro-tachidesk-data:/home/suwayomi/.local/share/Tachidesk
 
   flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:v3.4.6
+    image: ghcr.io/flaresolverr/flaresolverr:v3.5.0
     container_name: flaresolverr
     restart: always
     logging: *default-logging
@@ -297,7 +297,7 @@ services:
       - arr_network
 
   qbittorrent:
-    image: ghcr.io/linuxserver/qbittorrent:5.2.0
+    image: ghcr.io/linuxserver/qbittorrent:5.2.1
     container_name: qbittorrent
     restart: unless-stopped
     logging: *default-logging
