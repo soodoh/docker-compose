@@ -153,7 +153,7 @@ services:
       SSO_ONLY: true
       SSO_SIGNUPS_MATCH_EMAIL: true
     extra_hosts:
-      - auth.pauld.link:${INTERNAL_HOST_IP}
+      - auth.diloreto.com:${INTERNAL_HOST_IP}
     volumes:
       - vaultwarden-data:/data
     networks:
@@ -167,7 +167,7 @@ services:
     user: "0:0"
     environment:
       TZ: $TZ
-      VIKUNJA_SERVICE_PUBLICURL: https://todo.pauld.link
+      VIKUNJA_SERVICE_PUBLICURL: https://todo.diloreto.com
       VIKUNJA_SERVICE_JWTSECRET: $VIK_SERVICE_JWT_SECRET
       VIKUNJA_DATABASE_TYPE: sqlite
       VIKUNJA_DATABASE_PATH: /app/vikunja/files/vikunja.db

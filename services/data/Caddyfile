@@ -1,54 +1,54 @@
-auth.pauld.link,
-calibre.pauld.link,
-caromanga.pauld.link,
-comics.pauld.link,
-ddns.pauld.link,
-frigate.pauld.link,
-hass.pauld.link,
-omada.pauld.link,
-openfit.pauld.link,
-pihole.pauld.link,
-prowlarr.pauld.link,
-proxmox.pauld.link,
-qb.pauld.link,
-radarr-4k.pauld.link,
-radarr.pauld.link,
-readarr.pauld.link,
-sabnzbd.pauld.link,
-seerr.pauld.link,
-sonarr-4k.pauld.link,
-sonarr.pauld.link,
-zwave.pauld.link {
+auth.diloreto.com,
+calibre.diloreto.com,
+caromanga.diloreto.com,
+comics.diloreto.com,
+ddns.diloreto.com,
+frigate.diloreto.com,
+hass.diloreto.com,
+omada.diloreto.com,
+openfit.diloreto.com,
+pihole.diloreto.com,
+prowlarr.diloreto.com,
+proxmox.diloreto.com,
+qb.diloreto.com,
+radarr-4k.diloreto.com,
+radarr.diloreto.com,
+readarr.diloreto.com,
+sabnzbd.diloreto.com,
+seerr.diloreto.com,
+sonarr-4k.diloreto.com,
+sonarr.diloreto.com,
+zwave.diloreto.com {
   reverse_proxy authentik-server:9000
 }
 
-vaultwarden.pauld.link {
+vaultwarden.diloreto.com {
   reverse_proxy vaultwarden:80
 }
 
-watch.pauld.link {
+watch.diloreto.com {
   reverse_proxy jellyfin:8096
 }
 
-audiobookshelf.pauld.link {
+audiobookshelf.diloreto.com {
   reverse_proxy audiobookshelf:80
 }
 
-books.pauld.link {
+books.diloreto.com {
   reverse_proxy calibre-web-automated:8083 {
     header_up X-Scheme {http.request.scheme}
   }
 }
 
-nextcloud.pauld.link {
+nextcloud.diloreto.com {
   reverse_proxy nextcloud:80
 }
 
-todo.pauld.link {
+todo.diloreto.com {
 	reverse_proxy vikunja:3456
 }
 
-karaoke.pauld.link {
+karaoke.diloreto.com {
   @internal {
     remote_ip 10.0.0.0/8
     remote_ip 172.16.0.0/12
