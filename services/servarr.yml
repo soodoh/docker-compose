@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   seerr:
-    image: ghcr.io/seerr-team/seerr:v3.2.0
+    image: ghcr.io/seerr-team/seerr:v3.3.0
     init: true
     container_name: seerr
     restart: unless-stopped
@@ -63,7 +63,7 @@ services:
 
   tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.2.2166
+    image: ghcr.io/suwayomi/tachidesk:v2.2.2187
     container_name: tachidesk
     restart: unless-stopped
     logging: *default-logging
@@ -97,7 +97,7 @@ services:
 
   caro-tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.2.2166
+    image: ghcr.io/suwayomi/tachidesk:v2.2.2187
     container_name: caro-tachidesk
     restart: unless-stopped
     logging: *default-logging
@@ -143,7 +143,7 @@ services:
       TZ: $TZ
 
   prowlarr:
-    image: ghcr.io/linuxserver/prowlarr:2.3.7-develop
+    image: ghcr.io/linuxserver/prowlarr:2.4.0-develop
     container_name: prowlarr
     restart: unless-stopped
     network_mode: service:gluetun
