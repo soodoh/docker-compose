@@ -58,7 +58,7 @@ services:
       - authentik
 
   authentik-server:
-    image: ghcr.io/goauthentik/server:2026.5.2
+    image: ghcr.io/goauthentik/server:2026.5.3
     container_name: authentik-server
     restart: unless-stopped
     logging: *default-logging
@@ -106,7 +106,7 @@ services:
       - proxy
 
   authentik-worker:
-    image: ghcr.io/goauthentik/server:2026.5.2
+    image: ghcr.io/goauthentik/server:2026.5.3
     container_name: authentik-worker
     restart: unless-stopped
     logging: *default-logging
