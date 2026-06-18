@@ -112,7 +112,7 @@ services:
       - proxy
 
   pihole:
-    image: pihole/pihole:2026.05.0
+    image: pihole/pihole:2026.06.0
     container_name: pihole
     restart: always
     logging: *default-logging
@@ -133,7 +133,7 @@ services:
       - proxy
 
   daily-local-backup:
-    image: ghcr.io/offen/docker-volume-backup:v2.48.0
+    image: ghcr.io/offen/docker-volume-backup:v2.48.1
     container_name: daily-local-backup
     logging: *default-logging
     environment:
@@ -150,7 +150,7 @@ services:
       - infra
 
   weekly-remote-backup:
-    image: ghcr.io/offen/docker-volume-backup:v2.48.0
+    image: ghcr.io/offen/docker-volume-backup:v2.48.1
     container_name: weekly-remote-backup
     logging: *default-logging
     environment:

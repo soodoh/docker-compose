@@ -63,7 +63,7 @@ services:
 
   tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.2.2196
+    image: ghcr.io/suwayomi/tachidesk:v2.2.2211
     container_name: tachidesk
     restart: unless-stopped
     logging: *default-logging
@@ -97,7 +97,7 @@ services:
 
   caro-tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.2.2196
+    image: ghcr.io/suwayomi/tachidesk:v2.2.2211
     container_name: caro-tachidesk
     restart: unless-stopped
     logging: *default-logging
@@ -201,7 +201,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   radarr:
-    image: ghcr.io/linuxserver/radarr:6.1.1
+    image: ghcr.io/linuxserver/radarr:6.2.1
     container_name: radarr
     restart: unless-stopped
     logging: *default-logging
@@ -222,7 +222,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   radarr-4k:
-    image: ghcr.io/linuxserver/radarr:6.1.1
+    image: ghcr.io/linuxserver/radarr:6.2.1
     container_name: radarr-4k
     restart: unless-stopped
     logging: *default-logging
@@ -297,7 +297,7 @@ services:
       - arr_network
 
   qbittorrent:
-    image: ghcr.io/linuxserver/qbittorrent:5.2.1
+    image: ghcr.io/linuxserver/qbittorrent:5.2.2
     container_name: qbittorrent
     restart: unless-stopped
     logging: *default-logging
@@ -318,7 +318,7 @@ services:
       docker-volume-backup.stop-during-backup: true
 
   sabnzbd:
-    image: ghcr.io/linuxserver/sabnzbd:5.0.3
+    image: ghcr.io/linuxserver/sabnzbd:5.0.4
     container_name: sabnzbd
     restart: unless-stopped
     logging: *default-logging

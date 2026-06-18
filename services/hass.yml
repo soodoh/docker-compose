@@ -6,7 +6,7 @@ x-logging: &default-logging
 
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:2026.6.1
+    image: ghcr.io/home-assistant/home-assistant:2026.6.3
     container_name: hass
     restart: unless-stopped
     logging: *default-logging
@@ -28,7 +28,7 @@ services:
     network_mode: host
 
   zwave:
-    image: ghcr.io/zwave-js/zwave-js-ui:11.19
+    image: ghcr.io/zwave-js/zwave-js-ui:11.20
     container_name: zwave
     restart: always
     logging: *default-logging
