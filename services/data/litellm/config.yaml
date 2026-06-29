@@ -1,0 +1,43 @@
+model_list:
+  - model_name: "openrouter/z-ai/glm-5.2"
+    litellm_params:
+      model: openrouter/z-ai/glm-5.2
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ChatGPT subscription models do not currently support provider-side model discovery.
+  # Explicit ChatGPT aliases are needed for these models to show up in /v1/models.
+  # Mark them as chat because pi-provider-litellm currently filters non-chat /model/info entries.
+  # LiteLLM bridges Chat Completions requests to Responses for the ChatGPT subscription provider.
+  - model_name: chatgpt/gpt-5.5
+    model_info:
+      mode: responses
+    litellm_params:
+      model: chatgpt/gpt-5.5
+
+  - model_name: chatgpt/gpt-5.4-mini
+    model_info:
+      mode: responses
+    litellm_params:
+      model: chatgpt/gpt-5.4-mini
+
+litellm_settings:
+  check_provider_endpoint: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  pass_through_endpoints:
+    - path: /openrouter/key
+      target: https://openrouter.ai/api/v1/key
+      methods: [GET]
+      auth: true
+      headers:
+        Authorization: Bearer os.environ/OPENROUTER_API_KEY
+        accept: application/json
+
+    - path: /openrouter/credits
+      target: https://openrouter.ai/api/v1/credits
+      methods: [GET]
+      auth: true
+      headers:
+        Authorization: Bearer os.environ/OPENROUTER_API_KEY
+        accept: application/json
