@@ -4,7 +4,6 @@ caromanga.diloreto.com,
 comics.diloreto.com,
 ddns.diloreto.com,
 frigate.diloreto.com,
-hass.diloreto.com,
 omada.diloreto.com,
 openfit.diloreto.com,
 pihole.diloreto.com,
@@ -19,29 +18,33 @@ seerr.diloreto.com,
 sonarr-4k.diloreto.com,
 sonarr.diloreto.com,
 zwave.diloreto.com {
-  reverse_proxy authentik-server:9000
+	reverse_proxy authentik-server:9000
+}
+
+hass.diloreto.com {
+	reverse_proxy 172.23.0.1:8123
 }
 
 vaultwarden.diloreto.com {
-  reverse_proxy vaultwarden:80
+	reverse_proxy vaultwarden:80
 }
 
 watch.diloreto.com {
-  reverse_proxy jellyfin:8096
+	reverse_proxy jellyfin:8096
 }
 
 audiobookshelf.diloreto.com {
-  reverse_proxy audiobookshelf:80
+	reverse_proxy audiobookshelf:80
 }
 
 books.diloreto.com {
-  reverse_proxy calibre-web-automated:8083 {
-    header_up X-Scheme {http.request.scheme}
-  }
+	reverse_proxy calibre-web-automated:8083 {
+		header_up X-Scheme {http.request.scheme}
+	}
 }
 
 nextcloud.diloreto.com {
-  reverse_proxy nextcloud:80
+	reverse_proxy nextcloud:80
 }
 
 todo.diloreto.com {
@@ -49,18 +52,18 @@ todo.diloreto.com {
 }
 
 karaoke.diloreto.com {
-  @internal {
-    remote_ip 10.0.0.0/8
-    remote_ip 172.16.0.0/12
-    remote_ip 192.168.0.0/16
-    remote_ip fc00::/7
-  }
+	@internal {
+		remote_ip 10.0.0.0/8
+		remote_ip 172.16.0.0/12
+		remote_ip 192.168.0.0/16
+		remote_ip fc00::/7
+	}
 
-  reverse_proxy @internal karaoke-eternal:8080 {
-    header_up X-Local-Network "true"
-  }
+	reverse_proxy @internal karaoke-eternal:8080 {
+		header_up X-Local-Network "true"
+	}
 
-  reverse_proxy authentik-server:9000 {
-    header_up X-Local-Network "false"
-  }
+	reverse_proxy authentik-server:9000 {
+		header_up X-Local-Network "false"
+	}
 }
