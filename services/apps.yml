@@ -183,11 +183,34 @@ services:
     networks:
       - proxy
 
+  litellm:
+    image: ghcr.io/soodoh/litellm:fix-codex-subscription
+    container_name: litellm
+    restart: unless-stopped
+    logging: *default-logging
+    command: ["--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000"]
+    labels:
+      docker-volume-backup.stop-during-backup: true
+    environment:
+      TZ: $TZ
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY in .env}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY in .env}
+      LITELLM_LOCAL_MODEL_COST_MAP: true
+      CHATGPT_TOKEN_DIR: /data/chatgpt
+    ports:
+      - ${INTERNAL_HOST_IP}:4000:4000
+    volumes:
+      - ./data/litellm/config.yaml:/app/config.yaml:ro
+      - litellm-data:/data
+    networks:
+      - proxy
+
 volumes:
   audiobookshelf-data:
   calibre-data:
   calibre-web-data:
   jellyfin-data:
   karaoke-eternal-data:
+  litellm-data:
   vaultwarden-data:
   vikunja-data:
