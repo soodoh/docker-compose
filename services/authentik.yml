@@ -127,11 +127,9 @@ services:
       AUTHENTIK_EMAIL__USE_TLS: $AUTHENTIK_EMAIL__USE_TLS
       AUTHENTIK_EMAIL__USE_SSL: $AUTHENTIK_EMAIL__USE_SSL
       AUTHENTIK_EMAIL__TIMEOUT: $AUTHENTIK_EMAIL__TIMEOUT
-    user: root
     labels:
       docker-volume-backup.stop-during-backup: true
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - type: volume
         source: authentik-data
         target: /media
@@ -167,5 +165,5 @@ networks:
     ipam:
       driver: default
       config:
-        # Necessary for setting homeassistant trusted_proxies
+        # Keep authentik network addresses stable for service-to-service integrations.
         - subnet: "172.20.0.0/16"

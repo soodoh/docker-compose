@@ -7,6 +7,7 @@ x-logging: &default-logging
 x-backup-env: &backup-env
   BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
   BACKUP_PRUNING_PREFIX: backup-
+  GPG_PUBLIC_KEY_RING_FILE: /etc/docker-volume-backup/gpg-public.asc
 
 x-backup-volumes: &backup-volumes
   - audiobookshelf-data:/backup/audiobookshelf-data:ro
@@ -40,10 +41,12 @@ x-backup-volumes: &backup-volumes
   - zwave-data:/backup/zwave-data:ro
   # Non-volumes
   - ${HASS_PATH}:/backup/hass-data:ro
-  # Other files
+  # Sensitive host files are safe for remote storage only because backups are GPG-encrypted.
   - ../.env:/backup/.env:ro
   - ${HOME}/.ssh:/backup/.ssh:ro
-  # Required
+  # Required for GPG public-key encryption
+  - ./data/backup-gpg-public.asc:/etc/docker-volume-backup/gpg-public.asc:ro
+  # Required for docker-volume-backup stop/start labels
   - /var/run/docker.sock:/var/run/docker.sock:ro
   # Needed so that the container reflects the $TZ timezone
   - /etc/localtime:/etc/localtime:ro
@@ -110,7 +113,9 @@ services:
       - caddy-data:/data/caddy
       - ./data/Caddyfile:/etc/caddy/Caddyfile
     networks:
-      - proxy
+      proxy:
+        # Must match Home Assistant's trusted_proxies entry.
+        ipv4_address: 172.23.0.250
 
   pihole:
     image: pihole/pihole:2026.06.0
@@ -118,8 +123,8 @@ services:
     restart: always
     logging: *default-logging
     ports:
-      - 53:53/tcp
-      - 53:53/udp
+      - ${INTERNAL_HOST_IP:?Set INTERNAL_HOST_IP in .env}:53:53/tcp
+      - ${INTERNAL_HOST_IP:?Set INTERNAL_HOST_IP in .env}:53:53/udp
       # - 81:80
     environment:
       TZ: $TZ

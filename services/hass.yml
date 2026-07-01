@@ -44,9 +44,9 @@ services:
       SESSION_SECRET: $SESSION_SECRET
       ZWAVEJS_EXTERNAL_CONFIG: /usr/src/app/store/.config-db
     ports:
-      # HA is on host network, so explicit port mapping is needed
-      - 3000:3000
-      - 8091:8091
+      # HA is on host network and uses the Z-Wave JS websocket on localhost.
+      # The Z-Wave UI is reachable through Authentik/Caddy over the proxy network.
+      - 127.0.0.1:3000:3000
     networks:
       - hass
       - proxy
@@ -75,8 +75,9 @@ services:
         volume:
           subpath: log
     ports:
-      # HA is on host network, so explicit port mapping is needed
-      - 1883:1883
+      # HA uses localhost; LAN IoT devices use the host's LAN IP.
+      - 127.0.0.1:1883:1883
+      - ${INTERNAL_HOST_IP:?Set INTERNAL_HOST_IP in .env}:1883:1883
     networks:
       - hass
 
@@ -122,12 +123,10 @@ services:
         tmpfs:
           size: 1000000000
     ports:
-      # HA is on host network, so explicit port mapping is needed
-      - 5000:5000
-      - 8971:8971
-      - 8554:8554 # RTSP feeds
-      - 8555:8555/tcp # WebRTC
-      - 8555:8555/udp
+      # HA uses Frigate's internal unauthenticated API and RTSP restreams on localhost.
+      # The authenticated Frigate UI is reachable through Authentik/Caddy over the proxy network.
+      - 127.0.0.1:5000:5000
+      - 127.0.0.1:8554:8554 # RTSP feeds for HA camera streams
     networks:
       - hass
       - proxy

@@ -1,8 +1,15 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: 3
+
 services:
   openfit:
     image: ghcr.io/soodoh/openfit:latest
     container_name: openfit
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - openfit-data:/app/data
     environment:

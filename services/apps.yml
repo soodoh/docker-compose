@@ -13,7 +13,7 @@ services:
     labels:
       docker-volume-backup.stop-during-backup: true
     ports:
-      - 8096:8096
+      - ${INTERNAL_HOST_IP:?Set INTERNAL_HOST_IP in .env}:8096:8096
     volumes:
       - type: volume
         source: jellyfin-data
@@ -198,7 +198,7 @@ services:
       LITELLM_LOCAL_MODEL_COST_MAP: true
       CHATGPT_TOKEN_DIR: /data/chatgpt
     ports:
-      - ${INTERNAL_HOST_IP}:4000:4000
+      - ${INTERNAL_HOST_IP:?Set INTERNAL_HOST_IP in .env}:4000:4000
     volumes:
       - ./data/litellm/config.yaml:/app/config.yaml:ro
       - litellm-data:/data
