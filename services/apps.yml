@@ -198,6 +198,8 @@ services:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY in .env}
       LITELLM_LOCAL_MODEL_COST_MAP: true
       CHATGPT_TOKEN_DIR: /data/chatgpt
+    ports:
+      - ${INTERNAL_HOST_IP:?Set INTERNAL_HOST_IP in .env}:443:4000
     volumes:
       - ./data/litellm/config.yaml:/app/config.yaml:ro
       - litellm-data:/data
