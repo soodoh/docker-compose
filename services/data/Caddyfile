@@ -51,15 +51,22 @@ todo.diloreto.com {
 	reverse_proxy vikunja:3456
 }
 
-karaoke.diloreto.com {
-	@internal {
-		remote_ip 10.0.0.0/8
-		remote_ip 172.16.0.0/12
-		remote_ip 192.168.0.0/16
-		remote_ip fc00::/7
-	}
+ai.diloreto.com {
+  @private remote_ip 10.6.0.0/24 192.168.0.0/24
 
-	reverse_proxy @internal karaoke-eternal:8080 {
+  handle @private {
+     reverse_proxy litellm:4000
+  }
+
+  handle {
+     respond "Not found" 404
+  }
+}
+
+karaoke.diloreto.com {
+  @private remote_ip 10.6.0.0/24 192.168.0.0/24
+
+	reverse_proxy @private karaoke-eternal:8080 {
 		header_up X-Local-Network "true"
 	}
 
