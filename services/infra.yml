@@ -101,9 +101,9 @@ services:
     cap_add:
       - NET_ADMIN
     ports:
-      - 81:80
-      - 444:443/tcp
-      - 444:443/udp
+      - 80:80
+      - 443:443/tcp
+      - 443:443/udp
     environment:
       TZ: $TZ
       ROUTE_53_ACCESS_KEY: $ROUTE_53_ACCESS_KEY

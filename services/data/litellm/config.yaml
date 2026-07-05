@@ -25,15 +25,20 @@ litellm_settings:
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
+  allowed_routes:
+    - /v1/models
+    - /v1/chat/completions
+    - /v1/responses
+    - /v1/completions
+    - /v1/embeddings
+    - /models
+    - /chat/completions
+    - /responses
+    - /completions
+    - /embeddings
+    - /openrouter/credits
+    - /chatgpt/usage
   pass_through_endpoints:
-    - path: /openrouter/key
-      target: https://openrouter.ai/api/v1/key
-      methods: [GET]
-      auth: true
-      headers:
-        Authorization: Bearer os.environ/OPENROUTER_API_KEY
-        accept: application/json
-
     - path: /openrouter/credits
       target: https://openrouter.ai/api/v1/credits
       methods: [GET]
