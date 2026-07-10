@@ -62,7 +62,7 @@ services:
 
   tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.3.2223
+    image: ghcr.io/suwayomi/tachidesk:v2.3.2240
     container_name: tachidesk
     restart: unless-stopped
     logging: *default-logging
@@ -96,7 +96,7 @@ services:
 
   caro-tachidesk:
     # Same image on Dockerhub is outdated
-    image: ghcr.io/suwayomi/tachidesk:v2.3.2223
+    image: ghcr.io/suwayomi/tachidesk:v2.3.2240
     container_name: caro-tachidesk
     restart: unless-stopped
     logging: *default-logging
@@ -142,7 +142,7 @@ services:
       TZ: $TZ
 
   prowlarr:
-    image: ghcr.io/linuxserver/prowlarr:2.5.0-develop
+    image: ghcr.io/linuxserver/prowlarr:2.5.1-develop
     container_name: prowlarr
     restart: unless-stopped
     network_mode: service:gluetun
@@ -296,7 +296,7 @@ services:
       - arr_network
 
   qbittorrent:
-    image: ghcr.io/linuxserver/qbittorrent:5.2.2
+    image: ghcr.io/linuxserver/qbittorrent:5.2.3
     container_name: qbittorrent
     restart: unless-stopped
     logging: *default-logging
