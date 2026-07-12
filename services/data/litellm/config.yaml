@@ -8,12 +8,26 @@ model_list:
   # Explicit ChatGPT aliases are needed for these models to show up in /v1/models.
   # Keep mode as responses: LiteLLM uses this for Chat Completions -> Responses bridging.
   # pi-provider-litellm needs to accept response-backed models instead of requiring mode=chat.
+  - model_name: chatgpt/gpt-5.6-sol
+    model_info:
+      mode: chat
+    litellm_params:
+      model: chatgpt/gpt-5.6-sol
+  - model_name: chatgpt/gpt-5.6-terra
+    model_info:
+      mode: chat
+    litellm_params:
+      model: chatgpt/gpt-5.6-terra
+  - model_name: chatgpt/gpt-5.6-luna
+    model_info:
+      mode: chat
+    litellm_params:
+      model: chatgpt/gpt-5.6-luna
   - model_name: chatgpt/gpt-5.5
     model_info:
       mode: chat
     litellm_params:
       model: chatgpt/gpt-5.5
-
   - model_name: chatgpt/gpt-5.4-mini
     model_info:
       mode: chat
