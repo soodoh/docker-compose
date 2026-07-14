@@ -40,6 +40,7 @@ litellm_settings:
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   allowed_routes:
+    - /model/info
     - /v1/models
     - /v1/chat/completions
     - /v1/responses
