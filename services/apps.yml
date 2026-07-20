@@ -160,7 +160,7 @@ services:
       - proxy
 
   vikunja:
-    image: ghcr.io/go-vikunja/vikunja:2.3.0
+    image: ghcr.io/go-vikunja/vikunja:2.4.0
     container_name: vikunja
     restart: unless-stopped
     logging: *default-logging
