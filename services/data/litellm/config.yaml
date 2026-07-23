@@ -1,36 +1,65 @@
 model_list:
   - model_name: "openrouter/z-ai/glm-5.2"
+    model_info:
+      mode: responses
+      max_input_tokens: 1048576
+      max_output_tokens: 131072
+      max_tokens: 131072
+      supports_reasoning: true
+      supports_function_calling: true
+      supports_parallel_function_calling: true
+      supports_response_schema: true
+      supports_vision: false
+      supported_endpoints:
+        - /v1/responses
     litellm_params:
       model: openrouter/z-ai/glm-5.2
       api_key: os.environ/OPENROUTER_API_KEY
-
-  # ChatGPT subscription models do not currently support provider-side model discovery.
-  # Explicit ChatGPT aliases are needed for these models to show up in /v1/models.
-  # Keep mode as responses: LiteLLM uses this for Chat Completions -> Responses bridging.
-  # pi-provider-litellm needs to accept response-backed models instead of requiring mode=chat.
   - model_name: chatgpt/gpt-5.6-sol
-    model_info:
-      mode: chat
+    model_info: &chatgpt-5-6-info
+      mode: responses
+      max_input_tokens: 372000
+      max_output_tokens: 128000
+      max_tokens: 128000
+      supports_reasoning: true
+      supports_function_calling: true
+      supports_parallel_function_calling: true
+      supports_response_schema: true
+      supports_vision: true
+      supported_endpoints:
+        - /v1/responses
+        - /v1/chat/completions
     litellm_params:
       model: chatgpt/gpt-5.6-sol
   - model_name: chatgpt/gpt-5.6-terra
     model_info:
-      mode: chat
+      <<: *chatgpt-5-6-info
     litellm_params:
       model: chatgpt/gpt-5.6-terra
   - model_name: chatgpt/gpt-5.6-luna
     model_info:
-      mode: chat
+      <<: *chatgpt-5-6-info
     litellm_params:
       model: chatgpt/gpt-5.6-luna
   - model_name: chatgpt/gpt-5.5
-    model_info:
-      mode: chat
+    model_info: &chatgpt-272k-info
+      mode: responses
+      max_input_tokens: 272000
+      max_output_tokens: 128000
+      max_tokens: 128000
+      supports_reasoning: true
+      supports_function_calling: true
+      supports_parallel_function_calling: true
+      supports_response_schema: true
+      supports_vision: true
+      supported_endpoints:
+        - /v1/responses
+        - /v1/chat/completions
     litellm_params:
       model: chatgpt/gpt-5.5
   - model_name: chatgpt/gpt-5.4-mini
     model_info:
-      mode: chat
+      <<: *chatgpt-272k-info
     litellm_params:
       model: chatgpt/gpt-5.4-mini
 
@@ -39,26 +68,3 @@ litellm_settings:
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
-  # This is an enterprise-gated feature :(
-  # allowed_routes:
-  #   - /model/info
-  #   - /v1/models
-  #   - /v1/chat/completions
-  #   - /v1/responses
-  #   - /v1/completions
-  #   - /v1/embeddings
-  #   - /models
-  #   - /chat/completions
-  #   - /responses
-  #   - /completions
-  #   - /embeddings
-  #   - /openrouter/credits
-  #   - /chatgpt/usage
-  pass_through_endpoints:
-    - path: /openrouter/credits
-      target: https://openrouter.ai/api/v1/credits
-      methods: [GET]
-      auth: true
-      headers:
-        Authorization: Bearer os.environ/OPENROUTER_API_KEY
-        accept: application/json
