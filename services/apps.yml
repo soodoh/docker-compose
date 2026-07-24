@@ -184,7 +184,7 @@ services:
       - proxy
 
   litellm:
-    image: ghcr.io/soodoh/litellm:fix-codex-subscription
+    image: ghcr.io/berriai/litellm:v1.93.0
     container_name: litellm
     restart: unless-stopped
     logging: *default-logging
@@ -196,7 +196,6 @@ services:
       TZ: $TZ
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY in .env}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY in .env}
-      LITELLM_LOCAL_MODEL_COST_MAP: true
       CHATGPT_TOKEN_DIR: /data/chatgpt
     ports:
       - ${INTERNAL_HOST_IP:?Set INTERNAL_HOST_IP in .env}:4000:4000
