@@ -201,6 +201,7 @@ services:
       - ${INTERNAL_HOST_IP:?Set INTERNAL_HOST_IP in .env}:4000:4000
     volumes:
       - ./data/litellm/config.yaml:/app/config.yaml:ro
+      - ./data/litellm/custom_callbacks.py:/app/custom_callbacks.py:ro
       - litellm-data:/data
     networks:
       - proxy
