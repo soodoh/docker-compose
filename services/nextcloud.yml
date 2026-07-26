@@ -40,6 +40,7 @@ services:
       - nextcloud-db-data:/var/lib/mysql
     environment:
       TZ: $TZ
+      MARIADB_AUTO_UPGRADE: "1"
       MYSQL_ROOT_PASSWORD: $MYSQL_ROOT_PASSWORD
       MYSQL_PASSWORD: $MYSQL_PASSWORD
       MYSQL_DATABASE: $MYSQL_DATABASE
