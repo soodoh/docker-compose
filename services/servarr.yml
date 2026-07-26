@@ -287,9 +287,6 @@ services:
       UN_READARR_0_URL: $READARR_URL
       UN_READARR_0_API_KEY: $READARR_API_KEY
       UN_READARR_0_PATHS_0: /data/downloads/complete
-      UN_READARR_1_URL: $SPEAKARR_URL
-      UN_READARR_1_API_KEY: $SPEAKARR_API_KEY
-      UN_READARR_1_PATHS_0: /data/downloads/complete
     volumes:
       - ${MEDIA_PATH}/downloads:/data/downloads
     networks:
