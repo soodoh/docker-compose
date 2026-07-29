@@ -5,8 +5,9 @@ x-logging: &default-logging
     max-file: 3
 
 x-backup-env: &backup-env
+  TZ: $TZ
   GPG_PUBLIC_KEY_RING_FILE: /etc/docker-volume-backup/gpg-public.asc
-
+  BACKUP_EXCLUDE_REGEXP: '^/backup/wolf/profile-data/paul/WolfES-DE/(\.cache/|ES-DE/logs/|\.config/retroarch/(assets|downloads|logs|thumbnails)/)'
 x-backup-volumes: &backup-volumes
   - audiobookshelf-data:/backup/audiobookshelf-data:ro
   - authentik-data:/backup/authentik-data:ro
@@ -41,9 +42,9 @@ x-backup-volumes: &backup-volumes
   - ${HASS_PATH}:/backup/hass-data:ro
   # Wolf identity, pairings, profiles, and application configuration
   - ${GAMES_PATH}/wolf/cfg:/backup/wolf/cfg:ro
-  # Emulator saves and save states; Steam game data is intentionally excluded
-  - ${GAMES_PATH}/wolf/profile-data/paul/WolfES-DE/.config/retroarch/saves:/backup/wolf/es-de-retroarch-saves:ro
-  - ${GAMES_PATH}/wolf/profile-data/paul/WolfES-DE/.config/retroarch/states:/backup/wolf/es-de-retroarch-states:ro
+  # Steam game data, ROMs, BIOS files, and regenerable scraped media are intentionally excluded
+  # See the use of BACKUP_EXCLUDE_REGEXP
+  - ${GAMES_PATH}/wolf/profile-data/paul/WolfES-DE:/backup/wolf/profile-data/paul/WolfES-DE:ro
   # Sensitive host files remain safe in S3 because backups are GPG-encrypted.
   - ../.env:/backup/.env:ro
   - ${HOME}/.ssh:/backup/.ssh:ro
@@ -146,7 +147,6 @@ services:
     container_name: daily-local-backup
     logging: *default-logging
     environment:
-      TZ: $TZ
       <<: *backup-env
       BACKUP_FILENAME: daily-backup-%Y-%m-%dT%H-%M-%S.tar.gz
       BACKUP_PRUNING_PREFIX: daily-backup-
@@ -162,7 +162,6 @@ services:
     container_name: weekly-remote-backup
     logging: *default-logging
     environment:
-      TZ: $TZ
       <<: *backup-env
       BACKUP_FILENAME: weekly-backup-%Y-%m-%dT%H-%M-%S.tar.gz
       BACKUP_PRUNING_PREFIX: weekly-backup-
