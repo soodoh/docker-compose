@@ -43,7 +43,7 @@ services:
       - proxy
 
   audiobookshelf:
-    image: ghcr.io/advplyr/audiobookshelf:2.35.1
+    image: ghcr.io/advplyr/audiobookshelf:2.36.0
     container_name: audiobookshelf
     restart: unless-stopped
     logging: *default-logging
@@ -136,7 +136,7 @@ services:
       - proxy
 
   vaultwarden:
-    image: ghcr.io/dani-garcia/vaultwarden:1.36.0
+    image: ghcr.io/dani-garcia/vaultwarden:1.37.0
     container_name: vaultwarden
     restart: unless-stopped
     logging: *default-logging
@@ -184,7 +184,7 @@ services:
       - proxy
 
   litellm:
-    image: ghcr.io/berriai/litellm:v1.93.0
+    image: ghcr.io/berriai/litellm:1.94.0
     container_name: litellm
     restart: unless-stopped
     logging: *default-logging
