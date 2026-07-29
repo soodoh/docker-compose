@@ -29,6 +29,10 @@ services:
       - ${MEDIA_PATH}/movies:/movies
       - ${MEDIA_PATH}/anime:/anime
       - ${MEDIA_PATH}/books:/books
+      - type: tmpfs
+        target: /cache/transcodes
+        tmpfs:
+          size: 17179869184
     devices:
       - /dev/dri/renderD128:/dev/dri/renderD128
     environment:
