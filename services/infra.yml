@@ -40,12 +40,10 @@ x-backup-volumes: &backup-volumes
   # Non-volumes
   - ${HASS_PATH}:/backup/hass-data:ro
   # Wolf identity, pairings, profiles, and application configuration
-  - ${GAMES_PATH:-/mnt/games}/wolf/cfg:/backup/wolf/cfg:ro
+  - ${GAMES_PATH}/wolf/cfg:/backup/wolf/cfg:ro
   # Emulator saves and save states; Steam game data is intentionally excluded
-  - ${GAMES_PATH:-/mnt/games}/wolf/profile-data/user/WolfRetroarch/.config/retroarch/saves:/backup/wolf/retroarch-saves:ro
-  - ${GAMES_PATH:-/mnt/games}/wolf/profile-data/user/WolfRetroarch/.config/retroarch/states:/backup/wolf/retroarch-states:ro
-  - ${GAMES_PATH:-/mnt/games}/wolf/profile-data/user/WolfES-DE/.config/retroarch/saves:/backup/wolf/es-de-retroarch-saves:ro
-  - ${GAMES_PATH:-/mnt/games}/wolf/profile-data/user/WolfES-DE/.config/retroarch/states:/backup/wolf/es-de-retroarch-states:ro
+  - ${GAMES_PATH}/wolf/profile-data/paul/WolfES-DE/.config/retroarch/saves:/backup/wolf/es-de-retroarch-saves:ro
+  - ${GAMES_PATH}/wolf/profile-data/paul/WolfES-DE/.config/retroarch/states:/backup/wolf/es-de-retroarch-states:ro
   # Sensitive host files remain safe in S3 because backups are GPG-encrypted.
   - ../.env:/backup/.env:ro
   - ${HOME}/.ssh:/backup/.ssh:ro

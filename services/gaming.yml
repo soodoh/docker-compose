@@ -12,7 +12,11 @@ services:
     logging: *default-logging
     network_mode: host
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 wget -qO- http://127.0.0.1:47989/serverinfo | grep -q 'status_code=\"200\"'"]
+      test:
+        [
+          "CMD-SHELL",
+          'timeout 5 wget -qO- http://127.0.0.1:47989/serverinfo | grep -q ''status_code="200"''',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -24,7 +28,7 @@ services:
       WOLF_DEFAULT_RUN_UID: 1000
       WOLF_DEFAULT_RUN_GID: 1000
     volumes:
-      - ${GAMES_PATH:-/mnt/games}/wolf:/etc/wolf
+      - ${GAMES_PATH}/wolf:/etc/wolf
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - /dev:/dev:rw
       - /run/udev:/run/udev:rw
