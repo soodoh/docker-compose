@@ -5,8 +5,6 @@ x-logging: &default-logging
     max-file: 3
 
 x-backup-env: &backup-env
-  BACKUP_FILENAME: backup-%Y-%m-%dT%H-%M-%S.tar.gz
-  BACKUP_PRUNING_PREFIX: backup-
   GPG_PUBLIC_KEY_RING_FILE: /etc/docker-volume-backup/gpg-public.asc
 
 x-backup-volumes: &backup-volumes
@@ -41,7 +39,14 @@ x-backup-volumes: &backup-volumes
   - zwave-data:/backup/zwave-data:ro
   # Non-volumes
   - ${HASS_PATH}:/backup/hass-data:ro
-  # Sensitive host files are safe for remote storage only because backups are GPG-encrypted.
+  # Wolf identity, pairings, profiles, and application configuration
+  - ${GAMES_PATH:-/mnt/games}/wolf/cfg:/backup/wolf/cfg:ro
+  # Emulator saves and save states; Steam game data is intentionally excluded
+  - ${GAMES_PATH:-/mnt/games}/wolf/profile-data/user/WolfRetroarch/.config/retroarch/saves:/backup/wolf/retroarch-saves:ro
+  - ${GAMES_PATH:-/mnt/games}/wolf/profile-data/user/WolfRetroarch/.config/retroarch/states:/backup/wolf/retroarch-states:ro
+  - ${GAMES_PATH:-/mnt/games}/wolf/profile-data/user/WolfES-DE/.config/retroarch/saves:/backup/wolf/es-de-retroarch-saves:ro
+  - ${GAMES_PATH:-/mnt/games}/wolf/profile-data/user/WolfES-DE/.config/retroarch/states:/backup/wolf/es-de-retroarch-states:ro
+  # Sensitive host files remain safe in S3 because backups are GPG-encrypted.
   - ../.env:/backup/.env:ro
   - ${HOME}/.ssh:/backup/.ssh:ro
   # Required for GPG public-key encryption
@@ -51,7 +56,7 @@ x-backup-volumes: &backup-volumes
   # Needed so that the container reflects the $TZ timezone
   - /etc/localtime:/etc/localtime:ro
   - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
-  # Local backups
+  # Daily backups use this local destination; weekly backups explicitly disable it.
   - ${BACKUP_PATH}:/archive
 
 services:
@@ -145,9 +150,8 @@ services:
     environment:
       TZ: $TZ
       <<: *backup-env
-      AWS_S3_BUCKET_NAME: $AWS_S3_BUCKET_NAME
-      AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
-      AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+      BACKUP_FILENAME: daily-backup-%Y-%m-%dT%H-%M-%S.tar.gz
+      BACKUP_PRUNING_PREFIX: daily-backup-
       # Every day at 6AM, except Sunday, since weekly-remote-backup will run then
       BACKUP_CRON_EXPRESSION: "0 6 * * 1-6"
       BACKUP_RETENTION_DAYS: 5
@@ -162,6 +166,10 @@ services:
     environment:
       TZ: $TZ
       <<: *backup-env
+      BACKUP_FILENAME: weekly-backup-%Y-%m-%dT%H-%M-%S.tar.gz
+      BACKUP_PRUNING_PREFIX: weekly-backup-
+      # The directory does not exist, so the local backend is skipped for weekly backups.
+      BACKUP_ARCHIVE: /archive-disabled
       AWS_S3_BUCKET_NAME: $AWS_S3_BUCKET_NAME
       AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
       AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
