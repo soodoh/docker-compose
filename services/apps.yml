@@ -139,7 +139,7 @@ services:
       - proxy
 
   vaultwarden:
-    image: ghcr.io/dani-garcia/vaultwarden:1.37.0
+    image: ghcr.io/dani-garcia/vaultwarden:1.37.1
     container_name: vaultwarden
     restart: unless-stopped
     logging: *default-logging
