@@ -118,11 +118,15 @@ Wolf keeps its generated configuration, client pairings, profiles, and Steam hom
 
 The ES-DE app mounts `${GAMES_PATH}/roms` read-only at `/ROMs`, `${GAMES_PATH}/bioses` read-only at `/bioses`, and `${GAMES_PATH}/es-de-media` read-write at `/media`. The complete `${GAMES_PATH}/wolf/profile-data/paul/WolfES-DE` profile is included in encrypted backups at the matching `/backup/wolf/profile-data/paul/WolfES-DE` path, excluding caches, logs, downloadable RetroArch assets, and thumbnails. Steam game data, ROMs, BIOS files, and regenerable scraped media are intentionally excluded.
 
-Install the tracked input-device configuration on the host:
+Steam and ES-DE run under Sway. Their Wolf app mounts replace Waybar with the `${GAMES_PATH}/wolf/cfg/waybar-disabled` no-op and load `sway-borderless-frontends.conf`, which removes frontend borders and main-workspace gaps while leaving game launchers and dialogs under normal Sway window management.
+
+Install the tracked Wolf host configuration:
 
 ```sh
 sudo install -m 0644 services/data/wolf/wolf-input.conf /etc/modules-load.d/wolf-input.conf
 sudo install -m 0644 services/data/wolf/85-wolf-virtual-inputs.rules /etc/udev/rules.d/85-wolf-virtual-inputs.rules
+sudo install -D -m 0755 services/data/wolf/waybar-disabled "${GAMES_PATH:-/mnt/games}/wolf/cfg/waybar-disabled"
+sudo install -D -m 0644 services/data/wolf/sway-borderless-frontends.conf "${GAMES_PATH:-/mnt/games}/wolf/cfg/sway-borderless-frontends.conf"
 sudo modprobe uinput uhid
 sudo udevadm control --reload-rules
 sudo udevadm trigger --subsystem-match=misc --subsystem-match=hidraw --subsystem-match=input
