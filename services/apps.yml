@@ -31,7 +31,6 @@ services:
       - ${MEDIA_PATH}/books:/books
     devices:
       - /dev/dri/renderD128:/dev/dri/renderD128
-      - /dev/dri/card1:/dev/dri/card1
     environment:
       TZ: $TZ
       PUID: 1000

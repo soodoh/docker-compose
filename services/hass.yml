@@ -92,9 +92,8 @@ services:
     devices:
       # Google Coral TPU m.2
       - /dev/apex_0:/dev/apex_0
-      # Ryzen 9 graphics
+      # Radeon RX 7900 XTX
       - /dev/dri/renderD128:/dev/dri/renderD128
-      - /dev/dri/card1:/dev/dri/card1
     environment:
       TZ: $TZ
       LIBVA_DRIVER_NAME: "radeonsi"

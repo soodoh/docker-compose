@@ -104,6 +104,39 @@ References:
 - [Linux 7.1 compatibility patch](https://gist.github.com/flocke/0757c03608e386809c86e2d564b90916)
 - [Linux 7.1 Gasket build issue](https://github.com/NixOS/nixpkgs/issues/535359)
 
+## Wolf game streaming
+
+Wolf runs Steam and other graphical apps in on-demand containers and streams them to Moonlight clients. The Radeon RX 7900 XTX is exposed as `/dev/dri/renderD128`; Wolf, Jellyfin, and Frigate share that render node.
+
+The dedicated game disk is mounted through `/etc/fstab`:
+
+```fstab
+UUID=31602ce7-0054-498a-9f24-f51ca491e7b3 /mnt/games ext4 defaults,noatime 0 2
+```
+
+Wolf keeps its generated configuration, client pairings, profiles, and Steam home directories under `/mnt/games/wolf`. Set `GAMES_PATH` to override the default `/mnt/games` base path.
+
+Install the tracked input-device configuration on the host:
+
+```sh
+sudo install -m 0644 services/data/wolf/wolf-input.conf /etc/modules-load.d/wolf-input.conf
+sudo install -m 0644 services/data/wolf/85-wolf-virtual-inputs.rules /etc/udev/rules.d/85-wolf-virtual-inputs.rules
+sudo modprobe uinput uhid
+sudo udevadm control --reload-rules
+sudo udevadm trigger --subsystem-match=misc --subsystem-match=hidraw --subsystem-match=input
+```
+
+Start and verify Wolf:
+
+```sh
+docker compose up -d wolf
+docker compose logs -f wolf
+```
+
+The startup log should report VA-API H.264, H.265, and AV1 encoders and an AMD zero-copy pipeline on `/dev/dri/renderD128`. In Moonlight, add the server's internal IP, select Wolf, then open the pairing URL printed in `docker compose logs wolf` and enter Moonlight's PIN.
+
+Wolf has read-write access to the Docker socket so it can create application containers. Keep its ports restricted to the trusted LAN.
+
 ## Cronjobs
 
 ```sh
