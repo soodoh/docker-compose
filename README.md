@@ -116,7 +116,7 @@ UUID=31602ce7-0054-498a-9f24-f51ca491e7b3 /mnt/games ext4 defaults,noatime 0 2
 
 Wolf keeps its generated configuration, client pairings, profiles, and Steam home directories under `/mnt/games/wolf`. Set `GAMES_PATH` to override the default `/mnt/games` base path.
 
-The ES-DE app mounts `${GAMES_PATH}/roms` read-only at `/ROMs`, `${GAMES_PATH}/bioses` read-only at `/bioses`, and `${GAMES_PATH}/es-de-media` read-write at `/media`. Emulator binaries are provided by the locally built `wolf-es-de:local` image rather than host mounts. The complete `${GAMES_PATH}/wolf/profile-data/paul/WolfES-DE` profile is included in encrypted backups at the matching `/backup/wolf/profile-data/paul/WolfES-DE` path, excluding caches, logs, downloadable RetroArch assets, and thumbnails. Steam game data, ROMs, BIOS files, emulator binaries, and regenerable scraped media are intentionally excluded.
+The ES-DE app mounts `${GAMES_PATH}/roms` read-only at `/ROMs`, `${GAMES_PATH}/bioses` read-only at `/bioses`, and `${GAMES_PATH}/es-de-media` read-write at `/media`. Emulator applications come from the upstream Games on Whales ES-DE image, while RetroArch cores downloaded through its Online Updater persist in `${GAMES_PATH}/wolf/profile-data/paul/WolfES-DE/.config/retroarch/cores`. The complete `${GAMES_PATH}/wolf/profile-data/paul/WolfES-DE` profile is included in encrypted backups at the matching `/backup/wolf/profile-data/paul/WolfES-DE` path, excluding caches, logs, downloadable RetroArch assets, and thumbnails. Steam game data, ROMs, BIOS files, and regenerable scraped media are intentionally excluded.
 
 Steam and ES-DE run under Sway. Their Wolf app mounts replace Waybar with the `${GAMES_PATH}/wolf/cfg/waybar-disabled` no-op and load `sway-borderless-frontends.conf`, which removes frontend borders and main-workspace gaps while leaving game launchers and dialogs under normal Sway window management.
 
@@ -127,20 +127,23 @@ sudo install -m 0644 services/data/wolf/wolf-input.conf /etc/modules-load.d/wolf
 sudo install -m 0644 services/data/wolf/85-wolf-virtual-inputs.rules /etc/udev/rules.d/85-wolf-virtual-inputs.rules
 sudo install -D -m 0755 services/data/wolf/waybar-disabled "${GAMES_PATH:-/mnt/games}/wolf/cfg/waybar-disabled"
 sudo install -D -m 0644 services/data/wolf/sway-borderless-frontends.conf "${GAMES_PATH:-/mnt/games}/wolf/cfg/sway-borderless-frontends.conf"
+sudo install -D -m 0644 services/data/wolf/es-de/es_systems.xml "${GAMES_PATH:-/mnt/games}/wolf/cfg/es-de/es_systems.xml"
+sudo install -D -m 0644 services/data/wolf/es-de/wolf-xbox-one.cfg "${GAMES_PATH:-/mnt/games}/wolf/cfg/es-de/wolf-xbox-one.cfg"
+sudo install -D -m 0755 services/data/wolf/es-de/dolphin-config.sh "${GAMES_PATH:-/mnt/games}/roms/dolphin-config/Configure Dolphin.sh"
 sudo modprobe uinput uhid
 sudo udevadm control --reload-rules
 sudo udevadm trigger --subsystem-match=misc --subsystem-match=hidraw --subsystem-match=input
 ```
 
-Build the custom ES-DE image, then start and verify Wolf:
+Pull the upstream ES-DE image, then start and verify Wolf:
 
 ```sh
-docker compose --profile build build wolf-es-de-image
+docker pull ghcr.io/games-on-whales/es-de:edge
 docker compose up -d wolf
 docker compose logs -f wolf
 ```
 
-The Wolf ES-DE runner uses `wolf-es-de:local`. [`services/data/wolf/es-de/Dockerfile`](./services/data/wolf/es-de/Dockerfile) pins the GoW base image, the mGBA RetroArch core package, and the official melonDS DS Libretro core release with its SHA-256 digest. ES-DE launches both Game Boy Advance and Nintendo DS games through RetroArch, using the image's autoconfiguration profile for Wolf's virtual Xbox One controller. Update the image pins and rebuild to deploy emulator updates; emulator executables do not live in the persistent Wolf profile.
+ES-DE uses its bundled GBA, Nintendo DS, and Nintendo 64 definitions. The tracked GameCube override launches the image's standalone Dolphin AppImage, the Dolphin Configuration system opens its full settings interface, and the tracked RetroArch autoconfiguration supports Wolf's virtual Xbox One controller. Install and update mGBA, melonDS DS, and Mupen64Plus-Next through **RetroArch → Online Updater**; the persistent core directory takes precedence over system cores.
 
 The startup log should report VA-API H.264, H.265, and AV1 encoders and an AMD zero-copy pipeline on `/dev/dri/renderD128`. In Moonlight, add the server's internal IP, select Wolf, then open the pairing URL printed in `docker compose logs wolf` and enter Moonlight's PIN.
 

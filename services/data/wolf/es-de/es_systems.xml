@@ -1,13 +1,23 @@
 <?xml version="1.0"?>
-<!-- Nintendo DS override supplied by the Wolf ES-DE image. -->
+<!-- Override GameCube to use GoW's bundled standalone Dolphin AppImage. -->
 <systemList>
     <system>
-        <name>nds</name>
-        <fullname>Nintendo DS</fullname>
-        <path>%ROMPATH%/nds</path>
-        <extension>.app .APP .bin .BIN .dsi .DSI .ids .IDS .nds .NDS .7z .7Z .zip .ZIP</extension>
-        <command label="melonDS DS">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/melondsds_libretro.so %ROM%</command>
-        <platform>nds</platform>
-        <theme>nds</theme>
+        <name>gc</name>
+        <fullname>Nintendo GameCube</fullname>
+        <path>%ROMPATH%/gc</path>
+        <extension>.ciso .CISO .dff .DFF .dol .DOL .elf .ELF .gcm .GCM .gcz .GCZ .iso .ISO .json .JSON .m3u .M3U .rvz .RVZ .tgc .TGC .wad .WAD .wbfs .WBFS .wia .WIA .7z .7Z .zip .ZIP</extension>
+        <command label="Dolphin (Standalone)">/Applications/dolphin-emu.AppImage -b -C Dolphin.Display.Fullscreen=True -C Dolphin.Input.BackgroundInput=True -e %ROM%</command>
+        <platform>gc</platform>
+        <theme>gc</theme>
+    </system>
+
+    <system>
+        <name>dolphin-config</name>
+        <fullname>Dolphin Configuration</fullname>
+        <path>%ROMPATH%/dolphin-config</path>
+        <extension>.sh .SH</extension>
+        <command label="Dolphin Configuration">%ENABLESHORTCUTS% %EMULATOR_OS-SHELL% %ROM%</command>
+        <platform>pcwindows</platform>
+        <theme>desktop</theme>
     </system>
 </systemList>

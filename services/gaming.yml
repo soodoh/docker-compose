@@ -38,10 +38,3 @@ services:
       - /dev/uhid:/dev/uhid
     device_cgroup_rules:
       - "c 13:* rmw"
-
-  wolf-es-de-image:
-    image: wolf-es-de:local
-    build:
-      context: ./data/wolf/es-de
-    profiles:
-      - build
