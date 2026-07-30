@@ -61,7 +61,7 @@ services:
       - arr_network
 
   gamarr:
-    image: ghcr.io/jeremiahm37/gamarr:v1.2.0
+    build: https://github.com/JeremiahM37/gamarr.git#main
     container_name: gamarr
     restart: unless-stopped
     logging: *default-logging
