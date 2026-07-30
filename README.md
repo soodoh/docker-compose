@@ -143,6 +143,17 @@ The startup log should report VA-API H.264, H.265, and AV1 encoders and an AMD z
 
 Wolf has read-write access to the Docker socket so it can create application containers. Keep its ports restricted to the trusted LAN.
 
+melonDS is installed as an official host-mounted AppImage rather than being baked into the ES-DE image. Install its stable-release updater and schedule a weekly check in the current user's crontab:
+
+```sh
+install -D -m 0755 services/data/wolf/update-melonds "$HOME/.local/bin/update-melonds"
+mkdir -p "$HOME/.local/state"
+UPDATER_JOB="17 4 * * 3 $HOME/.local/bin/update-melonds >> $HOME/.local/state/melonds-updater.log 2>&1"
+(crontab -l 2>/dev/null | grep -Fv "$HOME/.local/bin/update-melonds" || true; printf '%s\n' "$UPDATER_JOB") | crontab -
+```
+
+The updater only tracks stable GitHub releases, verifies the published SHA-256 digest, atomically replaces `${GAMES_PATH:-/mnt/games}/emulators/melonDS.bin`, and retains `melonDS.bin.previous` for rollback. It does not update other emulators or Docker images.
+
 ## Cronjobs
 
 ```sh
