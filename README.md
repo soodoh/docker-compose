@@ -116,7 +116,7 @@ UUID=31602ce7-0054-498a-9f24-f51ca491e7b3 /mnt/games ext4 defaults,noatime 0 2
 
 Wolf keeps its generated configuration, client pairings, profiles, and Steam home directories under `/mnt/games/wolf`. Set `GAMES_PATH` to override the default `/mnt/games` base path.
 
-The ES-DE app mounts `${GAMES_PATH}/roms` read-only at `/ROMs`, `${GAMES_PATH}/bioses` read-only at `/bioses`, and `${GAMES_PATH}/es-de-media` read-write at `/media`. The complete `${GAMES_PATH}/wolf/profile-data/paul/WolfES-DE` profile is included in encrypted backups at the matching `/backup/wolf/profile-data/paul/WolfES-DE` path, excluding caches, logs, downloadable RetroArch assets, and thumbnails. Steam game data, ROMs, BIOS files, and regenerable scraped media are intentionally excluded.
+The ES-DE app mounts `${GAMES_PATH}/roms` read-only at `/ROMs`, `${GAMES_PATH}/bioses` read-only at `/bioses`, and `${GAMES_PATH}/es-de-media` read-write at `/media`. Emulator binaries are provided by the locally built `wolf-es-de:local` image rather than host mounts. The complete `${GAMES_PATH}/wolf/profile-data/paul/WolfES-DE` profile is included in encrypted backups at the matching `/backup/wolf/profile-data/paul/WolfES-DE` path, excluding caches, logs, downloadable RetroArch assets, and thumbnails. Steam game data, ROMs, BIOS files, emulator binaries, and regenerable scraped media are intentionally excluded.
 
 Steam and ES-DE run under Sway. Their Wolf app mounts replace Waybar with the `${GAMES_PATH}/wolf/cfg/waybar-disabled` no-op and load `sway-borderless-frontends.conf`, which removes frontend borders and main-workspace gaps while leaving game launchers and dialogs under normal Sway window management.
 
@@ -132,27 +132,19 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger --subsystem-match=misc --subsystem-match=hidraw --subsystem-match=input
 ```
 
-Start and verify Wolf:
+Build the custom ES-DE image, then start and verify Wolf:
 
 ```sh
+docker compose --profile build build wolf-es-de-image
 docker compose up -d wolf
 docker compose logs -f wolf
 ```
 
+The Wolf ES-DE runner uses `wolf-es-de:local`. [`services/data/wolf/es-de/Dockerfile`](./services/data/wolf/es-de/Dockerfile) pins the GoW base image, the mGBA RetroArch core package, and the official melonDS DS Libretro core release with its SHA-256 digest. ES-DE launches both Game Boy Advance and Nintendo DS games through RetroArch, using the image's autoconfiguration profile for Wolf's virtual Xbox One controller. Update the image pins and rebuild to deploy emulator updates; emulator executables do not live in the persistent Wolf profile.
+
 The startup log should report VA-API H.264, H.265, and AV1 encoders and an AMD zero-copy pipeline on `/dev/dri/renderD128`. In Moonlight, add the server's internal IP, select Wolf, then open the pairing URL printed in `docker compose logs wolf` and enter Moonlight's PIN.
 
 Wolf has read-write access to the Docker socket so it can create application containers. Keep its ports restricted to the trusted LAN.
-
-melonDS is installed as an official host-mounted AppImage rather than being baked into the ES-DE image. Install its stable-release updater and schedule a weekly check in the current user's crontab:
-
-```sh
-install -D -m 0755 services/data/wolf/update-melonds "$HOME/.local/bin/update-melonds"
-mkdir -p "$HOME/.local/state"
-UPDATER_JOB="17 4 * * 3 $HOME/.local/bin/update-melonds >> $HOME/.local/state/melonds-updater.log 2>&1"
-(crontab -l 2>/dev/null | grep -Fv "$HOME/.local/bin/update-melonds" || true; printf '%s\n' "$UPDATER_JOB") | crontab -
-```
-
-The updater only tracks stable GitHub releases, verifies the published SHA-256 digest, atomically replaces `${GAMES_PATH:-/mnt/games}/emulators/melonDS.bin`, and retains `melonDS.bin.previous` for rollback. It does not update other emulators or Docker images.
 
 ## Cronjobs
 
