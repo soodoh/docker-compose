@@ -60,45 +60,6 @@ services:
       - proxy
       - arr_network
 
-  gamarr:
-    build: https://github.com/JeremiahM37/gamarr.git#main
-    container_name: gamarr
-    restart: unless-stopped
-    logging: *default-logging
-    network_mode: service:gluetun
-    depends_on:
-      gluetun:
-        condition: service_healthy
-    environment:
-      TZ: $TZ
-      GAMARR_PORT: 5001
-      PROWLARR_URL: $PROWLARR_URL
-      PROWLARR_API_KEY: $PROWLARR_API_KEY
-      QB_URL: $QB_URL
-      QB_USER: $QB_USER
-      QB_PASS: $QB_PASS
-      QB_SAVE_PATH: /data/downloads/gamarr
-      QB_CATEGORY: games
-      SABNZBD_URL: $SABNZBD_URL
-      SABNZBD_API_KEY: $SABNZBD_API_KEY
-      SABNZBD_CATEGORY: games
-      GAMES_ROMS_PATH: /data/roms
-    volumes:
-      - gamarr-data:/data/gamarr
-      - ${MEDIA_PATH}/downloads:/data/downloads
-      - ${GAMES_PATH}/roms:/data/roms
-      # Gamarr uses legacy slugs that differ from ES-DE's standard directory names.
-      - ${GAMES_PATH}/roms/gc:/data/roms/ngc
-      - ${GAMES_PATH}/roms/dreamcast:/data/roms/dc
-    healthcheck:
-      test: wget --no-verbose --tries=1 --spider http://localhost:5001/api/health || exit 1
-      start_period: 10s
-      timeout: 3s
-      interval: 15s
-      retries: 3
-    labels:
-      docker-volume-backup.stop-during-backup: true
-
   tachidesk:
     # Same image on Dockerhub is outdated
     image: ghcr.io/suwayomi/tachidesk:v2.3.2284
@@ -377,7 +338,6 @@ volumes:
   bookshelf-data:
   caro-tachidesk-data:
   gluetun-data:
-  gamarr-data:
   prowlarr-data:
   qbittorrent-data:
   radarr-4k-data:

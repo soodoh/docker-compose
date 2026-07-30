@@ -18,7 +18,6 @@ x-backup-volumes: &backup-volumes
   - caro-tachidesk-data:/backup/caro-tachidesk-data:ro
   - ddns-updater-data:/backup/ddns-updater-data:ro
   - frigate-data:/backup/frigate-data:ro
-  - gamarr-data:/backup/gamarr-data:ro
   - gluetun-data:/backup/gluetun-data:ro
   - jellyfin-data:/backup/jellyfin-data:ro
   - seerr-data:/backup/seerr-data:ro
