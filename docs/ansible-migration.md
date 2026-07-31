@@ -2,9 +2,9 @@
 
 ## Current scope and stop point
 
-Phases 1 and 2 are complete. Phase 3 desired-state roles and the apply guard are implemented for check-mode
-validation only. No normal Ansible apply or host convergence has been authorized or run. Stop after presenting the
-complete Phase 3 `--check --diff` result.
+Phases 1 through 5 are complete through the first successful remote GitHub-hosted audit. A protected automatic
+single-tag plan pipeline is staged on a feature branch, while normal apply remains disabled by repository variable and
+is not authorized. Stop before enabling the apply gate.
 
 The target execution path remains:
 
@@ -17,12 +17,12 @@ protected main
   -> existing Docker Compose project
 ```
 
-Tailscale will be a host-level `tailscaled.service`. Tailscale, SSH, firewall, mount, upgrade, and reboot work is a
-separate management plane and must be excluded from routine application deployments.
+Tailscale runs as the host-level `tailscaled.service`. Tailscale, SSH, firewall, mount, upgrade, and reboot work remains a
+separate management plane excluded from routine application deployments.
 
-## Re-inspected baseline
+## Superseded pre-Phase-4 baseline
 
-Read-only inspection on 2026-07-30 confirmed:
+Read-only inspection on 2026-07-30 historically confirmed:
 
 - Arch Linux is running `7.1.3-arch1-3`; `linux` and `linux-headers` `7.1.5.arch1-2` are installed.
 - Docker package/client is `29.6.2`; the running daemon reports `29.6.1`.
@@ -47,10 +47,8 @@ Read-only inspection on 2026-07-30 confirmed:
   containers remain running against the current Gluetun namespace.
 - `docker compose --dry-run create --no-build` completed successfully and proposed no creates or recreates.
 
-The only newly explicit discrepancy from the supplied baseline is the running Docker daemon at `29.6.1` while
-the installed package and client are `29.6.2`. This is consistent with a package update whose daemon has not been
-restarted. It is non-blocking for Phase 3 check mode, but blocks Docker apply until investigated. No Docker restart
-is authorized.
+The historical Docker client/daemon mismatch was resolved by the separately approved controlled reboot in Phase 4.
+The adopted current baseline now requires kernel `7.1.5-arch1-2` and Docker client/server `29.6.2`.
 
 ## Safety invariants
 
@@ -77,8 +75,8 @@ Every normal run is refused unless it supplies both:
 The value of `iac_apply_tag` must match the single tag selected with `--tags`. Broad or untagged normal runs are
 refused. This is an additional safeguard; it does not itself authorize an apply.
 
-Routine roles contain no Tailscale, SSH, firewall, mount, filesystem, upgrade, or reboot management. The Tailscale
-and deployment-user roles remain absent until Phase 4. There is no `management_plane` task in `site.yml`.
+Routine `site.yml` roles contain no Tailscale, SSH, firewall, mount, filesystem, upgrade, reboot, deployment-user, or
+plan-user management. Those roles exist only in separately guarded management-plane playbooks.
 
 ## Phase 1 audit scaffold
 
@@ -87,9 +85,9 @@ read-only CLI probes, and makes assertions. Every `command` task declares `chang
 probes execute during `--check`, so both ordinary audit and check-mode audit must finish with `changed=0`. There are
 no handlers or Docker mutations.
 
-Local inventory uses `ansible_connection: local`. Production inventory now targets the stable Docker Tailscale IP as
-`ansible-deploy`; its first consumer is the manual GitHub-hosted audit in
-[`github-actions-ansible.md`](./github-actions-ansible.md). No remote workflow has been committed, pushed, or run yet.
+Production inventory targets the stable Docker Tailscale IP as `ansible-deploy`. The manual GitHub-hosted audit in
+[`github-actions-ansible.md`](./github-actions-ansible.md) completed successfully with
+`ok=45 changed=0 unreachable=0 failed=0`; its ephemeral `tag:ci` node logged out cleanly.
 
 The operator separately installed `ansible` `14.2.0-1` (`ansible-core` `2.21.2`) using the previously approved
 bootstrap command and reported that the audit completed with `changed=0`.
@@ -105,7 +103,7 @@ bootstrap command and reported that the audit completed with `changed=0`.
 - `storage` asserts exact fstab lines and active mounts. It contains no file or mount module.
 - `hardware` audits required modules, devices, and Gasket DKMS. It does not automate the patched AUR package.
 - `docker` keeps Docker packages present and the service started/enabled without restart, image pull, or upgrade.
-  The recorded client/daemon mismatch remains an assertion and an apply blocker.
+  It asserts the adopted aligned client/server version and refuses drift.
 - `compose` performs only config, count, legacy-volume, and dry-run-create preflight checks. It never runs Compose
   up/down/pull/restart, removes orphans, or changes volumes.
 - `health` verifies 41 services remain running and reports Gluetun and Seerr as unresolved blockers.
@@ -119,7 +117,7 @@ ansible-playbook --syntax-check playbooks/site.yml
 ansible-playbook playbooks/site.yml --check --diff
 ```
 
-Validation completed with `ok=33 changed=0 failed=0`; the follow-up audit completed with `ok=45 changed=0 failed=0`. Do not run `site.yml` without `--check`; no apply is authorized.
+Validation completed with `ok=33 changed=0 failed=0`; the follow-up audit completed with `ok=45 changed=0 failed=0`. The protected pipeline remains apply-disabled; no normal `site.yml` run is authorized.
 
 ## Phase 4 management plane
 
@@ -140,10 +138,14 @@ passwordless sudo, and key cleanup were verified. A controlled reboot aligned ke
 Final bootstrap, audit, and site checks all report `changed=0`.
 
 The completed record and rollback boundaries are in [`tailscale-bootstrap.md`](./tailscale-bootstrap.md). Production
-inventory remains unchanged pending a separately reviewed remote read-only audit.
+inventory is now validated through the successful remote audit.
 
-The staged Phase 5 workflow uses GitHub OIDC workload identity, an `infrastructure-plan` environment restricted to
+The completed Phase 5 audit uses GitHub OIDC workload identity, an `infrastructure-plan` environment restricted to
 `main`, an ephemeral `tag:ci` node, pinned actions, strict SSH host-key checking, and `audit.yml --check --diff` only.
+The staged deployment pipeline is documented in [`github-actions-deploy.md`](./github-actions-deploy.md). Automatic
+single-tag plans are not yet active: they require a separate unprivileged host user, `tag:ci-plan`, and exact workload
+identity. Apply remains disabled pending that trust path, three stable plans, a host lock, locked controller dependencies,
+and fresh approval.
 ## Recovery work still required
 
 A manual restore drill is mandatory before any stateful Compose adoption or apply. It must be separately planned
@@ -166,13 +168,15 @@ remote retention, or application consistency.
    download a template, create CT 101, pass `/dev/net/tun`, or advertise routes without new approval.
 2. **Phase 4b stop:** after gateway verification, review `bootstrap.yml --check --diff` for direct Docker Tailscale;
    do not run the normal Docker bootstrap without another explicit approval.
-3. **Phase 5:** after both paths are verified, add plan-only CI with SHA-pinned actions, workload identity, minimal
-   permissions, redaction, and serialization. Require three stable plan-only runs.
-4. **Phase 6:** converge one approved tag at a time in the order `host_files`, `base`, `maintenance`, `storage`,
-   `docker`, with plan, approval, guarded apply, second zero-change check, and runtime re-audit for each.
+3. **Phase 5:** completed the manual remote audit with SHA-pinned actions, workload identity, minimal permissions,
+   redaction, serialization, and a zero-change recap. Next, bootstrap and prove the unprivileged automatic-plan identity,
+   then produce three stable plan-only runs.
+4. **Phase 6:** after all apply blockers and fresh approval, converge one approved tag at a time in the order `host_files`,
+   `base`, `maintenance`, `storage`, `docker`, with exact-plan review, protected-environment approval, guarded apply,
+   second zero-change check, and runtime re-audit for each.
 5. **Phases 7-8:** retain this Compose directory and host-only `.env`; resolve or waive health blockers before a
    canary and stateful-last Compose adoption. Never pull automatically or remove orphans.
-6. **Phase 9:** only then consider protected-main apply using GitHub Environment approval, exact-plan SHA,
-   concurrency, a host lock, redacted evidence, and default management-plane exclusion.
+6. **Phase 9:** consider broader protected-main infrastructure automation only after host convergence. The staged Phase 6
+   pipeline does not authorize Compose adoption, OpenTofu apply, management-plane changes, or removal of human approval.
 
 OpenTofu and Proxmox VM import remain deferred until the Docker host has converged.

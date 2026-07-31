@@ -137,6 +137,14 @@ deploy_user_sudoers_path: /etc/sudoers.d/ansible-deploy
 deploy_user_sudoers_content: |
   ansible-deploy ALL=(root) NOPASSWD: ALL
 
+plan_user_name: ansible-plan
+plan_user_home: /home/ansible-plan
+plan_user_shell: /bin/bash
+plan_user_sudoers_path: /etc/sudoers.d/ansible-plan
+plan_user_docker_version_helper: /usr/local/sbin/iac-read-docker-version
+plan_user_sudoers_content: |
+  ansible-plan ALL=(root) NOPASSWD: /usr/local/sbin/iac-read-docker-version ""
+
 managed_host_files:
   - source: services/data/wolf/wolf-input.conf
     destination: /etc/modules-load.d/wolf-input.conf

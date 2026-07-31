@@ -1,0 +1,7 @@
+---
+controller_user_name: "{{ deploy_user_name }}"
+controller_user_comment: Ansible deployment user
+controller_user_home: "{{ deploy_user_home }}"
+controller_user_shell: "{{ deploy_user_shell }}"
+controller_user_sudoers_path: "{{ deploy_user_sudoers_path }}"
+controller_user_sudoers_content: "{{ deploy_user_sudoers_content }}"
