@@ -1,0 +1,7 @@
+---
+profile: production
+offline: true
+strict: true
+exclude_paths:
+  - .git/
+  - node_modules/

@@ -1,0 +1,162 @@
+---
+audit_baseline_observed_at: "2026-07-30T18:56:34-07:00"
+audit_compose_project_dir: /home/docker/Projects/docker-compose
+audit_env_path: "{{ audit_compose_project_dir }}/.env"
+audit_home_dir: /home/docker
+
+audit_expected_distribution: Archlinux
+audit_expected_running_kernel: 7.1.3-arch1-3
+audit_expected_packages:
+  linux: 7.1.5.arch1-2
+  linux-headers: 7.1.5.arch1-2
+  docker: "1:29.6.2-1"
+  docker-compose: 5.3.1-1
+# Ansible itself is documented as absent but cannot remain an audit assertion once
+# the separately approved bootstrap installs it.
+audit_expected_absent_packages:
+  - opentofu
+  - tailscale
+
+audit_expected_services:
+  docker.service:
+    state: running
+    status: enabled
+  cronie.service:
+    state: running
+    status: enabled
+  sshd.service:
+    state: running
+    status: enabled
+
+audit_expected_docker_client_version: 29.6.2
+audit_expected_docker_server_version: 29.6.1
+audit_expected_compose_version: 5.3.1
+audit_expected_compose_service_count: 41
+audit_expected_declared_volume_count: 30
+audit_expected_compose_project_volume_count: 33
+
+audit_legacy_volumes:
+  - logical_name: happier-data
+    engine_name: docker-compose_happier-data
+  - logical_name: nzbget-data
+    engine_name: docker-compose_nzbget-data
+  - logical_name: nzbhydra2-data
+    engine_name: docker-compose_nzbhydra2-data
+
+audit_expected_health:
+  gluetun: unhealthy
+  seerr: unhealthy
+
+audit_expected_fstab_entries:
+  - "192.168.0.123:/storage/docker /mnt/storage nfs defaults 0 0"
+  - "UUID=31602ce7-0054-498a-9f24-f51ca491e7b3 /mnt/games ext4 defaults,noatime 0 2"
+audit_expected_mounts:
+  - path: /mnt/storage
+    source: "192.168.0.123:/storage/docker"
+    fstype: nfs4
+  - path: /mnt/games
+    source: /dev/sdb1
+    fstype: ext4
+
+audit_expected_modules:
+  - uinput
+  - uhid
+  - gasket
+  - apex
+
+audit_expected_devices:
+  - /dev/apex_0
+  - /dev/dri
+  - /dev/dri/renderD128
+  - /dev/net/tun
+  - /dev/ttyUSB0
+  - /dev/ttyUSB1
+  - /dev/uhid
+  - /dev/uinput
+
+audit_wolf_file_pairs:
+  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/wolf-input.conf"
+    host: /etc/modules-load.d/wolf-input.conf
+  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/85-wolf-virtual-inputs.rules"
+    host: /etc/udev/rules.d/85-wolf-virtual-inputs.rules
+  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/waybar-disabled"
+    host: /mnt/games/wolf/cfg/waybar-disabled
+  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/sway-borderless-frontends.conf"
+    host: /mnt/games/wolf/cfg/sway-borderless-frontends.conf
+  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/es-de/es_systems.xml"
+    host: /mnt/games/wolf/cfg/es-de/es_systems.xml
+  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/es-de/wolf-xbox-one.cfg"
+    host: /mnt/games/wolf/cfg/es-de/wolf-xbox-one.cfg
+  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/es-de/dolphin-config.sh"
+    host: "/mnt/games/roms/dolphin-config/Configure Dolphin.sh"
+
+audit_expected_dkms_kernel: 7.1.5-arch1-2
+audit_root_cron_path: /var/spool/cron/root
+
+# Phase 3 desired state. Management-plane roles remain deliberately absent.
+iac_allowed_apply_tags:
+  - host_files
+  - base
+  - maintenance
+  - storage
+  - docker
+  - compose
+
+base_packages:
+  - cronie
+base_services:
+  - cronie.service
+
+docker_packages:
+  - docker
+  - docker-compose
+docker_services:
+  - docker.service
+
+maintenance_manage_root_cron: false
+
+managed_host_files:
+  - source: services/data/wolf/wolf-input.conf
+    destination: /etc/modules-load.d/wolf-input.conf
+    owner: root
+    group: root
+    mode: "0644"
+  - source: services/data/wolf/85-wolf-virtual-inputs.rules
+    destination: /etc/udev/rules.d/85-wolf-virtual-inputs.rules
+    owner: root
+    group: root
+    mode: "0644"
+  - source: services/data/wolf/waybar-disabled
+    destination: /mnt/games/wolf/cfg/waybar-disabled
+    owner: docker
+    group: docker
+    mode: "0755"
+  - source: services/data/wolf/sway-borderless-frontends.conf
+    destination: /mnt/games/wolf/cfg/sway-borderless-frontends.conf
+    owner: root
+    group: root
+    mode: "0644"
+  - source: services/data/wolf/es-de/es_systems.xml
+    destination: /mnt/games/wolf/cfg/es-de/es_systems.xml
+    owner: root
+    group: root
+    mode: "0644"
+  - source: services/data/wolf/es-de/wolf-xbox-one.cfg
+    destination: /mnt/games/wolf/cfg/es-de/wolf-xbox-one.cfg
+    owner: root
+    group: root
+    mode: "0644"
+  - source: services/data/wolf/es-de/dolphin-config.sh
+    destination: "/mnt/games/roms/dolphin-config/Configure Dolphin.sh"
+    owner: docker
+    group: docker
+    mode: "0755"
+
+# Docker Go templates are wrapped in Jinja raw blocks so Ansible passes them unchanged.
+audit_docker_version_format: '{% raw %}{{.Client.Version}}|{{.Server.Version}}{% endraw %}'
+audit_container_health_format: >-
+  {% raw %}{{ index .Config.Labels "com.docker.compose.service" }}|{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}{% endraw %}
+audit_mount_device_format: >-
+  {% raw %}{{range .Mounts}}{{if eq .Type "bind"}}bind|{{println .Source}}{{end}}{{end}}{{range .HostConfig.Devices}}device|{{println .PathOnHost}}{{end}}{% endraw %}
+audit_archive_mount_format: >-
+  {% raw %}{{range .Mounts}}{{if eq .Destination "/archive"}}{{.Source}}{{end}}{{end}}{% endraw %}

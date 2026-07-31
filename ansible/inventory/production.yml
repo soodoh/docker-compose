@@ -1,0 +1,11 @@
+---
+# Deferred until the separately approved Tailscale and deploy-user bootstrap.
+# Replace the .invalid address only after recovery paths and tailnet SSH work.
+all:
+  children:
+    docker_host:
+      hosts:
+        docker-host-production:
+          ansible_host: docker-host.replace-me.invalid
+          ansible_user: ansible-deploy
+          ansible_python_interpreter: /usr/bin/python

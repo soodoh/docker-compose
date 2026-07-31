@@ -1,0 +1,4 @@
+---
+# Phase 1 uses only ansible-core built-ins. Add collections only when an
+# approved later phase requires them.
+collections: []
