@@ -53,7 +53,7 @@ sudo policy.
 The production inventory uses the stable Tailscale IP and `ansible-deploy`; it contains no password, private key,
 auth key, OAuth secret, or Tailscale API token.
 
-## Activation gate
+## Activation result
 
 The first approved dispatch (`30669410045`) failed during binary verification before OIDC exchange or tailnet
 connection because the pinned checksum contained one extra trailing character. The action's post step completed; no CI
@@ -76,17 +76,23 @@ and received authenticated pongs from Docker through `DERP(lax)`. The custom pro
 step logged out successfully and stopped Tailscale. The corrected probe explicitly accepts either a direct path or DERP,
 matching the pinned action's connectivity semantics.
 
-Before another retry:
+The fourth approved dispatch ([`30671079353`](https://github.com/soodoh/docker-compose/actions/runs/30671079353))
+completed successfully from commit `72c9317`:
 
-1. Review, commit, and push the connectivity-probe correction and third incident record.
-2. Manually dispatch `Ansible remote audit` from `main` under a fresh approval.
-3. Confirm the route and preference assertion succeeds before any host contact.
-4. Confirm the Tailscale admin console shows one ephemeral `tag:ci` node and no broader access.
-5. Require the remote recap to report `changed=0`, `failed=0`, and `unreachable=0`.
-6. Confirm the ephemeral node disappears after job cleanup.
+- The ephemeral OIDC-authenticated `tag:ci` runner joined the tailnet.
+- Tailnet DNS and Tailscale SSH were disabled on the runner.
+- Routing table 52 contained exactly `192.168.0.100/32` and `192.168.0.123/32` outside `100.64.0.0/10`.
+- Docker answered through authenticated `DERP(lax)` connectivity.
+- The scanned Docker ED25519 fingerprint was
+  `SHA256:2wHl3xsBkNYprqP99usjZdwj2Rytcc+MtJVErhowVYw`.
+- Remote Ansible connectivity succeeded.
+- The read-only check-mode audit reported `ok=45 changed=0 unreachable=0 failed=0`.
+- The post step logged out and stopped Tailscale successfully; a subsequent live tailnet view from Docker showed zero
+  `tag:ci` peers.
 
-Do not add push, pull-request, schedule, `workflow_call`, or apply triggers during this gate. Future apply automation must
-use a separate protected environment, concurrency policy, explicit human approval, and a separately reviewed workflow.
+The manual read-only activation gate is complete. The workflow remains `workflow_dispatch` only. Do not add push,
+pull-request, schedule, `workflow_call`, or apply triggers. Future apply automation must use a separate protected
+environment, concurrency policy, explicit human approval, and a separately reviewed workflow.
 
 ## Failure policy
 
