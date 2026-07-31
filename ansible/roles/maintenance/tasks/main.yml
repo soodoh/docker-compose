@@ -1,0 +1,35 @@
+---
+- name: Inspect installed kernel packages without upgrading them
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/pacman
+      - --query
+      - linux
+      - linux-headers
+  register: maintenance_kernel_packages
+  changed_when: false
+  check_mode: false
+
+- name: Assert the deferred kernel and reboot state remains unchanged
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.kernel == audit_expected_running_kernel
+      - "'linux ' ~ audit_expected_packages.linux in maintenance_kernel_packages.stdout_lines"
+      - "'linux-headers ' ~ audit_expected_packages['linux-headers'] in maintenance_kernel_packages.stdout_lines"
+    fail_msg: "Kernel package or running-kernel state changed; reboot remains separate approved maintenance."
+
+- name: Inspect root cron metadata without reading its contents
+  ansible.builtin.stat:
+    path: "{{ audit_root_cron_path }}"
+    get_checksum: false
+    get_mime: false
+  register: maintenance_root_cron_stat
+
+- name: Assert root cron remains present and deliberately unmanaged
+  ansible.builtin.assert:
+    that:
+      - maintenance_root_cron_stat.stat.exists
+      - maintenance_root_cron_stat.stat.mode == '0600'
+      - not maintenance_manage_root_cron
+    fail_msg: >-
+      Root cron must remain unmanaged until its exact privileged contents are separately inspected and approved.

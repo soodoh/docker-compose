@@ -1,0 +1,39 @@
+---
+- name: Check or converge the approved Docker host state
+  hosts: docker_host
+  gather_facts: true
+  become: false
+  any_errors_fatal: true
+  vars_files:
+    - "{{ playbook_dir }}/../group_vars/docker_host.yml"
+  pre_tasks:
+    - name: Enforce the apply safety contract
+      ansible.builtin.import_role:
+        name: apply_guard
+      tags:
+        - always
+  roles:
+    - role: host_files
+      tags:
+        - host_files
+    - role: base
+      tags:
+        - base
+    - role: maintenance
+      tags:
+        - maintenance
+    - role: storage
+      tags:
+        - storage
+    - role: hardware
+      tags:
+        - hardware
+    - role: docker
+      tags:
+        - docker
+    - role: compose
+      tags:
+        - compose
+    - role: health
+      tags:
+        - health

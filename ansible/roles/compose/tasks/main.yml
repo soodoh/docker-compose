@@ -1,0 +1,67 @@
+---
+- name: Validate Compose without displaying resolved configuration
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/docker
+      - compose
+      - config
+      - --quiet
+    chdir: "{{ audit_compose_project_dir }}"
+  changed_when: false
+  check_mode: false
+
+- name: List declared Compose services
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/docker
+      - compose
+      - config
+      - --services
+    chdir: "{{ audit_compose_project_dir }}"
+  register: compose_declared_services
+  changed_when: false
+  check_mode: false
+
+- name: List declared Compose volumes
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/docker
+      - compose
+      - config
+      - --volumes
+    chdir: "{{ audit_compose_project_dir }}"
+  register: compose_declared_volumes
+  changed_when: false
+  check_mode: false
+
+- name: Assert the adopted Compose model counts remain unchanged
+  ansible.builtin.assert:
+    that:
+      - compose_declared_services.stdout_lines | length == audit_expected_compose_service_count
+      - compose_declared_volumes.stdout_lines | length == audit_expected_declared_volume_count
+    fail_msg: "Compose model counts changed; refusing adoption."
+
+- name: Verify preserved legacy Docker volumes exist
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/docker
+      - volume
+      - inspect
+      - "{{ item.engine_name }}"
+  loop: "{{ audit_legacy_volumes }}"
+  loop_control:
+    label: "{{ item.logical_name }}"
+  changed_when: false
+  check_mode: false
+
+- name: Simulate Compose create without builds, pulls, orphan removal, or changes
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/docker
+      - compose
+      - --dry-run
+      - create
+      - --no-build
+    chdir: "{{ audit_compose_project_dir }}"
+  changed_when: false
+  check_mode: false

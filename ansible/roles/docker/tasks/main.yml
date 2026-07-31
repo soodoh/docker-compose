@@ -1,0 +1,33 @@
+---
+- name: Keep Docker packages present without pulling images or upgrading packages
+  ansible.builtin.package:
+    name: "{{ docker_packages }}"
+    state: present
+  become: "{{ not ansible_check_mode }}"
+
+- name: Keep Docker enabled and started without restarting it
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: false
+  become: "{{ not ansible_check_mode }}"
+  loop: "{{ docker_services }}"
+
+- name: Inspect Docker client and daemon versions without changing Docker
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/docker
+      - version
+      - --format
+      - "{{ audit_docker_version_format }}"
+  register: docker_runtime_version
+  changed_when: false
+  check_mode: false
+
+- name: Preserve the explicitly recorded Docker version mismatch
+  ansible.builtin.assert:
+    that:
+      - docker_runtime_version.stdout == audit_expected_docker_client_version ~ '|' ~ audit_expected_docker_server_version
+    fail_msg: >-
+      Docker runtime versions changed. Do not restart Docker or converge this role until the difference is reviewed.
