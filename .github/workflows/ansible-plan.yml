@@ -94,7 +94,7 @@ jobs:
       - name: Verify Tailscale connectivity to the Docker host
         run: |
           for attempt in {1..10}; do
-            if sudo tailscale ping --c=1 --timeout=5s 100.111.210.72; then
+            if sudo tailscale ping --until-direct=false --c=1 --timeout=5s 100.111.210.72; then
               exit 0
             fi
             sleep 2

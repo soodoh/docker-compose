@@ -44,7 +44,7 @@ sudo policy.
 4. Disables tailnet DNS and Tailscale SSH on the runner. The upstream action requires route acceptance, so the next step
    fails closed unless routing table 52 contains exactly the two approved subnet routes, `192.168.0.100/32` and
    `192.168.0.123/32`, plus normal `100.64.0.0/10` tailnet routes.
-5. Waits for connectivity to Docker's stable Tailscale IP `100.111.210.72`.
+5. Waits for direct or authenticated DERP connectivity to Docker's stable Tailscale IP `100.111.210.72`.
 6. Scans the Docker SSH host key only after joining the authenticated tailnet path, then leaves Ansible host-key
    checking enabled.
 7. Validates production inventory and audit syntax.
@@ -70,9 +70,15 @@ Tailscale SSH disabled before host-key scanning, SSH, or Ansible can run. Tailne
 to Docker TCP/22 and Tailscale SSH as `ansible-deploy`; installing the Proxmox `/32` route does not authorize traffic to
 it.
 
+The third approved dispatch (`30670878456`) joined the tailnet, passed the exact route and runner-preference assertions,
+and received authenticated pongs from Docker through `DERP(lax)`. The custom probe nevertheless failed because
+`tailscale ping` defaults to requiring a direct path. No host-key scan, SSH, or Ansible command ran. The action's post
+step logged out successfully and stopped Tailscale. The corrected probe explicitly accepts either a direct path or DERP,
+matching the pinned action's connectivity semantics.
+
 Before another retry:
 
-1. Review, commit, and push the route-handling correction and incident record.
+1. Review, commit, and push the connectivity-probe correction and third incident record.
 2. Manually dispatch `Ansible remote audit` from `main` under a fresh approval.
 3. Confirm the route and preference assertion succeeds before any host contact.
 4. Confirm the Tailscale admin console shows one ephemeral `tag:ci` node and no broader access.
