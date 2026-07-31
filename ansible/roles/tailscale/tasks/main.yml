@@ -1,0 +1,125 @@
+---
+- name: Gather package facts before planning Tailscale bootstrap
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Keep the Tailscale package present without upgrading installed packages
+  ansible.builtin.package:
+    name: "{{ tailscale_package }}"
+    state: present
+  become: "{{ not ansible_check_mode }}"
+
+- name: Keep tailscaled enabled and started without restarting it
+  ansible.builtin.systemd_service:
+    name: "{{ tailscale_service }}"
+    enabled: true
+    state: started
+    daemon_reload: false
+  become: "{{ not ansible_check_mode }}"
+  when: not ansible_check_mode or tailscale_package in ansible_facts.packages
+
+- name: Initialize the observed Tailscale backend state
+  ansible.builtin.set_fact:
+    tailscale_backend_state: Absent
+  no_log: true
+
+- name: Inspect Tailscale status without exposing tailnet identity
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/tailscale
+      - status
+      - --json
+  register: tailscale_status_before
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  no_log: true
+  when: not ansible_check_mode or tailscale_package in ansible_facts.packages
+
+- name: Record the current Tailscale backend state privately
+  ansible.builtin.set_fact:
+    tailscale_backend_state: "{{ (tailscale_status_before.stdout | from_json).BackendState | default('Unknown') }}"
+  no_log: true
+  when:
+    - tailscale_status_before is not skipped
+    - tailscale_status_before.rc == 0
+    - tailscale_status_before.stdout | length > 0
+
+- name: Require the selected one-use auth key only when enrollment is needed
+  ansible.builtin.assert:
+    that:
+      - tailscale_auth_key | length > 0
+    fail_msg: >-
+      TAILSCALE_AUTH_KEY must contain a short-lived, preauthorized, one-use key tagged for tag:docker-host.
+  no_log: true
+  when:
+    - not ansible_check_mode
+    - tailscale_backend_state != 'Running'
+
+- name: Enroll the host with conservative route and DNS settings
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/tailscale
+      - up
+      - "--auth-key={{ tailscale_auth_key }}"
+      - "--hostname={{ tailscale_hostname }}"
+      - "--advertise-tags={{ tailscale_advertise_tags }}"
+      - "--accept-dns={{ tailscale_accept_dns | ternary('true', 'false') }}"
+      - "--accept-routes={{ tailscale_accept_routes | ternary('true', 'false') }}"
+  become: true
+  no_log: true
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - tailscale_backend_state != 'Running'
+
+- name: Enable Tailscale SSH without modifying OpenSSH
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/tailscale
+      - set
+      - --ssh=true
+  become: true
+  changed_when: true
+  when: not ansible_check_mode
+
+- name: Verify Tailscale reaches the running backend state
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/tailscale
+      - status
+      - --json
+  register: tailscale_status_after
+  changed_when: false
+  check_mode: false
+  no_log: true
+  when: not ansible_check_mode
+
+- name: Verify the host has a Tailscale IPv4 address
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/tailscale
+      - ip
+      - --4
+  register: tailscale_ipv4
+  changed_when: false
+  check_mode: false
+  no_log: true
+  when: not ansible_check_mode
+
+- name: Assert local Tailscale verification passed
+  ansible.builtin.assert:
+    that:
+      - (tailscale_status_after.stdout | from_json).BackendState == 'Running'
+      - tailscale_ipv4.stdout | length > 0
+    fail_msg: >-
+      Tailscale did not reach Running with an IPv4 address. Keep LAN SSH and Proxmox console recovery available.
+  no_log: true
+  when: not ansible_check_mode
+
+- name: Report deferred Tailscale changes during check mode
+  ansible.builtin.debug:
+    msg: >-
+      Check mode never starts tailscaled, consumes an auth key, enrolls the host, or enables Tailscale SSH.
+      Those management-plane changes require a separately approved normal bootstrap.
+  when: ansible_check_mode

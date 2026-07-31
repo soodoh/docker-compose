@@ -119,6 +119,20 @@ ansible-playbook playbooks/site.yml --check --diff
 ```
 
 Validation completed with `ok=33 changed=0 failed=0`; the follow-up audit completed with `ok=45 changed=0 failed=0`. Do not run `site.yml` without `--check`; no apply is authorized.
+
+## Phase 4 management-plane plan
+
+`playbooks/bootstrap.yml` now models the separately tagged `management_plane` bootstrap without authorizing it.
+The selected design uses a one-use preauthorized key, Tailscale SSH, and a locked `ansible-deploy` user with
+passwordless sudo but no docker-group membership. Check mode never starts tailscaled, consumes the key, enrolls,
+enables Tailscale SSH, or writes the root-only sudoers file.
+
+The bootstrap requires local inventory, the existing apply confirmation, exactly the `management_plane` tag, and
+explicit confirmations for LAN SSH, Proxmox console, and tailnet SSH policy recovery gates. `site.yml` contains no
+management-plane tasks, so routine checks and future deployments exclude these changes by construction.
+
+The complete plan, tailnet policy prerequisites, guarded command, verification procedure, and manual rollback gates
+are in [`tailscale-bootstrap.md`](./tailscale-bootstrap.md). Check mode reported `changed=2` for only the absent deployment user and Tailscale package; routine `site.yml` and `audit.yml` remained `changed=0`. No Phase 4 apply is authorized.
 ## Recovery work still required
 
 A manual restore drill is mandatory before any stateful Compose adoption or apply. It must be separately planned
@@ -137,10 +151,10 @@ remote retention, or application consistency.
 
 ## Deferred phase gates
 
-1. **Phase 3 stop:** review the complete zero-change `site.yml --check --diff`; do not apply any tag yet.
-2. **Phase 4:** separately bootstrap host Tailscale and a non-docker-group deployment user after recovery approval.
-3. **Phase 5:** add plan-only CI with SHA-pinned actions, workload identity, minimal permissions, redaction, and
-   serialization. Require three stable plan-only runs.
+1. **Phase 4 stop:** review `bootstrap.yml --check --diff`, tailnet policy, LAN SSH, and Proxmox recovery evidence;
+   do not run the documented normal bootstrap without a new explicit approval.
+2. **Phase 5:** after a verified Phase 4 bootstrap, add plan-only CI with SHA-pinned actions, workload identity,
+   minimal permissions, redaction, and serialization. Require three stable plan-only runs.
 4. **Phase 6:** converge one approved tag at a time in the order `host_files`, `base`, `maintenance`, `storage`,
    `docker`, with plan, approval, guarded apply, second zero-change check, and runtime re-audit for each.
 5. **Phases 7-8:** retain this Compose directory and host-only `.env`; resolve or waive health blockers before a

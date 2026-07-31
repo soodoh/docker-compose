@@ -93,7 +93,7 @@ audit_wolf_file_pairs:
 audit_expected_dkms_kernel: 7.1.5-arch1-2
 audit_root_cron_path: /var/spool/cron/root
 
-# Phase 3 desired state. Management-plane roles remain deliberately absent.
+# Phase 3 routine desired state. Management-plane changes use bootstrap.yml only.
 iac_allowed_apply_tags:
   - host_files
   - base
@@ -101,6 +101,8 @@ iac_allowed_apply_tags:
   - storage
   - docker
   - compose
+bootstrap_allowed_apply_tags:
+  - management_plane
 
 base_packages:
   - cronie
@@ -114,6 +116,23 @@ docker_services:
   - docker.service
 
 maintenance_manage_root_cron: false
+
+# Phase 4 management-plane plan. The auth key is controller environment only and
+# must be a short-lived, preauthorized, one-use key with tag:docker-host.
+tailscale_package: tailscale
+tailscale_service: tailscaled.service
+tailscale_hostname: docker-host
+tailscale_advertise_tags: tag:docker-host
+tailscale_accept_dns: false
+tailscale_accept_routes: false
+tailscale_auth_key: "{{ lookup('ansible.builtin.env', 'TAILSCALE_AUTH_KEY') }}"
+
+deploy_user_name: ansible-deploy
+deploy_user_home: /home/ansible-deploy
+deploy_user_shell: /bin/bash
+deploy_user_sudoers_path: /etc/sudoers.d/ansible-deploy
+deploy_user_sudoers_content: |
+  ansible-deploy ALL=(root) NOPASSWD: ALL
 
 managed_host_files:
   - source: services/data/wolf/wolf-input.conf

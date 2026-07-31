@@ -2,7 +2,6 @@
 - name: Audit the existing Docker host without changing it
   hosts: docker_host
   gather_facts: true
-  become: false
   any_errors_fatal: true
   vars_files:
     - "{{ playbook_dir }}/../group_vars/docker_host.yml"

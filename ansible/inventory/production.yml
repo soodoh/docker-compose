@@ -9,3 +9,7 @@ all:
           ansible_host: docker-host.replace-me.invalid
           ansible_user: ansible-deploy
           ansible_python_interpreter: /usr/bin/python
+          # The deployment user is never added to the docker group. Remote
+          # audits and convergence use its separately managed sudo policy.
+          ansible_become: true
+          ansible_become_method: sudo

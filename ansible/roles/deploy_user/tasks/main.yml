@@ -1,0 +1,51 @@
+---
+- name: Keep the dedicated deployment user present and outside supplementary groups
+  ansible.builtin.user:
+    name: "{{ deploy_user_name }}"
+    comment: Ansible deployment user
+    home: "{{ deploy_user_home }}"
+    shell: "{{ deploy_user_shell }}"
+    create_home: true
+    password_lock: true
+    groups: ""
+    append: false
+    state: present
+  become: "{{ not ansible_check_mode }}"
+
+- name: Report the planned passwordless sudo policy in check mode
+  ansible.builtin.debug:
+    msg: >-
+      A normal approved bootstrap will install {{ deploy_user_sudoers_path }} with mode 0440 and visudo
+      validation. The user remains outside the docker group.
+  when: ansible_check_mode
+
+- name: Install the deployment-user sudo policy only during an approved normal bootstrap
+  ansible.builtin.copy:
+    content: "{{ deploy_user_sudoers_content }}"
+    dest: "{{ deploy_user_sudoers_path }}"
+    owner: root
+    group: root
+    mode: "0440"
+    backup: false
+    validate: /usr/bin/visudo --check --file=%s
+  become: true
+  when: not ansible_check_mode
+
+- name: Inspect deployment-user group membership after bootstrap
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/id
+      - --name
+      - --groups
+      - "{{ deploy_user_name }}"
+  register: deploy_user_groups_result
+  changed_when: false
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Assert the deployment user is not in the docker group
+  ansible.builtin.assert:
+    that:
+      - "'docker' not in deploy_user_groups_result.stdout.split()"
+    fail_msg: "The deployment user must never be a member of the docker group."
+  when: not ansible_check_mode
