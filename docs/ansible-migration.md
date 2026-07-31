@@ -120,7 +120,7 @@ ansible-playbook playbooks/site.yml --check --diff
 
 Validation completed with `ok=33 changed=0 failed=0`; the follow-up audit completed with `ok=45 changed=0 failed=0`. Do not run `site.yml` without `--check`; no apply is authorized.
 
-## Phase 4 management-plane plan
+## Phase 4 management plane
 
 The approved architecture now has two paths:
 
@@ -133,13 +133,13 @@ runs Debian 13.6 at reserved `192.168.0.122` with native TUN, IPv4-only forwardi
 Tailscale 1.98.10 is healthy as `tag:infra-router`; exactly the PVE and Docker `/32` routes are operational and tested.
 No OpenTofu code is added; future adoption must isolate this bootstrap dependency.
 
-`playbooks/bootstrap.yml` models direct Docker Tailscale and `ansible-deploy` without authorizing them. A normal
-Docker bootstrap now also requires `tailscale_gateway_recovery_confirmed=true`, in addition to LAN SSH, verified
-`qm terminal 100` serial recovery, tailnet policy, the management-plane tag, and apply confirmation.
+`playbooks/bootstrap.yml` converged direct Docker Tailscale and `ansible-deploy` through the guarded
+`management_plane` apply. Docker is healthy as `tag:docker-host`; Tailscale SSH, locked account, private group,
+passwordless sudo, and key cleanup were verified. A controlled reboot aligned kernel/modules and Docker daemon state.
+Final bootstrap, audit, and site checks all report `changed=0`.
 
-The Docker plan is in [`tailscale-bootstrap.md`](./tailscale-bootstrap.md). Its earlier check reported `changed=2`
-for only the absent user and Tailscale package; routine `site.yml` and `audit.yml` remained `changed=0`. Phase 4a gateway
-routing is complete; serial/LAN recovery reconfirmation and direct Docker bootstrap remain separate gates.
+The completed record and rollback boundaries are in [`tailscale-bootstrap.md`](./tailscale-bootstrap.md). Production
+inventory remains unchanged pending a separately reviewed remote read-only audit.
 ## Recovery work still required
 
 A manual restore drill is mandatory before any stateful Compose adoption or apply. It must be separately planned
