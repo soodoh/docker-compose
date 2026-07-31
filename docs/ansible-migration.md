@@ -122,17 +122,24 @@ Validation completed with `ok=33 changed=0 failed=0`; the follow-up audit comple
 
 ## Phase 4 management-plane plan
 
-`playbooks/bootstrap.yml` now models the separately tagged `management_plane` bootstrap without authorizing it.
-The selected design uses a one-use preauthorized key, Tailscale SSH, and a locked `ansible-deploy` user with
-passwordless sudo but no docker-group membership. Check mode never starts tailscaled, consumes the key, enrolls,
-enables Tailscale SSH, or writes the root-only sudoers file.
+The approved architecture now has two paths:
 
-The bootstrap requires local inventory, the existing apply confirmation, exactly the `management_plane` tag, and
-explicit confirmations for LAN SSH, Proxmox console, and tailnet SSH policy recovery gates. `site.yml` contains no
-management-plane tasks, so routine checks and future deployments exclude these changes by construction.
+- a dedicated unprivileged Proxmox LXC using hosted Tailscale as a tightly scoped subnet router for Proxmox API and
+  Docker LAN bootstrap/recovery; and
+- direct Tailscale SSH on the Docker VM for normal Ansible execution.
 
-The complete plan, tailnet policy prerequisites, guarded command, verification procedure, and manual rollback gates
-are in [`tailscale-bootstrap.md`](./tailscale-bootstrap.md). Check mode reported `changed=2` for only the absent deployment user and Tailscale package; routine `site.yml` and `audit.yml` remained `changed=0`. No Phase 4 apply is authorized.
+The gateway is specified in [`tailscale-gateway-lxc.md`](./tailscale-gateway-lxc.md). Protected unprivileged CT 101
+runs Debian 13.6 at reserved `192.168.0.122` with native TUN, IPv4-only forwarding, and default-deny scoped firewall.
+Tailscale 1.98.10 is healthy as `tag:infra-router`; exactly the PVE and Docker `/32` routes are operational and tested.
+No OpenTofu code is added; future adoption must isolate this bootstrap dependency.
+
+`playbooks/bootstrap.yml` models direct Docker Tailscale and `ansible-deploy` without authorizing them. A normal
+Docker bootstrap now also requires `tailscale_gateway_recovery_confirmed=true`, in addition to LAN SSH, verified
+`qm terminal 100` serial recovery, tailnet policy, the management-plane tag, and apply confirmation.
+
+The Docker plan is in [`tailscale-bootstrap.md`](./tailscale-bootstrap.md). Its earlier check reported `changed=2`
+for only the absent user and Tailscale package; routine `site.yml` and `audit.yml` remained `changed=0`. Phase 4a gateway
+routing is complete; serial/LAN recovery reconfirmation and direct Docker bootstrap remain separate gates.
 ## Recovery work still required
 
 A manual restore drill is mandatory before any stateful Compose adoption or apply. It must be separately planned
@@ -151,10 +158,12 @@ remote retention, or application consistency.
 
 ## Deferred phase gates
 
-1. **Phase 4 stop:** review `bootstrap.yml --check --diff`, tailnet policy, LAN SSH, and Proxmox recovery evidence;
-   do not run the documented normal bootstrap without a new explicit approval.
-2. **Phase 5:** after a verified Phase 4 bootstrap, add plan-only CI with SHA-pinned actions, workload identity,
-   minimal permissions, redaction, and serialization. Require three stable plan-only runs.
+1. **Phase 4a stop:** create the hosted tailnet and review the exact Proxmox template/LXC creation plan; do not
+   download a template, create CT 101, pass `/dev/net/tun`, or advertise routes without new approval.
+2. **Phase 4b stop:** after gateway verification, review `bootstrap.yml --check --diff` for direct Docker Tailscale;
+   do not run the normal Docker bootstrap without another explicit approval.
+3. **Phase 5:** after both paths are verified, add plan-only CI with SHA-pinned actions, workload identity, minimal
+   permissions, redaction, and serialization. Require three stable plan-only runs.
 4. **Phase 6:** converge one approved tag at a time in the order `host_files`, `base`, `maintenance`, `storage`,
    `docker`, with plan, approval, guarded apply, second zero-change check, and runtime re-audit for each.
 5. **Phases 7-8:** retain this Compose directory and host-only `.env`; resolve or waive health blockers before a

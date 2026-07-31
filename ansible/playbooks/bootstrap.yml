@@ -24,15 +24,16 @@
       tags:
         - management_plane
 
-    - name: Require recovery and tailnet-policy confirmations before a normal bootstrap
+    - name: Require dual-path recovery and tailnet-policy confirmations before a normal bootstrap
       ansible.builtin.assert:
         that:
           - lan_ssh_recovery_confirmed | default(false) | ansible.builtin.bool
           - proxmox_console_recovery_confirmed | default(false) | ansible.builtin.bool
+          - tailscale_gateway_recovery_confirmed | default(false) | ansible.builtin.bool
           - tailscale_ssh_policy_confirmed | default(false) | ansible.builtin.bool
         fail_msg: >-
-          Refusing bootstrap. First verify a second LAN SSH login, Proxmox console recovery, and the
-          tailnet Tailscale SSH policy; then pass all three confirmation variables as true.
+          Refusing Docker bootstrap. First verify fresh LAN SSH, the Proxmox serial console, the dedicated
+          Tailscale gateway LXC route, and the tailnet Tailscale SSH policy; then pass all four confirmations.
       when: not ansible_check_mode
       tags:
         - management_plane

@@ -123,6 +123,7 @@ tailscale_package: tailscale
 tailscale_service: tailscaled.service
 tailscale_hostname: docker-host
 tailscale_advertise_tags: tag:docker-host
+tailscale_advertise_routes: []
 tailscale_accept_dns: false
 tailscale_accept_routes: false
 tailscale_auth_key: "{{ lookup('ansible.builtin.env', 'TAILSCALE_AUTH_KEY') }}"

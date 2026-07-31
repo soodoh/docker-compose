@@ -2,19 +2,21 @@
 
 ## Status
 
-This is a **plan-only Phase 4 artifact**. It does not authorize a normal Ansible run. No Tailscale package, service,
-network interface, user, sudo policy, SSH setting, firewall rule, or inventory endpoint has been changed.
+Phase 4a gateway routing is operational, but direct Docker Phase 4b remains **plan-only**. No Docker-host Tailscale
+package, service, interface, user, sudo policy, SSH setting, firewall rule, or inventory endpoint has been changed.
 
-Selected design:
+Selected dual-path design:
 
-- Enroll with a short-lived, preauthorized, one-use auth key supplied through the controller-only
-  `TAILSCALE_AUTH_KEY` environment variable.
-- Advertise the persistent host as `docker-host` with `tag:docker-host`.
-- Do not accept Tailscale DNS or advertised routes during initial bootstrap.
+- Use hosted Tailscale with a separate unprivileged Proxmox LXC subnet router as the provisioning/recovery path.
+- Keep direct Tailscale SSH on this Docker VM as the normal Ansible path.
+- Require the gateway to route only Proxmox `192.168.0.123/32` and Docker `192.168.0.100/32` before this bootstrap.
+- Enroll with a short-lived, preauthorized, one-use auth key supplied through controller-only `TAILSCALE_AUTH_KEY`.
+- Advertise the persistent Docker host as `docker-host` with `tag:docker-host`.
+- Do not accept Tailscale DNS or advertised routes during initial Docker bootstrap.
 - Enable Tailscale SSH while leaving the existing OpenSSH service and LAN path untouched.
-- Create the locked-password `ansible-deploy` user with no supplementary groups and specifically no `docker` group.
-- Grant `ansible-deploy` passwordless sudo for unattended Ansible. Restrict who can reach that account through the
-  tailnet SSH policy, protected GitHub environments, and later CI concurrency controls.
+- Create locked `ansible-deploy` with no supplementary groups and specifically no `docker` group.
+- Grant `ansible-deploy` passwordless sudo for unattended Ansible, restricted by tailnet SSH policy, protected GitHub
+  environments, and later CI concurrency controls.
 
 `tailscaled` can manage its own networking rules when started. The playbook contains no firewall module or firewall
 command, but its effective networking changes must still be inspected after bootstrap.
@@ -27,19 +29,21 @@ command, but its effective networking changes must still be inspected after boot
 - sudo and OpenSSH are installed.
 - sshd is enabled, active, and listening on port 22.
 - The LAN default route remains available.
-- Proxmox console recovery has not been verified from inside the guest and requires a manual test.
+- Proxmox-to-Docker LAN SSH is open and a fresh `qm terminal 100` serial login was verified.
+- The gateway routes exactly `192.168.0.123/32` and `192.168.0.100/32`; PVE API and Docker SSH tests passed.
 
 ## Tailnet prerequisites
 
-Complete these in the Tailscale admin console before authorizing bootstrap:
+Completed prerequisites:
 
-1. Create or confirm `tag:docker-host` and reserve `tag:ci` for the future GitHub workload identity.
-2. Create a short-lived, preauthorized, **one-use** auth key authorized for `tag:docker-host`.
-3. Add network access permitting the approved administrator identities and future `tag:ci` clients to reach TCP/22
-   on `tag:docker-host`.
-4. Add a Tailscale SSH rule allowing only approved sources to connect as `ansible-deploy`. Automation requires an
-   `accept` rule rather than an interactive check rule.
-5. Validate the policy in the Tailscale policy editor before setting `tailscale_ssh_policy_confirmed=true`.
+1. Protected unprivileged `tag:infra-router` CT 101 is healthy and independently recoverable.
+2. Only `192.168.0.123/32` and `192.168.0.100/32` are advertised and approved.
+3. Routed PVE TCP/8006 and Docker TCP/22 work; unapproved PVE TCP/22 is denied.
+4. `tag:docker-host`, `tag:ci`, least-privilege grants, and Tailscale SSH rules are saved and validated.
+5. Fresh LAN SSH and Proxmox serial-console recovery were reconfirmed after gateway activation.
+
+The remaining external prerequisite is a short-lived, preauthorized, one-use, non-ephemeral auth key scoped only to
+`tag:docker-host`. Create it immediately before an explicitly approved apply.
 
 Conceptual policy fragment—merge it into the existing policy rather than replacing the policy wholesale:
 
@@ -87,26 +91,28 @@ ansible-playbook --syntax-check playbooks/bootstrap.yml
 ansible-playbook playbooks/bootstrap.yml --check --diff --tags management_plane
 ```
 
-The check completed with `ok=10 changed=2 failed=0 skipped=14`. It proposed only creating
-`ansible-deploy` and installing `tailscale` `1.98.10-1`. It intentionally skipped starting tailscaled, installing
-the root-only sudoers file, consuming an auth key, enrolling, and enabling Tailscale SSH because those operations
-cannot be safely simulated unprivileged.
+The refreshed hardened check completed with `ok=10 changed=2 failed=0 skipped=18`. It proposed only creating
+`ansible-deploy` and installing `tailscale` `1.98.10-1`. Pacman simulation proposes that single 11.61 MiB package,
+zero dependencies/upgrades/removals, and 48.42 MiB installed size. Check mode skips service start, sudoers, temporary
+auth-key handling, enrollment, and Tailscale SSH.
 
 ## Apply gate—not authorized
 
-A future normal bootstrap requires all of the following:
+A future normal Docker bootstrap requires all of the following:
 
 - Explicit approval of the exact check-mode output.
-- A successful second LAN SSH login while the original session remains open.
-- A tested Proxmox console login to this VM.
-- A validated tailnet network/SSH policy.
-- The one-use auth key available only in the local shell environment.
-- Confirmation that no package upgrade or unrelated package transaction is proposed.
+- A successful fresh LAN SSH login and tested `qm terminal 100` serial login; both are complete.
+- Healthy `tag:infra-router` routing with only the two approved `/32` routes; complete.
+- Verified routed PVE API, Docker LAN SSH, and denied PVE SSH behavior; complete.
+- Validated tailnet network/Tailscale SSH policy; complete.
+- A newly created one-use Docker auth key available only in the local shell environment.
+- Confirmation that the package transaction remains exactly `tailscale` `1.98.10-1`; complete.
 
 The guarded invocation will be:
 
 ```sh
 cd /home/docker/Projects/docker-compose/ansible
+bash
 read -rsp 'One-use Tailscale auth key: ' TAILSCALE_AUTH_KEY
 printf '\n'
 export TAILSCALE_AUTH_KEY
@@ -116,12 +122,15 @@ ansible-playbook playbooks/bootstrap.yml \
   -e iac_apply_tag=management_plane \
   -e lan_ssh_recovery_confirmed=true \
   -e proxmox_console_recovery_confirmed=true \
+  -e tailscale_gateway_recovery_confirmed=true \
   -e tailscale_ssh_policy_confirmed=true
 unset TAILSCALE_AUTH_KEY
+exit
 ```
 
-Do not run this command until separately authorized. The auth-key assertion and enrollment task use `no_log`; the
-key is not stored in inventory, group variables, facts, diffs, or repository files.
+Do not run this command until separately authorized. The role writes the key to a root-only temporary `/run` file,
+uses Tailscale's `file:` auth-key syntax, guarantees cleanup, and marks all key-handling tasks `no_log`. The key is
+never placed in command arguments, inventory, variables files, facts, diffs, or repository files.
 
 ## Mandatory post-bootstrap verification
 
@@ -131,14 +140,17 @@ Keep the original LAN SSH session open throughout verification:
 2. Confirm `tailscale status` reports Running and record only redacted evidence.
 3. Confirm the host has the expected tailnet tag and stable MagicDNS name/IP.
 4. From an existing approved tailnet device, connect with Tailscale SSH as `ansible-deploy`.
-5. Confirm `id -nG ansible-deploy` does not contain `docker`.
-6. As `ansible-deploy`, confirm `sudo -n true` succeeds.
-7. Open a fresh LAN OpenSSH session through the existing LAN address.
-8. Reconfirm Proxmox console login.
-9. Recheck 41 running Compose services, 33 project volumes, mounts, devices, health, Docker, cronie, and sshd.
-10. Run `audit.yml --check --diff` locally and require `changed=0`.
-11. Run `site.yml --check --diff` locally and require `changed=0`.
-12. Only then replace the `.invalid` production inventory endpoint and test a remote read-only audit.
+5. Confirm no `/run/tailscale-auth-*` file remains.
+6. Confirm `id -nG ansible-deploy` does not contain `docker`.
+7. As `ansible-deploy`, confirm `sudo -n true` succeeds.
+8. Open a fresh LAN OpenSSH session through the existing LAN address.
+9. Reconfirm Proxmox console login.
+10. Reconfirm the gateway route reaches PVE API and Docker LAN SSH with documented restrictions.
+11. Recheck 41 running Compose services, 33 project volumes, mounts, devices, health, Docker, cronie, and sshd.
+12. Update the audit's management-plane baseline from Tailscale-absent to the verified installed/running state.
+13. Run `audit.yml --check --diff` locally and require `changed=0`.
+14. Run `site.yml --check --diff` locally and require `changed=0`.
+15. Only then replace the `.invalid` production endpoint and test a remote read-only audit.
 
 ## Failure and rollback policy
 
