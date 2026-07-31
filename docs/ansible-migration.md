@@ -87,8 +87,9 @@ read-only CLI probes, and makes assertions. Every `command` task declares `chang
 probes execute during `--check`, so both ordinary audit and check-mode audit must finish with `changed=0`. There are
 no handlers or Docker mutations.
 
-Local inventory uses `ansible_connection: local`. The production inventory is deliberately pointed at a `.invalid`
-placeholder until Tailscale and the deployment user are separately approved and verified.
+Local inventory uses `ansible_connection: local`. Production inventory now targets the stable Docker Tailscale IP as
+`ansible-deploy`; its first consumer is the manual GitHub-hosted audit in
+[`github-actions-ansible.md`](./github-actions-ansible.md). No remote workflow has been committed, pushed, or run yet.
 
 The operator separately installed `ansible` `14.2.0-1` (`ansible-core` `2.21.2`) using the previously approved
 bootstrap command and reported that the audit completed with `changed=0`.
@@ -140,6 +141,9 @@ Final bootstrap, audit, and site checks all report `changed=0`.
 
 The completed record and rollback boundaries are in [`tailscale-bootstrap.md`](./tailscale-bootstrap.md). Production
 inventory remains unchanged pending a separately reviewed remote read-only audit.
+
+The staged Phase 5 workflow uses GitHub OIDC workload identity, an `infrastructure-plan` environment restricted to
+`main`, an ephemeral `tag:ci` node, pinned actions, strict SSH host-key checking, and `audit.yml --check --diff` only.
 ## Recovery work still required
 
 A manual restore drill is mandatory before any stateful Compose adoption or apply. It must be separately planned

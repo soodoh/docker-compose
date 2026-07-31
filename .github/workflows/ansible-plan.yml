@@ -1,0 +1,87 @@
+name: Ansible remote audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ansible-remote-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Audit Docker host over Tailscale
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: infrastructure-plan
+
+    env:
+      ANSIBLE_FORCE_COLOR: "true"
+      ANSIBLE_HOST_KEY_CHECKING: "true"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+
+      - name: Install the pinned Ansible controller
+        run: |
+          python -m pip install --no-cache-dir "ansible-core==2.21.2"
+          ansible --version
+
+      - name: Connect an ephemeral CI node to Tailscale
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4
+        with:
+          oauth-client-id: ${{ vars.TS_OAUTH_CLIENT_ID }}
+          audience: ${{ vars.TS_AUDIENCE }}
+          tags: tag:ci
+          version: 1.98.10
+          sha256sum: 52490ce0832b245857e2afef7426d6ae5a4b49fb391412833cc95729bd23f7de8
+          args: --accept-dns=false --accept-routes=false --ssh=false
+          ping: 100.111.210.72
+          use-cache: "true"
+
+      - name: Trust the Docker host key over its authenticated tailnet path
+        run: |
+          keyscan_file=$(mktemp)
+          trap 'rm -f "$keyscan_file"' EXIT
+
+          for attempt in {1..10}; do
+            if ssh-keyscan -T 5 -t ed25519 100.111.210.72 >"$keyscan_file" 2>/dev/null &&
+              test -s "$keyscan_file"; then
+              break
+            fi
+            sleep 2
+          done
+
+          test -s "$keyscan_file"
+          install -d -m 0700 "$HOME/.ssh"
+          install -m 0600 "$keyscan_file" "$HOME/.ssh/known_hosts"
+          ssh-keygen -lf "$HOME/.ssh/known_hosts"
+
+      - name: Validate the production inventory and audit syntax
+        working-directory: ansible
+        run: |
+          ansible-inventory -i inventory/production.yml --graph
+          ansible-playbook -i inventory/production.yml \
+            --syntax-check playbooks/audit.yml
+
+      - name: Verify remote Ansible connectivity
+        working-directory: ansible
+        run: |
+          ansible -i inventory/production.yml docker_host \
+            -m ansible.builtin.ping
+
+      - name: Run the remote read-only audit
+        working-directory: ansible
+        run: |
+          ansible-playbook -i inventory/production.yml \
+            playbooks/audit.yml --check --diff

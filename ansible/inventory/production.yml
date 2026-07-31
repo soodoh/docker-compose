@@ -1,15 +1,21 @@
 ---
-# Deferred until the separately approved Tailscale and deploy-user bootstrap.
-# Replace the .invalid address only after recovery paths and tailnet SSH work.
+# Direct Tailscale endpoint for remote controllers with an approved tailnet identity.
+# The first controller is an ephemeral GitHub-hosted node tagged tag:ci.
 all:
   children:
     docker_host:
       hosts:
         docker-host-production:
-          ansible_host: docker-host.replace-me.invalid
+          ansible_host: 100.111.210.72
           ansible_user: ansible-deploy
           ansible_python_interpreter: /usr/bin/python
-          # The deployment user is never added to the docker group. Remote
-          # audits and convergence use its separately managed sudo policy.
+          # The workflow learns the SSH host key only after joining the authenticated
+          # tailnet path and keeps normal Ansible host-key verification enabled.
+          ansible_ssh_common_args: >-
+            -o ConnectTimeout=10
+            -o ServerAliveInterval=15
+            -o ServerAliveCountMax=2
+          # The deployment user is outside the docker group. Remote audits use its
+          # separately validated passwordless sudo policy.
           ansible_become: true
           ansible_become_method: sudo
