@@ -41,7 +41,9 @@ sudo policy.
 1. Checks out the repository with an action pinned to a full commit SHA.
 2. Installs Python 3.13 and `ansible-core==2.21.2` on the ephemeral runner.
 3. Connects with `tailscale/github-action` pinned to the audited v4 commit and Tailscale 1.98.10 tarball checksum.
-4. Accepts no DNS or routes and does not enable Tailscale SSH on the runner.
+4. Disables tailnet DNS and Tailscale SSH on the runner. The upstream action requires route acceptance, so the next step
+   fails closed unless routing table 52 contains exactly the two approved subnet routes, `192.168.0.100/32` and
+   `192.168.0.123/32`, plus normal `100.64.0.0/10` tailnet routes.
 5. Waits for connectivity to Docker's stable Tailscale IP `100.111.210.72`.
 6. Scans the Docker SSH host key only after joining the authenticated tailnet path, then leaves Ansible host-key
    checking enabled.
@@ -57,13 +59,25 @@ The first approved dispatch (`30669410045`) failed during binary verification be
 connection because the pinned checksum contained one extra trailing character. The action's post step completed; no CI
 node was created and the Docker host was not contacted. The corrected value is the official 64-character checksum.
 
-Before a retry:
+The second approved dispatch (`30670221912`) verified the checksum and reached the pinned action, but `tailscale up`
+rejected duplicate route flags: v4 always adds `--accept-routes`, while this workflow also requested
+`--accept-routes=false`. Argument parsing failed before the runner joined the tailnet or contacted Docker, and the post
+step completed successfully.
 
-1. Review, commit, and push the one-character checksum correction.
+The approved resolution keeps the pinned upstream action. The ephemeral runner may accept only the two tailnet-approved
+`/32` subnet routes. An immediate fail-closed check verifies those exact non-tailnet routes, tailnet DNS disabled, and
+Tailscale SSH disabled before host-key scanning, SSH, or Ansible can run. Tailnet policy still authorizes `tag:ci` only
+to Docker TCP/22 and Tailscale SSH as `ansible-deploy`; installing the Proxmox `/32` route does not authorize traffic to
+it.
+
+Before another retry:
+
+1. Review, commit, and push the route-handling correction and incident record.
 2. Manually dispatch `Ansible remote audit` from `main` under a fresh approval.
-3. Confirm the Tailscale admin console shows one ephemeral `tag:ci` node and no broader access.
-4. Require the remote recap to report `changed=0`, `failed=0`, and `unreachable=0`.
-5. Confirm the ephemeral node disappears after job cleanup.
+3. Confirm the route and preference assertion succeeds before any host contact.
+4. Confirm the Tailscale admin console shows one ephemeral `tag:ci` node and no broader access.
+5. Require the remote recap to report `changed=0`, `failed=0`, and `unreachable=0`.
+6. Confirm the ephemeral node disappears after job cleanup.
 
 Do not add push, pull-request, schedule, `workflow_call`, or apply triggers during this gate. Future apply automation must
 use a separate protected environment, concurrency policy, explicit human approval, and a separately reviewed workflow.
