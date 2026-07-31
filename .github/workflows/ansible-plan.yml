@@ -44,7 +44,7 @@ jobs:
           audience: ${{ vars.TS_AUDIENCE }}
           tags: tag:ci
           version: 1.98.10
-          sha256sum: 52490ce0832b245857e2afef7426d6ae5a4b49fb391412833cc95729bd23f7de8
+          sha256sum: 52490ce0832b245857e2afef7426d6ae5a4b49fb391412833cc95729bd23f7de
           args: --accept-dns=false --accept-routes=false --ssh=false
           ping: 100.111.210.72
           use-cache: "true"

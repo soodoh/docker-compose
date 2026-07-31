@@ -53,14 +53,17 @@ auth key, OAuth secret, or Tailscale API token.
 
 ## Activation gate
 
-Repository files alone cannot activate the workflow. Before the first run:
+The first approved dispatch (`30669410045`) failed during binary verification before OIDC exchange or tailnet
+connection because the pinned checksum contained one extra trailing character. The action's post step completed; no CI
+node was created and the Docker host was not contacted. The corrected value is the official 64-character checksum.
 
-1. Review the complete workflow and production-inventory diff.
-2. Commit and push only after explicit approval.
-3. Manually dispatch `Ansible remote audit` from `main`.
-4. Confirm the Tailscale admin console shows one ephemeral `tag:ci` node and no broader access.
-5. Require the remote recap to report `changed=0`, `failed=0`, and `unreachable=0`.
-6. Confirm the ephemeral node disappears after job cleanup.
+Before a retry:
+
+1. Review, commit, and push the one-character checksum correction.
+2. Manually dispatch `Ansible remote audit` from `main` under a fresh approval.
+3. Confirm the Tailscale admin console shows one ephemeral `tag:ci` node and no broader access.
+4. Require the remote recap to report `changed=0`, `failed=0`, and `unreachable=0`.
+5. Confirm the ephemeral node disappears after job cleanup.
 
 Do not add push, pull-request, schedule, `workflow_call`, or apply triggers during this gate. Future apply automation must
 use a separate protected environment, concurrency policy, explicit human approval, and a separately reviewed workflow.
