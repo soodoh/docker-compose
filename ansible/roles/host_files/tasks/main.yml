@@ -8,6 +8,7 @@
     mode: "{{ item.mode }}"
     force: true
     backup: false
+  diff: false
   become: "{{ not ansible_check_mode }}"
   loop: "{{ managed_host_files }}"
   loop_control:

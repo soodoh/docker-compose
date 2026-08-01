@@ -140,8 +140,7 @@
       - audit_docker_version.stdout == audit_expected_docker_client_version ~ '|' ~ audit_expected_docker_server_version
       - audit_compose_version.stdout == audit_expected_compose_version
     fail_msg: >-
-      Phase 0 stop gate: Docker or Compose differs. The adopted baseline intentionally records the
-      29.6.2 client/package with the still-running 29.6.1 daemon.
+      Docker client, daemon, or Compose version differs from the adopted post-reboot baseline.
 
 - name: Validate the resolved Compose model without displaying it
   ansible.builtin.command:

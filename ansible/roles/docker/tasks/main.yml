@@ -14,20 +14,38 @@
   become: "{{ not ansible_check_mode }}"
   loop: "{{ docker_services }}"
 
-- name: Inspect Docker client and daemon versions without changing Docker
+- name: Inspect Docker versions through the ordinary controller path
   ansible.builtin.command:
     argv:
       - /usr/bin/docker
       - version
       - --format
       - "{{ audit_docker_version_format }}"
-  register: docker_runtime_version
+  register: docker_runtime_version_direct
   changed_when: false
   check_mode: false
+  when: not (iac_readonly_controller | default(false) | ansible.builtin.bool)
+
+- name: Inspect Docker versions through the fixed read-only helper
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/sudo
+      - --non-interactive
+      - --
+      - "{{ plan_user_docker_version_helper }}"
+  register: docker_runtime_version_readonly
+  changed_when: false
+  check_mode: false
+  when: iac_readonly_controller | default(false) | ansible.builtin.bool
 
 - name: Preserve the explicitly recorded Docker version mismatch
   ansible.builtin.assert:
     that:
-      - docker_runtime_version.stdout == audit_expected_docker_client_version ~ '|' ~ audit_expected_docker_server_version
+      - >-
+        (
+          docker_runtime_version_readonly.stdout
+          if (iac_readonly_controller | default(false) | ansible.builtin.bool)
+          else docker_runtime_version_direct.stdout
+        ) == audit_expected_docker_client_version ~ '|' ~ audit_expected_docker_server_version
     fail_msg: >-
       Docker runtime versions changed. Do not restart Docker or converge this role until the difference is reviewed.

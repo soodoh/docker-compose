@@ -1,66 +1,66 @@
 ---
-- name: Keep the dedicated deployment user present
+- name: Keep the dedicated controller user present
   ansible.builtin.user:
-    name: "{{ deploy_user_name }}"
-    comment: Ansible deployment user
-    home: "{{ deploy_user_home }}"
-    shell: "{{ deploy_user_shell }}"
+    name: "{{ controller_user_name }}"
+    comment: "{{ controller_user_comment }}"
+    home: "{{ controller_user_home }}"
+    shell: "{{ controller_user_shell }}"
     create_home: true
     state: present
   become: "{{ not ansible_check_mode }}"
 
-- name: Inspect the deployment-user password lock before convergence
+- name: Inspect the controller-user password lock before convergence
   ansible.builtin.command:
     argv:
       - /usr/bin/passwd
       - --status
-      - "{{ deploy_user_name }}"
+      - "{{ controller_user_name }}"
   become: true
   register: deploy_user_password_before
   changed_when: false
   when: not ansible_check_mode
 
-- name: Lock the deployment-user password when needed
+- name: Lock the controller-user password when needed
   ansible.builtin.command:
     argv:
       - /usr/bin/usermod
       - --lock
-      - "{{ deploy_user_name }}"
+      - "{{ controller_user_name }}"
   become: true
   changed_when: true
   when:
     - not ansible_check_mode
     - deploy_user_password_before.stdout.split()[1] != 'L'
 
-- name: Inspect the deployment-user password lock after convergence
+- name: Inspect the controller-user password lock after convergence
   ansible.builtin.command:
     argv:
       - /usr/bin/passwd
       - --status
-      - "{{ deploy_user_name }}"
+      - "{{ controller_user_name }}"
   become: true
   register: deploy_user_password_result
   changed_when: false
   when: not ansible_check_mode
 
-- name: Assert the deployment-user password is locked
+- name: Assert the controller-user password is locked
   ansible.builtin.assert:
     that:
       - deploy_user_password_result.stdout.split()[1] == 'L'
-    fail_msg: "The deployment user must have a locked password."
+    fail_msg: "The controller user must have a locked password."
   when: not ansible_check_mode
 
-- name: Report the planned passwordless sudo policy in check mode
+- name: Report the planned controller sudo policy in check mode
   ansible.builtin.debug:
     msg: >-
-      A normal approved bootstrap will install {{ deploy_user_sudoers_path }} with mode 0440 and visudo
-      validation. The user remains outside the docker group.
+      A normal approved bootstrap will install {{ controller_user_sudoers_path }} with mode 0440 and visudo
+      validation. The user remains outside every supplementary group, including docker.
   when: ansible_check_mode
 
-- name: Install the deployment-user sudo policy only during an approved normal bootstrap
+- name: Install the controller-user sudo policy only during an approved normal bootstrap
   ansible.builtin.copy:
-    content: "{{ deploy_user_sudoers_content }}"
-    dest: "{{ deploy_user_sudoers_path }}"
+    content: "{{ controller_user_sudoers_content }}"
+    dest: "{{ controller_user_sudoers_path }}"
     owner: root
     group: root
     mode: "0440"
@@ -69,45 +69,45 @@
   become: true
   when: not ansible_check_mode
 
-- name: Inspect deployment-user group membership before convergence
+- name: Inspect controller-user group membership before convergence
   ansible.builtin.command:
     argv:
       - /usr/bin/id
       - --name
       - --groups
-      - "{{ deploy_user_name }}"
+      - "{{ controller_user_name }}"
   register: deploy_user_groups_before
   changed_when: false
   check_mode: false
   when: not ansible_check_mode
 
-- name: Remove every supplementary group from the deployment user
+- name: Remove every supplementary group from the controller user
   ansible.builtin.command:
     argv:
       - /usr/bin/usermod
       - --groups=
-      - "{{ deploy_user_name }}"
+      - "{{ controller_user_name }}"
   become: true
   changed_when: true
   when:
     - not ansible_check_mode
-    - deploy_user_groups_before.stdout.split() | difference([deploy_user_name]) | length > 0
+    - deploy_user_groups_before.stdout.split() | difference([controller_user_name]) | length > 0
 
-- name: Inspect deployment-user group membership after convergence
+- name: Inspect controller-user group membership after convergence
   ansible.builtin.command:
     argv:
       - /usr/bin/id
       - --name
       - --groups
-      - "{{ deploy_user_name }}"
+      - "{{ controller_user_name }}"
   register: deploy_user_groups_result
   changed_when: false
   check_mode: false
   when: not ansible_check_mode
 
-- name: Assert the deployment user has no supplementary groups
+- name: Assert the controller user has no supplementary groups
   ansible.builtin.assert:
     that:
-      - deploy_user_groups_result.stdout.split() | sort == [deploy_user_name]
-    fail_msg: "The deployment user must have only its private primary group."
+      - deploy_user_groups_result.stdout.split() | sort == [controller_user_name]
+    fail_msg: "The controller user must have only its private primary group."
   when: not ansible_check_mode

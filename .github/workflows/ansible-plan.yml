@@ -8,7 +8,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: ansible-remote-audit
+  group: ansible-production
   cancel-in-progress: false
 
 jobs:
@@ -25,100 +25,18 @@ jobs:
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          python-version: "3.13"
+          persist-credentials: false
 
-      - name: Install the pinned Ansible controller
-        run: |
-          python -m pip install --no-cache-dir "ansible-core==2.21.2"
-          ansible --version
-
-      - name: Connect an ephemeral CI node to Tailscale
-        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4
+      - name: Prepare the restricted manual-audit controller
+        uses: ./.github/actions/ansible-controller
         with:
           oauth-client-id: ${{ vars.TS_OAUTH_CLIENT_ID }}
           audience: ${{ vars.TS_AUDIENCE }}
           tags: tag:ci
-          version: 1.98.10
-          sha256sum: 52490ce0832b245857e2afef7426d6ae5a4b49fb391412833cc95729bd23f7de
-          args: --accept-dns=false --ssh=false
-          use-cache: "true"
-
-      - name: Verify the runner accepts only the approved subnet routes
-        run: |
-          sudo tailscale debug prefs | jq -e '
-            .CorpDNS == false and
-            .RunSSH == false and
-            .RouteAll == true
-          '
-
-          route_file=$(mktemp)
-          trap 'rm -f "$route_file"' EXIT
-          ip -j -4 route show table 52 >"$route_file"
-
-          ROUTE_FILE="$route_file" python - <<'PY'
-          import ipaddress
-          import json
-          import os
-
-          expected = {
-              (ipaddress.ip_network("192.168.0.100/32"), "tailscale0"),
-              (ipaddress.ip_network("192.168.0.123/32"), "tailscale0"),
-          }
-          tailnet = ipaddress.ip_network("100.64.0.0/10")
-
-          with open(os.environ["ROUTE_FILE"], encoding="utf-8") as route_stream:
-              routes = json.load(route_stream)
-
-          scoped_routes = set()
-          for route in routes:
-              destination = route.get("dst", "0.0.0.0/0")
-              network = ipaddress.ip_network(destination, strict=False)
-              if not network.subnet_of(tailnet):
-                  scoped_routes.add((network, route.get("dev")))
-
-          if scoped_routes != expected:
-              raise SystemExit(
-                  f"unexpected non-tailnet routes in table 52: {sorted(map(str, scoped_routes))}"
-              )
-
-          print("Approved subnet routes:")
-          for network, device in sorted(expected, key=lambda item: str(item[0])):
-              print(f"  {network} dev {device}")
-          PY
-
-      - name: Verify Tailscale connectivity to the Docker host
-        run: |
-          for attempt in {1..10}; do
-            if sudo tailscale ping --until-direct=false --c=1 --timeout=5s 100.111.210.72; then
-              exit 0
-            fi
-            sleep 2
-          done
-
-          exit 1
-
-      - name: Trust the Docker host key over its authenticated tailnet path
-        run: |
-          keyscan_file=$(mktemp)
-          trap 'rm -f "$keyscan_file"' EXIT
-
-          for attempt in {1..10}; do
-            if ssh-keyscan -T 5 -t ed25519 100.111.210.72 >"$keyscan_file" 2>/dev/null &&
-              test -s "$keyscan_file"; then
-              break
-            fi
-            sleep 2
-          done
-
-          test -s "$keyscan_file"
-          install -d -m 0700 "$HOME/.ssh"
-          install -m 0600 "$keyscan_file" "$HOME/.ssh/known_hosts"
-          ssh-keygen -lf "$HOME/.ssh/known_hosts"
+          target-ip: 100.111.210.72
+          host-key-fingerprint: SHA256:2wHl3xsBkNYprqP99usjZdwj2Rytcc+MtJVErhowVYw
 
       - name: Validate the production inventory and audit syntax
         working-directory: ansible

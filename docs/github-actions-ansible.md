@@ -90,9 +90,9 @@ completed successfully from commit `72c9317`:
 - The post step logged out and stopped Tailscale successfully; a subsequent live tailnet view from Docker showed zero
   `tag:ci` peers.
 
-The manual read-only activation gate is complete. The workflow remains `workflow_dispatch` only. Do not add push,
-pull-request, schedule, `workflow_call`, or apply triggers. Future apply automation must use a separate protected
-environment, concurrency policy, explicit human approval, and a separately reviewed workflow.
+The manual read-only activation gate is complete. This audit workflow remains `workflow_dispatch` only and shares the
+`ansible-production` concurrency group with the separately protected deployment pipeline documented in
+[`github-actions-deploy.md`](./github-actions-deploy.md). It never runs `site.yml` or performs an apply.
 
 ## Failure policy
 

@@ -1,0 +1,51 @@
+name: Prepare Ansible controller
+description: Install pinned Ansible and connect a restricted ephemeral Tailscale controller
+
+inputs:
+  oauth-client-id:
+    description: Tailscale workload identity client ID
+    required: true
+  audience:
+    description: Tailscale workload identity audience
+    required: true
+  tags:
+    description: Tailscale tags assigned to the ephemeral controller
+    required: true
+  target-ip:
+    description: Stable Tailscale IP of the Docker host
+    required: true
+  host-key-fingerprint:
+    description: Expected Docker ED25519 SSH host-key fingerprint
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      with:
+        python-version: "3.13.14"
+
+    - name: Install the pinned Ansible controller
+      shell: bash
+      run: |
+        python -m pip install --no-cache-dir "ansible-core==2.21.2"
+        ansible --version
+
+    - name: Connect an ephemeral controller to Tailscale
+      uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4
+      with:
+        oauth-client-id: ${{ inputs.oauth-client-id }}
+        audience: ${{ inputs.audience }}
+        tags: ${{ inputs.tags }}
+        version: 1.98.10
+        sha256sum: 52490ce0832b245857e2afef7426d6ae5a4b49fb391412833cc95729bd23f7de
+        args: --accept-dns=false --ssh=false
+        use-cache: "true"
+
+    - name: Verify controller restrictions and Docker identity
+      shell: bash
+      run: >-
+        "${{ github.action_path }}/../../scripts/prepare-ansible-controller.sh"
+        "${{ inputs.target-ip }}"
+        "${{ inputs.host-key-fingerprint }}"
