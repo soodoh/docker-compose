@@ -61,11 +61,9 @@ The pre-apply check reported `ok=6 changed=1 unreachable=0 failed=0`; the apply 
 post-check reported `changed=0`. The user now has only its private primary group, and the tracked helper checksum matches
 the installed root-owned file.
 
-[`.github/workflows/plan-controller-bootstrap.yml`](../.github/workflows/plan-controller-bootstrap.yml) remains manual-only.
-Its `apply=true` input is an explicit management-plane action and is not reachable from the automatic deployment
-workflow. The apply job revalidates the complete check-output hash before mutation, then independently runs a zero-change
-post-check, the full privilege-boundary audit, and an unprivileged `ansible-plan` ping even when an earlier verification
-step fails.
+The completed one-time `plan-controller-bootstrap.yml` workflow was retired after final zero-change verification. The
+tracked `plan-controller.yml`, privilege-boundary audit, roles, and rollback record remain available for a future reviewed
+management-plane procedure, but no standing GitHub workflow can invoke that bootstrap apply.
 
 ## Trigger and intent
 
