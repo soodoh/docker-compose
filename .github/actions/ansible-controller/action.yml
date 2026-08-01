@@ -17,6 +17,10 @@ inputs:
   host-key-fingerprint:
     description: Expected Docker ED25519 SSH host-key fingerprint
     required: true
+  accept-subnet-routes:
+    description: Keep the two approved subnet routes instead of disabling route acceptance before host contact
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -49,3 +53,4 @@ runs:
         "${{ github.action_path }}/../../scripts/prepare-ansible-controller.sh"
         "${{ inputs.target-ip }}"
         "${{ inputs.host-key-fingerprint }}"
+        "${{ inputs.accept-subnet-routes }}"

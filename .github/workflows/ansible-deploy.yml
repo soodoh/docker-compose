@@ -60,6 +60,7 @@ jobs:
           tags: tag:ci-plan
           target-ip: 100.111.210.72
           host-key-fingerprint: SHA256:2wHl3xsBkNYprqP99usjZdwj2Rytcc+MtJVErhowVYw
+          accept-subnet-routes: "false"
 
       - name: Validate inventory, connectivity, and playbook syntax
         working-directory: ansible
@@ -150,6 +151,7 @@ jobs:
           tags: tag:ci-apply
           target-ip: 100.111.210.72
           host-key-fingerprint: SHA256:2wHl3xsBkNYprqP99usjZdwj2Rytcc+MtJVErhowVYw
+          accept-subnet-routes: "false"
 
       - name: Validate inventory, connectivity, and playbook syntax
         working-directory: ansible

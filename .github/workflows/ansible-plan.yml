@@ -37,6 +37,7 @@ jobs:
           tags: tag:ci
           target-ip: 100.111.210.72
           host-key-fingerprint: SHA256:2wHl3xsBkNYprqP99usjZdwj2Rytcc+MtJVErhowVYw
+          accept-subnet-routes: "true"
 
       - name: Validate the production inventory and audit syntax
         working-directory: ansible

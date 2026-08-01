@@ -45,6 +45,7 @@ jobs:
           tags: tag:ci-apply
           target-ip: 100.111.210.72
           host-key-fingerprint: SHA256:2wHl3xsBkNYprqP99usjZdwj2Rytcc+MtJVErhowVYw
+          accept-subnet-routes: "false"
 
       - name: Validate and check the bootstrap
         id: check
@@ -107,6 +108,7 @@ jobs:
           tags: tag:ci-apply
           target-ip: 100.111.210.72
           host-key-fingerprint: SHA256:2wHl3xsBkNYprqP99usjZdwj2Rytcc+MtJVErhowVYw
+          accept-subnet-routes: "false"
 
       - name: Revalidate the checked bootstrap plan
         working-directory: ansible
