@@ -8,6 +8,7 @@ on:
       - ansible/**
       - services/data/wolf/**
       - .github/actions/ansible-controller/**
+      - .github/requirements-ansible-controller.lock
       - .github/scripts/**
       - .github/workflows/ansible-deploy.yml
   workflow_dispatch:

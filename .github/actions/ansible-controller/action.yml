@@ -30,10 +30,11 @@ runs:
       with:
         python-version: "3.13.14"
 
-    - name: Install the pinned Ansible controller
+    - name: Install the hash-locked Ansible controller
       shell: bash
       run: |
-        python -m pip install --no-cache-dir "ansible-core==2.21.2"
+        python -m pip install --no-cache-dir --only-binary=:all: --require-hashes \
+          --requirement "${{ github.action_path }}/../../requirements-ansible-controller.lock"
         ansible --version
 
     - name: Connect an ephemeral controller to Tailscale

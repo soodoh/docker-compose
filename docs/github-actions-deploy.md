@@ -2,19 +2,19 @@
 
 ## Current status
 
-[`.github/workflows/ansible-deploy.yml`](../.github/workflows/ansible-deploy.yml) is merged but stages an inactive automatic,
-single-tag plan-to-apply pipeline. Neither automatic production plans nor production applies are enabled. No normal
-Ansible run is authorized.
+[`.github/workflows/ansible-deploy.yml`](../.github/workflows/ansible-deploy.yml) now runs the unprivileged automatic
+single-tag plan. Production apply remains disabled, and no normal production convergence is authorized.
 
-Both repository activation variables are deliberately set to `false`:
+The repository gates are:
 
 ```text
-ANSIBLE_AUTO_PLAN_ENABLED=false
+ANSIBLE_AUTO_PLAN_ENABLED=true
 ANSIBLE_APPLY_ENABLED=false
 ```
 
-The plan and apply jobs check these variables before targeting their environments. No automatic remote plan, deployment
-approval request, or normal Ansible run can start while the corresponding gate is disabled.
+Three manual plan-only stability runs (`30688128628`, `30688167935`, and `30688201566`) produced identical normalized
+plan output for `host_files`, each with `ok=3 changed=0 unreachable=0 failed=0`. Each ephemeral controller cleaned up,
+and no `tag:ci-plan` or `tag:ci-apply` peer remained.
 
 The first protected bootstrap check ([`30676568592`](https://github.com/soodoh/docker-compose/actions/runs/30676568592))
 proved the `infrastructure-apply` OIDC exchange and ephemeral `tag:ci-apply` enrollment, then stopped before ping, SSH,
@@ -27,6 +27,10 @@ completed with `ok=16 changed=3 unreachable=0 failed=0`. Its immediate check rep
 `ansible-plan` connectivity succeeded. The job was marked failed only because the boundary audit used sudo's runas-user
 option instead of the other-user option when listing effective policy. The audit command was corrected; no rollback or
 repeat host change is required.
+
+Final protected verification run `30686478000` then reported zero changes in its initial check, guarded convergence,
+immediate post-check, and privilege-boundary audit. The audit completed with `ok=10 changed=0 unreachable=0 failed=0`,
+and unprivileged `ansible-plan` connectivity succeeded.
 
 ## Separate trust paths
 
@@ -82,7 +86,7 @@ The plan job uses `infrastructure-auto-plan`, its exact GitHub OIDC subject, `ta
 
 1. Checks out the triggering commit without persisted Git credentials.
 2. Validates the single reviewed intent tag.
-3. Installs pinned Python 3.13.14 and `ansible-core==2.21.2`.
+3. Installs pinned Python 3.13.14 and the complete hash-locked controller environment from `.github/requirements-ansible-controller.lock`.
 4. Creates an ephemeral `tag:ci-plan` Tailscale node without reusable credentials.
 5. Disables accepted subnet routes, tailnet DNS, and Tailscale SSH before host contact, then requires no non-tailnet IPv4 or IPv6 routes.
 6. Requires the recorded Docker ED25519 host-key fingerprint.
@@ -128,6 +132,9 @@ After approval, the apply job:
 5. After any apply attempt, including a failed one, runs the same unprivileged tag check and requires `changed=0`,
    `unreachable=0`, and `failed=0`.
 6. Runs the complete privileged read-only audit and requires `changed=0`, `unreachable=0`, and `failed=0`.
+7. Acquires persistent `/var/lib/iac-ansible-production.lock` before any normal `site.yml` convergence and releases it
+   only after successful role completion. A concurrent, failed, or abandoned apply fails closed across reboot; a stale
+   lock requires manual inspection and separately approved removal.
 
 The workflow never performs an automatic rollback.
 
@@ -138,73 +145,25 @@ because `soodoh` is the only collaborator, but it has no bypass actors and retai
 protection. The separate environment review remains the human apply gate.
 
 The manual audit and deployment workflow share the `ansible-production` concurrency group with cancellation disabled.
-This serializes participating GitHub jobs but does not coordinate local operators, so it does not replace a host lock.
+Normal `site.yml` runs also use the persistent host-side `/var/lib/iac-ansible-production.lock` advisory lock,
+coordinating repository applies across GitHub and non-GitHub operators. Check mode never creates the lock. Successful
+convergence removes it; failure or cancellation intentionally leaves the root-owned lock directory for manual
+investigation. The owner record is best-effort because interruption can occur between atomic directory creation and
+metadata recording.
 
-## Activation blockers
+## Activation status
 
-Do not enable either activation variable until the applicable gates are complete:
+The plan identity, route restrictions, OIDC identities, environment-bound tags, zero-change bootstrap verification, and
+three stable plans are complete. Automatic plans are enabled. The controller's Python environment is fully pinned by
+artifact URL and SHA-256 digest, and normal `site.yml` convergence uses the host-side advisory lock.
 
-1. Review and explicitly approve the `plan-controller.yml --check --diff` bootstrap result.
-2. Apply that one `management_plane` bootstrap, then prove `ansible-plan` has a locked password, only its private group,
-   no Docker access, only the exact helper sudo rule, and no broad passwordless sudo.
-3. Add `tag:ci-plan` and `tag:ci-apply` to tailnet policy. Grant both only Docker TCP/22. Permit Tailscale SSH from
-   `tag:ci-plan` only as `ansible-plan`; permit `tag:ci-apply` only as `ansible-plan` and `ansible-deploy`.
+Production apply remains disabled. Before setting `ANSIBLE_APPLY_ENABLED=true`:
 
-   Merge this conceptual fragment into the existing policy; never replace unrelated rules:
+1. Merge and validate the lock/dependency hardening through a pull request and automatic plan.
+2. In the `infrastructure-apply` environment settings, deselect **Allow administrators to bypass configured protection
+   rules**. GitHub reports `can_admins_bypass=true`, and its REST update endpoint does not expose that setting.
+3. Keep self-approval acknowledged while `soodoh` is the only collaborator. Add an independent reviewer and enable
+   prevent-self-review when another trusted collaborator is available.
+4. Obtain fresh explicit approval after reviewing the final plan and environment settings.
 
-   ```json
-   {
-     "tagOwners": {
-       "tag:ci-plan": ["autogroup:admin"],
-       "tag:ci-apply": ["autogroup:admin"]
-     },
-     "grants": [
-       {
-         "src": ["tag:ci-plan", "tag:ci-apply"],
-         "dst": ["tag:docker-host"],
-         "ip": ["tcp:22"]
-       }
-     ],
-     "ssh": [
-       {
-         "action": "accept",
-         "src": ["tag:ci-plan"],
-         "dst": ["tag:docker-host"],
-         "users": ["ansible-plan"]
-       },
-       {
-         "action": "accept",
-         "src": ["tag:ci-apply"],
-         "dst": ["tag:docker-host"],
-         "users": ["ansible-plan", "ansible-deploy"]
-       }
-     ]
-   }
-   ```
-4. Create exact hosted Tailscale federated identities:
-
-   ```text
-   infrastructure-auto-plan:
-     Issuer:  https://token.actions.githubusercontent.com
-     Subject: repo:soodoh/docker-compose:environment:infrastructure-auto-plan
-     Scope:   auth_keys
-     Tag:     tag:ci-plan
-
-   infrastructure-apply:
-     Issuer:  https://token.actions.githubusercontent.com
-     Subject: repo:soodoh/docker-compose:environment:infrastructure-apply
-     Scope:   auth_keys
-     Tag:     tag:ci-apply
-   ```
-
-5. Set each environment's non-secret `TS_OAUTH_CLIENT_ID` and `TS_AUDIENCE` variables.
-6. Obtain explicit approval before setting `ANSIBLE_AUTO_PLAN_ENABLED=true`; keep apply disabled.
-7. Merge through a pull request and review three successful, stable plan-only runs.
-8. Confirm repeated plans produce the same recap and hash and expose no sensitive host data.
-9. Design and validate a host-side advisory lock honored by GitHub and non-GitHub Ansible operators.
-10. Pin or hash-lock the Ansible controller's transitive Python dependencies.
-11. Disable administrator environment bypass before apply activation if the repository settings permit.
-12. Add an independent reviewer and enable prevent-self-review when another trusted collaborator is available.
-13. Obtain fresh explicit approval before setting `ANSIBLE_APPLY_ENABLED=true`.
-
-Until then, the existing manual audit is the only enabled GitHub-hosted operation.
+`compose`, `hardware`, `health`, and `management_plane` remain outside automatic apply regardless of activation.
