@@ -122,7 +122,7 @@
         argv:
           - /usr/bin/sudo
           - --list
-          - "--user={{ plan_user_name }}"
+          - "--other-user={{ plan_user_name }}"
       become: true
       register: plan_user_audit_sudo_list
       changed_when: false

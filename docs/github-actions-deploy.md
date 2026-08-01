@@ -22,6 +22,12 @@ or Ansible because the shared route assertion saw only `192.168.0.123/32`. Clean
 now disable accepted subnet routes immediately after enrollment and require zero non-tailnet IPv4 or IPv6 routes before host contact;
 the manual audit retains its separately approved two-route behavior.
 
+The approved bootstrap apply ([`30677520382`](https://github.com/soodoh/docker-compose/actions/runs/30677520382))
+completed with `ok=16 changed=3 unreachable=0 failed=0`. Its immediate check reported `changed=0`, and unprivileged
+`ansible-plan` connectivity succeeded. The job was marked failed only because the boundary audit used sudo's runas-user
+option instead of the other-user option when listing effective policy. The audit command was corrected; no rollback or
+repeat host change is required.
+
 ## Separate trust paths
 
 Ansible check mode is not a security boundary: repository-controlled tasks can disable check mode or execute arbitrary
@@ -39,14 +45,13 @@ The plan account's only sudo rule is the exact no-argument helper below:
 /usr/local/sbin/iac-read-docker-version
 ```
 
-The root-owned helper accepts no arguments and runs one fixed read-only Docker version query. The plan account is never
-added to the Docker group. [`ansible/playbooks/plan-controller.yml`](../ansible/playbooks/plan-controller.yml) stages
-creation of that account, helper, and validated sudoers file behind the existing `management_plane` apply guard. Its
-normal bootstrap has not been approved or run.
+The root-owned helper accepts no arguments and runs one fixed read-only Docker version query. The plan account is not in
+the Docker group. [`ansible/playbooks/plan-controller.yml`](../ansible/playbooks/plan-controller.yml) created the locked
+account, validated sudoers file, and helper through the approved `management_plane` apply.
 
-The local check-mode bootstrap completed with `ok=6 changed=1 unreachable=0 failed=0`. The single reported change is
-creation of `ansible-plan`; check-mode messages separately identify the normal-run writes to
-`/etc/sudoers.d/ansible-plan` and `/usr/local/sbin/iac-read-docker-version`. Both paths and the account remain absent.
+The pre-apply check reported `ok=6 changed=1 unreachable=0 failed=0`; the apply converged three changes, and the immediate
+post-check reported `changed=0`. The user now has only its private primary group, and the tracked helper checksum matches
+the installed root-owned file.
 
 [`.github/workflows/plan-controller-bootstrap.yml`](../.github/workflows/plan-controller-bootstrap.yml) is manual-only.
 Its privileged check and optional apply are separate `infrastructure-apply` jobs, so each waits for environment approval
