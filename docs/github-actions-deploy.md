@@ -2,15 +2,19 @@
 
 ## Current status
 
-[`.github/workflows/ansible-deploy.yml`](../.github/workflows/ansible-deploy.yml) now runs the unprivileged automatic
-single-tag plan. Production apply remains disabled, and no normal production convergence is authorized.
+[`.github/workflows/ansible-deploy.yml`](../.github/workflows/ansible-deploy.yml) automatically plans eligible
+same-repository pull requests and pushes to `main`. Merging the required pull request is the explicit approval for a
+changed merged-commit plan to continue through guarded apply; there is no second environment-review click.
 
-The repository gates are:
+The live repository gates after this workflow change is merged and activated are:
 
 ```text
 ANSIBLE_AUTO_PLAN_ENABLED=true
-ANSIBLE_APPLY_ENABLED=false
+ANSIBLE_APPLY_ENABLED=true
 ```
+
+During rollout, `ANSIBLE_APPLY_ENABLED` stays `false` until the workflow change reaches protected `main`; changing the
+variable afterward does not itself dispatch a run or mutate the host.
 
 Three manual plan-only stability runs (`30688128628`, `30688167935`, and `30688201566`) produced identical normalized
 plan output for `host_files`, each with `ok=3 changed=0 unreachable=0 failed=0`. Each ephemeral controller cleaned up,
@@ -41,7 +45,7 @@ commands. Automatic plans therefore must not use the passwordless-root `ansible-
 |---|---|---|---|---|
 | Manual audit | `infrastructure-plan` | `tag:ci` | `ansible-deploy` | Existing passwordless sudo; manual dispatch only |
 | Automatic plan | `infrastructure-auto-plan` | `tag:ci-plan` | `ansible-plan` | No general sudo and no supplementary groups |
-| Approved apply | `infrastructure-apply` | `tag:ci-apply` | `ansible-deploy` | Existing passwordless sudo after environment approval |
+| Merge-approved apply | `infrastructure-apply` | `tag:ci-apply` | `ansible-deploy` | Existing passwordless sudo after a required PR merge |
 
 The plan account's only sudo rule is the exact no-argument helper below:
 
@@ -57,17 +61,18 @@ The pre-apply check reported `ok=6 changed=1 unreachable=0 failed=0`; the apply 
 post-check reported `changed=0`. The user now has only its private primary group, and the tracked helper checksum matches
 the installed root-owned file.
 
-[`.github/workflows/plan-controller-bootstrap.yml`](../.github/workflows/plan-controller-bootstrap.yml) is manual-only.
-Its privileged check and optional apply are separate `infrastructure-apply` jobs, so each waits for environment approval
-and uses `tag:ci-apply`. The apply job revalidates the complete check-output hash before mutation, then independently
-runs a zero-change post-check, the full privilege-boundary audit, and an unprivileged `ansible-plan` ping even when an
-earlier verification step fails.
+[`.github/workflows/plan-controller-bootstrap.yml`](../.github/workflows/plan-controller-bootstrap.yml) remains manual-only.
+Its `apply=true` input is an explicit management-plane action and is not reachable from the automatic deployment
+workflow. The apply job revalidates the complete check-output hash before mutation, then independently runs a zero-change
+post-check, the full privilege-boundary audit, and an unprivileged `ansible-plan` ping even when an earlier verification
+step fails.
 
 ## Trigger and intent
 
-After the trust path is proven and the workflow reaches `main`, a remote check-mode plan starts automatically for
-relevant changes. A manual `workflow_dispatch` remains available for plan-only stability runs; manually dispatched runs
-can never enter the apply job.
+An eligible same-repository pull request to `main` automatically runs the unprivileged plan; draft and fork pull requests
+cannot contact the host. The pull-request plan is a preview and can never apply. Merging through the protected branch
+creates a `main` push, which replans the exact merged commit and may apply if that merged-commit plan reports changes. A
+manual `workflow_dispatch` remains plan-only.
 
 [`ansible/deploy-intent.yml`](../ansible/deploy-intent.yml) must contain exactly one allowlisted automation tag:
 
@@ -94,6 +99,9 @@ The plan job uses `infrastructure-auto-plan`, its exact GitHub OIDC subject, `ta
 8. Runs `site.yml --check --diff` for the selected tag.
 9. Parses the one-host recap, records the changed count, and hashes the complete plan output.
 
+The pull-request preview hash is not reused after merge. The protected `main` push independently plans and hashes the
+exact merged commit; branch protection makes the merge action the approval for that resulting plan.
+
 The `host_files` role suppresses content diffs so unexpected host file contents cannot enter this public repository's
 workflow logs. Reviewers use the task/item paths in the plan together with the reviewed source changes. No role may add
 a secret-bearing path or unsuppressed sensitive diff to the automation allowlist.
@@ -105,18 +113,16 @@ pending plan with a newer commit; the apply job separately refuses a commit that
 
 A changed plan can reach the apply job only when all of these conditions hold:
 
-- The event is a push to `main`, not a manual dispatch.
+- The event is a push to `main` created through the required pull-request merge path, not a pull request or manual dispatch.
 - `ANSIBLE_APPLY_ENABLED` is exactly `true`.
-- The plan completed successfully and reported at least one change.
+- The merged-commit plan completed successfully and reported at least one change.
 - GitHub allows the exact `main` commit to deploy to `infrastructure-apply`.
-- The required reviewer approves the waiting environment deployment.
 
-`infrastructure-apply` is restricted to `main` and requires `soodoh` as reviewer. Self-approval is allowed because the
-repository currently has only one collaborator. This is weaker than independent review. GitHub currently reports that
-administrators may manually bypass the environment; do not use that bypass, and disable it before activation if the
-repository settings permit.
+`infrastructure-apply` is restricted to `main`, has no deployment reviewer, and disallows administrator bypass. The
+repository's no-bypass pull-request rule is the human gate. With one collaborator, the author can merge their own pull
+request; this is an explicitly accepted single-operator trust model.
 
-After approval, the apply job:
+After the merge-triggered plan, the apply job:
 
 1. Checks out the exact planned commit, confirms it is still the tip of `main`, and revalidates its intent tag.
 2. Connects as ephemeral `tag:ci-apply`; policy permits plan revalidation as `ansible-plan` and apply as
@@ -140,9 +146,10 @@ The workflow never performs an automatic rollback.
 
 ## GitHub protections
 
-The default-branch ruleset requires changes to reach `main` through a pull request. It requires zero approving PR reviews
-because `soodoh` is the only collaborator, but it has no bypass actors and retains deletion and non-fast-forward
-protection. The separate environment review remains the human apply gate.
+The default-branch ruleset requires every change to reach `main` through a pull request. It has no bypass actors and
+retains deletion and non-fast-forward protection. Because `soodoh` is the only collaborator, the rule requires zero
+review approvals; deliberately merging the pull request is the apply approval. The `infrastructure-apply` environment
+adds main-only deployment restriction and disabled administrator bypass, but no second reviewer gate.
 
 The manual audit and deployment workflow share the `ansible-production` concurrency group with cancellation disabled.
 Normal `site.yml` runs also use the persistent host-side `/var/lib/iac-ansible-production.lock` advisory lock,
@@ -153,17 +160,13 @@ metadata recording.
 
 ## Activation status
 
-The plan identity, route restrictions, OIDC identities, environment-bound tags, zero-change bootstrap verification, and
-three stable plans are complete. Automatic plans are enabled. The controller's Python environment is fully pinned by
-artifact URL and SHA-256 digest, and normal `site.yml` convergence uses the host-side advisory lock.
+The plan identity, route restrictions, OIDC identities, environment-bound tags, zero-change bootstrap verification,
+three stable plans, hash-locked controller, host lock, and zero-change full remote audit are complete. Automatic PR plans
+and merge-triggered applies are enabled.
 
-Production apply remains disabled. Before setting `ANSIBLE_APPLY_ENABLED=true`:
+A pull request is allowed to contact the unprivileged plan identity only when its head branch belongs to this repository.
+Fork and draft pull requests skip the job. A merge never bypasses the current-main check, merged-commit replan/hash,
+one-tag guard, persistent host lock, zero-change post-check, or complete audit.
 
-1. Merge and validate the lock/dependency hardening through a pull request and automatic plan.
-2. In the `infrastructure-apply` environment settings, deselect **Allow administrators to bypass configured protection
-   rules**. GitHub reports `can_admins_bypass=true`, and its REST update endpoint does not expose that setting.
-3. Keep self-approval acknowledged while `soodoh` is the only collaborator. Add an independent reviewer and enable
-   prevent-self-review when another trusted collaborator is available.
-4. Obtain fresh explicit approval after reviewing the final plan and environment settings.
-
-`compose`, `hardware`, `health`, and `management_plane` remain outside automatic apply regardless of activation.
+`compose`, `hardware`, `health`, and `management_plane` remain outside automatic apply regardless of activation. Set
+`ANSIBLE_APPLY_ENABLED=false` as the emergency stop for future merge-triggered convergence.

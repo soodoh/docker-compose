@@ -1,6 +1,21 @@
 name: Ansible protected deployment
 
 on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - ansible/**
+      - services/data/wolf/**
+      - .github/actions/ansible-controller/**
+      - .github/requirements-ansible-controller.lock
+      - .github/scripts/**
+      - .github/workflows/ansible-deploy.yml
   push:
     branches:
       - main
@@ -29,7 +44,11 @@ env:
 jobs:
   plan:
     name: Plan one approved Ansible tag
-    if: vars.ANSIBLE_AUTO_PLAN_ENABLED == 'true'
+    if: >-
+      vars.ANSIBLE_AUTO_PLAN_ENABLED == 'true' &&
+      (github.event_name != 'pull_request' ||
+        (!github.event.pull_request.draft &&
+          github.event.pull_request.head.repo.full_name == github.repository))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: infrastructure-auto-plan
@@ -106,17 +125,18 @@ jobs:
             echo "### Ansible plan"
             echo
             echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Event: \`$GITHUB_EVENT_NAME\`"
             echo "- Tag: \`$DEPLOY_TAG\`"
             echo "- Changed: \`$changed\`"
             echo "- Plan SHA-256: \`$plan_hash\`"
             echo "- Recap: \`$recap\`"
             echo
-            echo "Apply remains disabled until three stable plans are reviewed and the protected gate is explicitly enabled."
+            echo "Pull request and manual-dispatch plans never apply. A changed push created by merging to main may continue through the guarded apply job."
           } >>"$GITHUB_STEP_SUMMARY"
 
 
   apply:
-    name: Apply the reviewed Ansible plan
+    name: Apply the PR-merge-approved Ansible plan
     needs: plan
     if: >-
       github.event_name == 'push' &&
