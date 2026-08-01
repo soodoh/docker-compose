@@ -2,9 +2,9 @@
 
 ## Current status
 
-[`.github/workflows/ansible-deploy.yml`](../.github/workflows/ansible-deploy.yml) stages an automatic, single-tag
-plan-to-apply pipeline on a feature branch. Neither automatic production plans nor production applies are active yet.
-No normal Ansible run is authorized.
+[`.github/workflows/ansible-deploy.yml`](../.github/workflows/ansible-deploy.yml) is merged but stages an inactive automatic,
+single-tag plan-to-apply pipeline. Neither automatic production plans nor production applies are enabled. No normal
+Ansible run is authorized.
 
 Both repository activation variables are deliberately set to `false`:
 
@@ -15,6 +15,12 @@ ANSIBLE_APPLY_ENABLED=false
 
 The plan and apply jobs check these variables before targeting their environments. No automatic remote plan, deployment
 approval request, or normal Ansible run can start while the corresponding gate is disabled.
+
+The first protected bootstrap check ([`30676568592`](https://github.com/soodoh/docker-compose/actions/runs/30676568592))
+proved the `infrastructure-apply` OIDC exchange and ephemeral `tag:ci-apply` enrollment, then stopped before ping, SSH,
+or Ansible because the shared route assertion saw only `192.168.0.123/32`. Cleanup succeeded. Deployment controllers
+now disable accepted subnet routes immediately after enrollment and require zero non-tailnet IPv4 or IPv6 routes before host contact;
+the manual audit retains its separately approved two-route behavior.
 
 ## Separate trust paths
 
@@ -73,7 +79,7 @@ The plan job uses `infrastructure-auto-plan`, its exact GitHub OIDC subject, `ta
 2. Validates the single reviewed intent tag.
 3. Installs pinned Python 3.13.14 and `ansible-core==2.21.2`.
 4. Creates an ephemeral `tag:ci-plan` Tailscale node without reusable credentials.
-5. Verifies DNS and Tailscale SSH are disabled and only the two approved `/32` subnet routes are installed.
+5. Disables accepted subnet routes, tailnet DNS, and Tailscale SSH before host contact, then requires no non-tailnet IPv4 or IPv6 routes.
 6. Requires the recorded Docker ED25519 host-key fingerprint.
 7. Connects only as unprivileged `ansible-plan` and validates inventory, connectivity, and `site.yml` syntax.
 8. Runs `site.yml --check --diff` for the selected tag.

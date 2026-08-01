@@ -3,47 +3,79 @@ set -euo pipefail
 
 target_ip=${1:?target Tailscale IP is required}
 expected_fingerprint=${2:?expected SSH fingerprint is required}
+accept_subnet_routes=${3:-false}
 
-sudo tailscale debug prefs | jq -e '
+case "$accept_subnet_routes" in
+  true)
+    expected_routes=192.168.0.100/32,192.168.0.123/32
+    ;;
+  false)
+    expected_routes=
+    sudo tailscale set --accept-routes=false
+    ;;
+  *)
+    echo "accept-subnet-routes must be true or false" >&2
+    exit 64
+    ;;
+esac
+
+sudo tailscale debug prefs | jq -e --argjson expected_routes "$accept_subnet_routes" '
   .CorpDNS == false and
   .RunSSH == false and
-  .RouteAll == true
+  .RouteAll == $expected_routes
 '
 
-route_file=$(mktemp)
+route_v4_file=$(mktemp)
+route_v6_file=$(mktemp)
 keyscan_file=$(mktemp)
-trap 'rm -f "$route_file" "$keyscan_file"' EXIT
-ip -j -4 route show table 52 >"$route_file"
+trap 'rm -f "$route_v4_file" "$route_v6_file" "$keyscan_file"' EXIT
+ip -j -4 route show table 52 >"$route_v4_file"
+ip -j -6 route show table 52 >"$route_v6_file"
 
-ROUTE_FILE="$route_file" python - <<'PY'
+EXPECTED_ROUTES="$expected_routes" \
+ROUTE_V4_FILE="$route_v4_file" \
+ROUTE_V6_FILE="$route_v6_file" \
+python - <<'PY'
 import ipaddress
 import json
 import os
 
 expected = {
-    (ipaddress.ip_network("192.168.0.100/32"), "tailscale0"),
-    (ipaddress.ip_network("192.168.0.123/32"), "tailscale0"),
+    (ipaddress.ip_network(route), "tailscale0")
+    for route in os.environ["EXPECTED_ROUTES"].split(",")
+    if route
 }
-tailnet = ipaddress.ip_network("100.64.0.0/10")
-
-with open(os.environ["ROUTE_FILE"], encoding="utf-8") as route_stream:
-    routes = json.load(route_stream)
+tailnets = {
+    4: ipaddress.ip_network("100.64.0.0/10"),
+    6: ipaddress.ip_network("fd7a:115c:a1e0::/48"),
+}
+route_sources = (
+    (os.environ["ROUTE_V4_FILE"], "0.0.0.0/0"),
+    (os.environ["ROUTE_V6_FILE"], "::/0"),
+)
 
 scoped_routes = set()
-for route in routes:
-    destination = route.get("dst", "0.0.0.0/0")
-    network = ipaddress.ip_network(destination, strict=False)
-    if not network.subnet_of(tailnet):
-        scoped_routes.add((network, route.get("dev")))
+for route_path, default_route in route_sources:
+    with open(route_path, encoding="utf-8") as route_stream:
+        routes = json.load(route_stream)
+
+    for route in routes:
+        destination = route.get("dst", default_route)
+        network = ipaddress.ip_network(destination, strict=False)
+        if not network.subnet_of(tailnets[network.version]):
+            scoped_routes.add((network, route.get("dev")))
 
 if scoped_routes != expected:
     raise SystemExit(
         f"unexpected non-tailnet routes in table 52: {sorted(map(str, scoped_routes))}"
     )
 
-print("Approved subnet routes:")
-for network, device in sorted(expected, key=lambda item: str(item[0])):
-    print(f"  {network} dev {device}")
+if expected:
+    print("Approved subnet routes:")
+    for network, device in sorted(expected, key=lambda item: str(item[0])):
+        print(f"  {network} dev {device}")
+else:
+    print("No non-tailnet IPv4 or IPv6 routes accepted.")
 PY
 
 for attempt in {1..10}; do
