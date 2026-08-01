@@ -142,10 +142,10 @@ inventory is now validated through the successful remote audit.
 
 The completed Phase 5 audit uses GitHub OIDC workload identity, an `infrastructure-plan` environment restricted to
 `main`, an ephemeral `tag:ci` node, pinned actions, strict SSH host-key checking, and `audit.yml --check --diff` only.
-The staged deployment pipeline is documented in [`github-actions-deploy.md`](./github-actions-deploy.md). Automatic
-single-tag plans are not yet active: they require a separate unprivileged host user, `tag:ci-plan`, and exact workload
-identity. Apply remains disabled pending that trust path, three stable plans, a host lock, locked controller dependencies,
-and fresh approval.
+The deployment pipeline is documented in [`github-actions-deploy.md`](./github-actions-deploy.md). Same-repository pull
+requests automatically plan through the restricted `ansible-plan` identity; drafts and forks cannot contact the host.
+The required PR merge is the explicit approval for a changed merged-commit plan to use the one-tag guard, persistent host
+lock, zero-change post-check, and complete audit without a second environment-review click.
 ## Recovery work still required
 
 A manual restore drill is mandatory before any stateful Compose adoption or apply. It must be separately planned
