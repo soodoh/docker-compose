@@ -11,6 +11,14 @@
         name: apply_guard
       tags:
         - always
+
+    - name: Acquire the host-side production apply lock
+      ansible.builtin.import_role:
+        name: apply_lock
+      vars:
+        iac_apply_lock_action: acquire
+      tags:
+        - always
   roles:
     - role: host_files
       tags:
@@ -36,3 +44,11 @@
     - role: health
       tags:
         - health
+  post_tasks:
+    - name: Release the host-side production apply lock after success
+      ansible.builtin.import_role:
+        name: apply_lock
+      vars:
+        iac_apply_lock_action: release
+      tags:
+        - always

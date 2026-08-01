@@ -1,0 +1,58 @@
+---
+- name: Validate the production apply-lock action
+  ansible.builtin.assert:
+    that:
+      - iac_apply_lock_action in ['acquire', 'release']
+    fail_msg: "iac_apply_lock_action must be acquire or release."
+
+- name: Acquire the production apply lock
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/mkdir
+      - --mode=0700
+      - --
+      - "{{ iac_apply_lock_path }}"
+  become: true
+  register: iac_apply_lock_acquire
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - iac_apply_lock_action == 'acquire'
+
+- name: Record the production apply-lock owner
+  ansible.builtin.copy:
+    content: |
+      controller={{ ansible_user_id }}
+      tag={{ iac_apply_tag }}
+      started={{ ansible_date_time.iso8601 }}
+    dest: "{{ iac_apply_lock_path }}/owner"
+    owner: root
+    group: root
+    mode: "0600"
+  become: true
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - iac_apply_lock_action == 'acquire'
+
+- name: Remove the production apply-lock owner record
+  ansible.builtin.file:
+    path: "{{ iac_apply_lock_path }}/owner"
+    state: absent
+  become: true
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - iac_apply_lock_action == 'release'
+
+- name: Release the production apply lock after successful convergence
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/rmdir
+      - --
+      - "{{ iac_apply_lock_path }}"
+  become: true
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - iac_apply_lock_action == 'release'
