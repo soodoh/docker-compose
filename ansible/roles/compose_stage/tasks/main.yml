@@ -213,6 +213,8 @@
       become: true
       changed_when: false
       no_log: true
+      environment:
+        HOME: "{{ compose_home_dir }}"
 
     - name: Produce the secret-free staged model inventory
       ansible.builtin.command:
@@ -235,6 +237,8 @@
       become: true
       changed_when: false
       no_log: true
+      environment:
+        HOME: "{{ compose_home_dir }}"
 
     - name: Produce the secret-free runtime model inventory
       ansible.builtin.command:
@@ -287,6 +291,8 @@
       register: compose_stage_dry_run
       changed_when: false
       no_log: true
+      environment:
+        HOME: "{{ compose_home_dir }}"
 
     - name: Report the reviewed dry-run identity without model data
       ansible.builtin.debug:

@@ -33,6 +33,8 @@
           become: true
           changed_when: false
           no_log: true
+          environment:
+            HOME: "{{ compose_home_dir }}"
 
         - name: Read the root-only staging review report
           ansible.builtin.slurp:

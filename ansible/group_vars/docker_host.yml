@@ -46,6 +46,7 @@ age_binary_sha256: 2e305637f2a0555305e21c17fb74446acbb39b53135d43d4b744e50c28713
 age_keygen_binary_sha256: c56ef69834e18ca4d3b953117f4481522c35fb6862a5d2871685aa4685893664
 
 compose_project_name: docker-compose
+compose_home_dir: /home/docker
 compose_deployment_root: /srv/docker-compose
 compose_current_dir: /srv/docker-compose/current
 compose_staging_root: /srv/docker-compose/staging
