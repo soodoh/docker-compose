@@ -14,6 +14,64 @@ def stable_hash(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def desired_ports(ports: list[dict[str, object]]) -> list[dict[str, object]]:
+    return sorted(
+        (
+            {
+                "host_ip": port.get("host_ip") or None,
+                "published": str(port["published"]),
+                "target": int(port["target"]),
+                "protocol": port.get("protocol") or "tcp",
+            }
+            for port in ports
+            if port.get("published") is not None
+        ),
+        key=lambda port: json.dumps(port, sort_keys=True),
+    )
+
+
+def runtime_ports(bindings: dict[str, object]) -> list[dict[str, object]]:
+    ports = []
+    for container_port, host_bindings in bindings.items():
+        target_text, separator, protocol = container_port.partition("/")
+        if not separator or not isinstance(host_bindings, list):
+            continue
+        for binding in host_bindings:
+            if not isinstance(binding, dict) or not binding.get("HostPort"):
+                continue
+            ports.append(
+                {
+                    "host_ip": binding.get("HostIp") or None,
+                    "published": str(binding["HostPort"]),
+                    "target": int(target_text),
+                    "protocol": protocol,
+                }
+            )
+    return sorted(ports, key=lambda port: json.dumps(port, sort_keys=True))
+
+
+def normalized_healthcheck(healthcheck: object) -> dict[str, object] | None:
+    if not isinstance(healthcheck, dict):
+        return None
+    aliases = {
+        "test": ("test", "Test"),
+        "interval": ("interval", "Interval"),
+        "timeout": ("timeout", "Timeout"),
+        "retries": ("retries", "Retries"),
+        "start_period": ("start_period", "StartPeriod"),
+        "start_interval": ("start_interval", "StartInterval"),
+    }
+    normalized = {}
+    for field, names in aliases.items():
+        value = next((healthcheck[name] for name in names if name in healthcheck), None)
+        if value not in (None, 0, "", []):
+            normalized[field] = value
+    disabled = healthcheck.get("disable") is True or normalized.get("test") == ["NONE"]
+    if disabled:
+        return {"disable": True}
+    return normalized or None
+
+
 def mapped_bind_source(
     source: object, artifact_root: Path, bind_root_override: Path | None
 ) -> object:
@@ -57,25 +115,21 @@ def desired_inventory(args: Namespace) -> dict[str, object]:
         ]
     )
 
+    volume_names = {
+        name: definition.get("name", name)
+        for name, definition in (model.get("volumes") or {}).items()
+    }
+    network_names = {
+        name: definition.get("name", name)
+        for name, definition in (model.get("networks") or {}).items()
+    }
     services = {}
     for service_name, service in sorted(model.get("services", {}).items()):
         mounts = service.get("volumes") or []
         healthcheck = service.get("healthcheck")
         services[service_name] = {
             "image": service.get("image"),
-            "ports": sorted(
-                (
-                    {
-                        "host_ip": port.get("host_ip"),
-                        "published": port.get("published"),
-                        "target": port.get("target"),
-                        "protocol": port.get("protocol"),
-                        "mode": port.get("mode"),
-                    }
-                    for port in service.get("ports") or []
-                ),
-                key=lambda port: json.dumps(port, sort_keys=True),
-            ),
+            "ports": desired_ports(service.get("ports") or []),
             "binds": sorted(
                 (
                     {
@@ -93,7 +147,7 @@ def desired_inventory(args: Namespace) -> dict[str, object]:
             "volumes": sorted(
                 (
                     {
-                        "source": mount.get("source"),
+                        "source": volume_names.get(mount.get("source"), mount.get("source")),
                         "target": mount.get("target"),
                         "read_only": mount.get("read_only", False),
                     }
@@ -114,8 +168,12 @@ def desired_inventory(args: Namespace) -> dict[str, object]:
                 key=lambda device: json.dumps(device, sort_keys=True),
             ),
             "network_mode": service.get("network_mode"),
-            "networks": sorted((service.get("networks") or {}).keys()),
-            "healthcheck_sha256": stable_hash(healthcheck) if healthcheck else None,
+            "networks": sorted(
+                network_names.get(name, name) for name in (service.get("networks") or {})
+            ),
+            "healthcheck_sha256": (
+                stable_hash(normalized_healthcheck(healthcheck)) if healthcheck else None
+            ),
         }
 
     volumes = sorted((model.get("volumes") or {}).keys())
@@ -156,6 +214,18 @@ def runtime_inventory(args: Namespace) -> dict[str, object]:
     container_ids = [line for line in ids_result.stdout.splitlines() if line]
     inspected = run_json(["/usr/bin/docker", "inspect", *container_ids]) if container_ids else []
 
+    container_services = {}
+    for container in inspected:
+        labels = container.get("Config", {}).get("Labels") or {}
+        service_name = labels.get("com.docker.compose.service")
+        if not service_name:
+            continue
+        container_id = container.get("Id") or ""
+        container_name = (container.get("Name") or "").removeprefix("/")
+        container_services[container_id] = service_name
+        container_services[container_id[:12]] = service_name
+        container_services[container_name] = service_name
+
     services = {}
     running_count = 0
     for container in inspected:
@@ -170,13 +240,22 @@ def runtime_inventory(args: Namespace) -> dict[str, object]:
         mounts = container.get("Mounts") or []
         healthcheck = (container.get("Config") or {}).get("Healthcheck")
         network_settings = container.get("NetworkSettings") or {}
+        runtime_networks = sorted((network_settings.get("Networks") or {}).keys())
+        network_mode = host_config.get("NetworkMode")
+        if isinstance(network_mode, str) and network_mode.startswith("container:"):
+            target = network_mode.partition(":")[2]
+            target_service = container_services.get(target)
+            if target_service:
+                network_mode = f"service:{target_service}"
+        elif network_mode in runtime_networks:
+            network_mode = None
         services[service_name] = {
             "container_name": (container.get("Name") or "").removeprefix("/"),
             "running": bool(state.get("Running")),
             "health": (state.get("Health") or {}).get("Status"),
             "image": (container.get("Config") or {}).get("Image"),
             "image_id": container.get("Image"),
-            "ports": host_config.get("PortBindings") or {},
+            "ports": runtime_ports(host_config.get("PortBindings") or {}),
             "binds": sorted(
                 (
                     {
@@ -212,9 +291,11 @@ def runtime_inventory(args: Namespace) -> dict[str, object]:
                 ),
                 key=lambda device: json.dumps(device, sort_keys=True),
             ),
-            "network_mode": host_config.get("NetworkMode"),
-            "networks": sorted((network_settings.get("Networks") or {}).keys()),
-            "healthcheck_sha256": stable_hash(healthcheck) if healthcheck else None,
+            "network_mode": network_mode,
+            "networks": runtime_networks,
+            "healthcheck_sha256": (
+                stable_hash(normalized_healthcheck(healthcheck)) if healthcheck else None
+            ),
         }
 
     volume_result = subprocess.run(
