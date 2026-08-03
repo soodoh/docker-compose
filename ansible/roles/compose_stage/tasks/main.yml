@@ -30,7 +30,7 @@
       - compose_stage_controller_hash.stdout == compose_artifact_hash
     fail_msg: "Controller artifact hash differs from the reviewed hash."
 
-- name: Inspect the final staging and runtime environment paths
+- name: Inspect the final artifact and candidate environment paths
   ansible.builtin.stat:
     path: "{{ item }}"
     get_checksum: false
@@ -39,13 +39,13 @@
   register: compose_stage_existing_paths
   loop:
     - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
-    - "{{ compose_runtime_env_path }}"
+    - "{{ compose_staged_env_path }}"
 
 - name: Report the expected staging changes in check mode
   ansible.builtin.debug:
     msg: >-
-      Artifact {{ compose_artifact_hash }} will be installed under the root-owned staging tree and
-      the SOPS environment will be decrypted to the root-only runtime path.
+      Artifact {{ compose_artifact_hash }} and its root-only candidate environment will be installed
+      under inactive hash-addressed staging paths.
   changed_when: >-
     not compose_stage_existing_paths.results[0].stat.exists or
     not compose_stage_existing_paths.results[1].stat.exists
@@ -72,6 +72,8 @@
         - path: "{{ compose_previous_dir }}"
           mode: "0755"
         - path: /etc/docker-compose
+          mode: "0700"
+        - path: "{{ compose_staged_env_root }}"
           mode: "0700"
         - path: /var/lib/docker-compose
           mode: "0700"
@@ -183,10 +185,10 @@
       become: true
       no_log: true
 
-    - name: Atomically install the root-only runtime environment
+    - name: Atomically install the root-only candidate environment
       ansible.builtin.copy:
         src: "{{ compose_stage_decrypt_workspace.path }}/production.env"
-        dest: "{{ compose_runtime_env_path }}"
+        dest: "{{ compose_staged_env_path }}"
         remote_src: true
         owner: root
         group: root
@@ -205,7 +207,7 @@
           - --project-directory
           - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
           - --env-file
-          - "{{ compose_runtime_env_path }}"
+          - "{{ compose_staged_env_path }}"
           - --file
           - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/docker-compose.yml"
           - config
@@ -227,7 +229,7 @@
           - --project-directory
           - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
           - --env-file
-          - "{{ compose_runtime_env_path }}"
+          - "{{ compose_staged_env_path }}"
           - --project-name
           - "{{ compose_project_name }}"
           - --bind-root-override
@@ -280,7 +282,7 @@
           - --project-directory
           - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
           - --env-file
-          - "{{ compose_runtime_env_path }}"
+          - "{{ compose_staged_env_path }}"
           - --file
           - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/docker-compose.yml"
           - create
