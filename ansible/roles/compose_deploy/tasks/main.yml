@@ -161,6 +161,11 @@
   ansible.builtin.debug:
     var: compose_deploy_plan
 
+- name: Report the deterministic secret-free deployment plan identity
+  ansible.builtin.debug:
+    msg: >-
+      compose_deploy_plan_sha256={{ (compose_deploy_plan | to_json) | hash('sha256') }}
+
 - name: Require a deployment with no service-set or untracked data-file changes
   ansible.builtin.assert:
     that:

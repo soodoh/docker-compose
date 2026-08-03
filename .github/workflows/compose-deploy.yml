@@ -138,10 +138,33 @@ jobs:
           [[ $(jq -r '.unreachable' <<<"$recap") == 0 ]]
           [[ $(jq -r '.failed' <<<"$recap") == 0 ]]
           if [[ $changed == 0 ]]; then has_changes=false; else has_changes=true; fi
-          plan_hash=$(sha256sum "$plan_log" | awk '{print $1}')
+          plan_hash=$(grep -oE 'compose_deploy_plan_sha256=[0-9a-f]{64}' "$plan_log" \
+            | cut -d= -f2 | sort -u)
+          [[ $plan_hash =~ ^[0-9a-f]{64}$ ]]
           echo "has_changes=$has_changes" >>"$GITHUB_OUTPUT"
           echo "plan_hash=$plan_hash" >>"$GITHUB_OUTPUT"
           echo "recap=$recap" >>"$GITHUB_OUTPUT"
+
+      - name: Prove the secret-free deployment plan identity is reproducible
+        working-directory: ansible
+        env:
+          ARTIFACT_HASH: ${{ steps.artifact.outputs.hash }}
+          EXPECTED_PLAN_HASH: ${{ steps.plan.outputs.plan_hash }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          replan_log="$RUNNER_TEMP/compose-deploy-plan-repeat.log"
+          ansible-playbook -i inventory/production.yml \
+            playbooks/deploy-compose.yml --check --diff \
+            -e "compose_artifact_hash=$ARTIFACT_HASH" \
+            -e compose_deploy_canary_only=true | tee "$replan_log"
+          recap=$(python ../.github/scripts/parse-ansible-recap.py \
+            "$replan_log" docker-host-production)
+          [[ $(jq -r '.unreachable' <<<"$recap") == 0 ]]
+          [[ $(jq -r '.failed' <<<"$recap") == 0 ]]
+          actual_plan_hash=$(grep -oE 'compose_deploy_plan_sha256=[0-9a-f]{64}' "$replan_log" \
+            | cut -d= -f2 | sort -u)
+          [[ $actual_plan_hash == "$EXPECTED_PLAN_HASH" ]]
 
       - name: Summarize the protected Compose plan
         env:
@@ -217,7 +240,10 @@ jobs:
             "$replan_log" docker-host-production)
           [[ $(jq -r '.unreachable' <<<"$recap") == 0 ]]
           [[ $(jq -r '.failed' <<<"$recap") == 0 ]]
-          [[ $(sha256sum "$replan_log" | awk '{print $1}') == "$EXPECTED_PLAN_HASH" ]]
+          actual_plan_hash=$(grep -oE 'compose_deploy_plan_sha256=[0-9a-f]{64}' "$replan_log" \
+            | cut -d= -f2 | sort -u)
+          [[ $actual_plan_hash =~ ^[0-9a-f]{64}$ ]]
+          [[ $actual_plan_hash == "$EXPECTED_PLAN_HASH" ]]
 
       - name: Deploy the exact approved Compose artifact
         id: apply
