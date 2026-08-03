@@ -21,6 +21,7 @@ The canonical artifact hash is SHA-256 over a version marker followed by each so
 /srv/docker-compose/staging/<artifact-sha256>
 /srv/docker-compose/previous
 /etc/docker-compose/production.env
+/etc/docker-compose/staging/<artifact-sha256>.env
 /var/lib/docker-compose/deployed.sha256
 ```
 
@@ -39,8 +40,8 @@ The existing `/home/docker/Projects/docker-compose` checkout and `.env` remain u
 5. recomputes the hash before atomically publishing `staging/<hash>`;
 6. decrypts SOPS only on the host through `/etc/sops/age/keys.txt`;
 7. restores the non-secret dotenv layout in a root-only temporary directory;
-8. atomically installs `/etc/docker-compose/production.env` as `root:root 0600` with `no_log: true`;
-9. validates with explicit project name, immutable staging project directory, environment file, and `docker compose config --quiet`;
+8. atomically installs an inactive `/etc/docker-compose/staging/<artifact-sha256>.env` as `root:root 0600` with `no_log: true`;
+9. validates with explicit project name, immutable staging project directory, candidate environment file, and `docker compose config --quiet`;
 10. writes root-owned secret-free desired and runtime inventories;
 11. runs `docker compose --dry-run create --no-build --pull never`; and
 12. requires a zero-change staging post-check and complete read-only audit.
@@ -75,7 +76,7 @@ The backup services now declare `/etc/docker-compose/production.env:/backup/.env
 
 ## Cutover boundary
 
-Phase 3 may populate staging, the empty stable directories, and the inactive root-only environment file. It must not synchronize an artifact into `current`, change runtime Compose labels, pull images, or converge containers. Those actions remain Phase 4 maintenance-window work.
+Staging may populate hash-addressed artifacts and inactive root-only candidate environment files. It never overwrites the active `/etc/docker-compose/production.env`, synchronizes an artifact into `current`, changes runtime Compose labels, pulls images, or converges containers.
 
 The Phase 4 implementation is fail-closed and inactive by default. `.github/workflows/compose-cutover.yml` requires all of the following before its job can run:
 
