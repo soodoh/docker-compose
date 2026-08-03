@@ -16,10 +16,9 @@ function docker_compose_restore_proof
     set -l VERIFIER "$WORKDIR"/verify-backup-archive.py
     set -l RESTORE_ROOT "$WORKDIR"/restored
     set -l EVIDENCE "$WORKDIR"/restore-evidence.json
+    set -l SCRIPT_DIR (path resolve (dirname (status filename)))
 
-    ssh "$SERVER" \
-        'exec cat -- /home/docker/Projects/docker-compose/scripts/verify-backup-archive.py' \
-        >"$VERIFIER"; or return 1
+    cp "$SCRIPT_DIR"/verify-backup-archive.py "$VERIFIER"; or return 1
 
     chmod 0755 "$VERIFIER"; or return 1
     python3 -m py_compile "$VERIFIER"; or return 1

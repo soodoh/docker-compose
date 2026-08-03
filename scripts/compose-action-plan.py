@@ -3,10 +3,11 @@
 
 from argparse import ArgumentParser
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
-import tempfile
+
 
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 ACTION_PATTERN = re.compile(
@@ -15,13 +16,13 @@ ACTION_PATTERN = re.compile(
 )
 
 
-def normalized_compose_file(
+def normalized_compose_content(
     project_name: str,
     project_directory: Path,
     env_file: Path,
     compose_file: Path,
     bind_root_override: Path,
-) -> Path:
+) -> str:
     result = subprocess.run(
         [
             "/usr/bin/docker",
@@ -54,18 +55,19 @@ def normalized_compose_file(
             except ValueError:
                 continue
             mount["source"] = str(bind_root_override.resolve() / relative)
+    return json.dumps(model, sort_keys=True, separators=(",", ":")) + "\n"
 
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        prefix="docker-compose-normalized-",
-        suffix=".json",
-        dir="/run",
-        delete=False,
-    ) as handle:
-        json.dump(model, handle, sort_keys=True, separators=(",", ":"))
-        handle.write("\n")
-        return Path(handle.name)
+
+def write_private_new_file(path: Path, content: str) -> None:
+    descriptor = os.open(
+        path,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600,
+    )
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(content)
+        handle.flush()
+        os.fsync(handle.fileno())
 
 
 def main() -> None:
@@ -75,51 +77,55 @@ def main() -> None:
     parser.add_argument("--env-file", required=True, type=Path)
     parser.add_argument("--compose-file", required=True, type=Path)
     parser.add_argument("--bind-root-override", type=Path)
+    parser.add_argument("--normalized-output", type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
 
-    normalized_file = None
     dry_run_file = args.compose_file
     dry_run_project_directory = args.project_directory
-    try:
-        if args.bind_root_override is not None:
-            normalized_file = normalized_compose_file(
-                args.project_name,
-                args.project_directory,
-                args.env_file,
-                args.compose_file,
-                args.bind_root_override,
-            )
-            dry_run_file = normalized_file
-            dry_run_project_directory = args.bind_root_override
-        result = subprocess.run(
-            [
-                "/usr/bin/docker",
-                "compose",
-                "--ansi",
-                "never",
-                "--dry-run",
-                "--project-name",
-                args.project_name,
-                "--project-directory",
-                str(dry_run_project_directory),
-                "--env-file",
-                str(args.env_file),
-                "--file",
-                str(dry_run_file),
-                "create",
-                "--no-build",
-                "--pull",
-                "never",
-            ],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
+    normalized_input = None
+    if args.bind_root_override is not None:
+        normalized_input = normalized_compose_content(
+            args.project_name,
+            args.project_directory,
+            args.env_file,
+            args.compose_file,
+            args.bind_root_override,
         )
-    finally:
-        if normalized_file is not None:
-            normalized_file.unlink(missing_ok=True)
+        dry_run_project_directory = args.bind_root_override
+        if args.normalized_output is None:
+            dry_run_file = Path("-")
+        else:
+            write_private_new_file(args.normalized_output, normalized_input)
+            dry_run_file = args.normalized_output
+            normalized_input = None
+
+    result = subprocess.run(
+        [
+            "/usr/bin/docker",
+            "compose",
+            "--ansi",
+            "never",
+            "--dry-run",
+            "--project-name",
+            args.project_name,
+            "--project-directory",
+            str(dry_run_project_directory),
+            "--env-file",
+            str(args.env_file),
+            "--file",
+            str(dry_run_file),
+            "create",
+            "--no-build",
+            "--pull",
+            "never",
+        ],
+        check=True,
+        input=normalized_input,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
     output = ANSI_PATTERN.sub("", result.stdout + result.stderr)
     actions = [
         {"service": service, "action": action}
@@ -136,11 +142,10 @@ def main() -> None:
         ],
         "action_count": len(actions),
     }
-    args.output.write_text(
+    write_private_new_file(
+        args.output,
         json.dumps(report, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
     )
-    args.output.chmod(0o600)
 
 
 if __name__ == "__main__":

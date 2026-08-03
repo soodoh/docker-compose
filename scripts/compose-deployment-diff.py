@@ -83,6 +83,15 @@ def main() -> None:
         and desired_names == runtime_names
         and changed_paths == [args.canary_path]
     )
+    artifact_only_eligible = (
+        args.candidate_hash != args.deployed_hash
+        and not recreate_services
+        and not image_services
+        and not forbidden_actions
+        and desired_names == runtime_names
+        and bool(changed_paths)
+        and all(path.startswith("scripts/") for path in changed_paths)
+    )
 
     report = {
         "candidate_hash": args.candidate_hash,
@@ -101,6 +110,7 @@ def main() -> None:
         "canary_service": args.canary_service,
         "canary_path": args.canary_path,
         "canary_eligible": canary_eligible,
+        "artifact_only_eligible": artifact_only_eligible,
     }
     args.output.write_text(
         json.dumps(report, sort_keys=True, separators=(",", ":")) + "\n",

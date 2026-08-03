@@ -1,14 +1,23 @@
-name: Roll back the initial Compose cutover
+name: Roll back to the previous Compose artifact
 
 on:
   workflow_dispatch:
     inputs:
-      deployed_artifact_sha256:
-        description: Exact deployed 64-character artifact SHA-256
+      current_artifact_sha256:
+        description: Exact active 64-character artifact SHA-256
         required: true
         type: string
+      target_artifact_sha256:
+        description: Exact previous 64-character artifact SHA-256
+        required: true
+        type: string
+      apply_rollback:
+        description: Apply after reproducing the reviewed rollback plan
+        required: true
+        default: false
+        type: boolean
       confirmation:
-        description: Enter rollback:<deployed_artifact_sha256>
+        description: Enter plan-rollback:<current>:to:<target>, or rollback:<current>:to:<target> when applying
         required: true
         type: string
 
@@ -27,8 +36,10 @@ env:
 
 jobs:
   rollback:
-    name: Guarded initial Compose rollback
-    if: vars.COMPOSE_ROLLBACK_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    name: Guarded previous-artifact rollback
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (inputs.apply_rollback != true || vars.COMPOSE_ROLLBACK_ENABLED == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment: infrastructure-apply
@@ -40,17 +51,28 @@ jobs:
           persist-credentials: false
           ref: ${{ github.sha }}
 
-      - name: Require the exact deployed artifact and typed confirmation
+      - name: Require exact artifact identities and typed confirmation
         id: artifact
         env:
-          DEPLOYED_HASH: ${{ inputs.deployed_artifact_sha256 }}
+          CURRENT_HASH: ${{ inputs.current_artifact_sha256 }}
+          TARGET_HASH: ${{ inputs.target_artifact_sha256 }}
           CONFIRMATION: ${{ inputs.confirmation }}
+          APPLY_ROLLBACK: ${{ inputs.apply_rollback }}
         shell: bash
         run: |
           set -euo pipefail
-          [[ $DEPLOYED_HASH =~ ^[0-9a-f]{64}$ ]]
-          [[ $CONFIRMATION == "rollback:$DEPLOYED_HASH" ]]
-          echo "hash=$DEPLOYED_HASH" >>"$GITHUB_OUTPUT"
+          [[ $CURRENT_HASH =~ ^[0-9a-f]{64}$ ]]
+          [[ $TARGET_HASH =~ ^[0-9a-f]{64}$ ]]
+          [[ $CURRENT_HASH != "$TARGET_HASH" ]]
+          if [[ $APPLY_ROLLBACK == true ]]; then
+            [[ $CONFIRMATION == "rollback:$CURRENT_HASH:to:$TARGET_HASH" ]]
+          else
+            [[ $CONFIRMATION == "plan-rollback:$CURRENT_HASH:to:$TARGET_HASH" ]]
+          fi
+          git fetch --quiet --no-tags origin refs/heads/main
+          [[ $(git rev-parse FETCH_HEAD) == "$GITHUB_SHA" ]]
+          echo "current=$CURRENT_HASH" >>"$GITHUB_OUTPUT"
+          echo "target=$TARGET_HASH" >>"$GITHUB_OUTPUT"
 
       - name: Prepare the restricted apply controller
         uses: ./.github/actions/ansible-controller
@@ -71,7 +93,7 @@ jobs:
           ansible-playbook -i inventory/production.yml --syntax-check playbooks/rollback-compose.yml
           ansible -i inventory/production.yml docker_host -m ansible.builtin.ping
 
-      - name: Require a zero-change pre-rollback audit
+      - name: Require a zero-change active-artifact audit
         id: preaudit
         working-directory: ansible
         shell: bash
@@ -87,37 +109,71 @@ jobs:
           [[ $(jq -r '.failed' <<<"$recap") == 0 ]]
           echo "recap=$recap" >>"$GITHUB_OUTPUT"
 
-      - name: Review the exact rollback plan
+      - name: Review the exact previous-artifact rollback plan
         id: plan
         working-directory: ansible
         env:
-          ARTIFACT_HASH: ${{ steps.artifact.outputs.hash }}
+          CURRENT_HASH: ${{ steps.artifact.outputs.current }}
+          TARGET_HASH: ${{ steps.artifact.outputs.target }}
         shell: bash
         run: |
           set -euo pipefail
           plan_log="$RUNNER_TEMP/compose-rollback-plan.log"
           ansible-playbook -i inventory/production.yml \
             playbooks/rollback-compose.yml --check --diff \
-            -e "compose_artifact_hash=$ARTIFACT_HASH" | tee "$plan_log"
+            -e "compose_artifact_hash=$CURRENT_HASH" \
+            -e "compose_rollback_target_hash=$TARGET_HASH" | tee "$plan_log"
           recap=$(python ../.github/scripts/parse-ansible-recap.py \
             "$plan_log" docker-host-production)
           [[ $(jq -r '.changed' <<<"$recap") == 1 ]]
           [[ $(jq -r '.unreachable' <<<"$recap") == 0 ]]
           [[ $(jq -r '.failed' <<<"$recap") == 0 ]]
+          plan_hash=$(grep -oE 'compose_rollback_plan_sha256=[0-9a-f]{64}' "$plan_log" \
+            | cut -d= -f2 | sort -u)
+          [[ $plan_hash =~ ^[0-9a-f]{64}$ ]]
+          echo "hash=$plan_hash" >>"$GITHUB_OUTPUT"
           echo "recap=$recap" >>"$GITHUB_OUTPUT"
 
-      - name: Perform the separately confirmed rollback
+      - name: Revalidate the exact rollback plan
+        working-directory: ansible
+        env:
+          CURRENT_HASH: ${{ steps.artifact.outputs.current }}
+          TARGET_HASH: ${{ steps.artifact.outputs.target }}
+          EXPECTED_PLAN_HASH: ${{ steps.plan.outputs.hash }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          replan_log="$RUNNER_TEMP/compose-rollback-replan.log"
+          ansible-playbook -i inventory/production.yml \
+            playbooks/rollback-compose.yml --check --diff \
+            -e "compose_artifact_hash=$CURRENT_HASH" \
+            -e "compose_rollback_target_hash=$TARGET_HASH" | tee "$replan_log"
+          recap=$(python ../.github/scripts/parse-ansible-recap.py \
+            "$replan_log" docker-host-production)
+          [[ $(jq -r '.changed' <<<"$recap") == 1 ]]
+          [[ $(jq -r '.unreachable' <<<"$recap") == 0 ]]
+          [[ $(jq -r '.failed' <<<"$recap") == 0 ]]
+          actual_plan_hash=$(grep -oE 'compose_rollback_plan_sha256=[0-9a-f]{64}' "$replan_log" \
+            | cut -d= -f2 | sort -u)
+          [[ $actual_plan_hash == "$EXPECTED_PLAN_HASH" ]]
+
+      - name: Perform the separately confirmed previous-artifact rollback
+        if: inputs.apply_rollback
         id: apply
         working-directory: ansible
         env:
-          ARTIFACT_HASH: ${{ steps.artifact.outputs.hash }}
+          CURRENT_HASH: ${{ steps.artifact.outputs.current }}
+          TARGET_HASH: ${{ steps.artifact.outputs.target }}
+          EXPECTED_PLAN_HASH: ${{ steps.plan.outputs.hash }}
         shell: bash
         run: |
           set -euo pipefail
           apply_log="$RUNNER_TEMP/compose-rollback-apply.log"
           ansible-playbook -i inventory/production.yml \
             playbooks/rollback-compose.yml \
-            -e "compose_artifact_hash=$ARTIFACT_HASH" \
+            -e "compose_artifact_hash=$CURRENT_HASH" \
+            -e "compose_rollback_target_hash=$TARGET_HASH" \
+            -e "compose_rollback_expected_plan_hash=$EXPECTED_PLAN_HASH" \
             -e compose_rollback_confirmed=true | tee "$apply_log"
           recap=$(python ../.github/scripts/parse-ansible-recap.py \
             "$apply_log" docker-host-production)
@@ -126,6 +182,7 @@ jobs:
           echo "recap=$recap" >>"$GITHUB_OUTPUT"
 
       - name: Require a zero-change post-rollback audit
+        if: always() && inputs.apply_rollback
         id: postaudit
         working-directory: ansible
         shell: bash
@@ -142,22 +199,32 @@ jobs:
           echo "recap=$recap" >>"$GITHUB_OUTPUT"
 
       - name: Summarize rollback evidence
+        if: always()
         env:
-          ARTIFACT_HASH: ${{ steps.artifact.outputs.hash }}
+          CURRENT_HASH: ${{ steps.artifact.outputs.current }}
+          TARGET_HASH: ${{ steps.artifact.outputs.target }}
+          APPLY_ROLLBACK: ${{ inputs.apply_rollback }}
           PREAUDIT_RECAP: ${{ steps.preaudit.outputs.recap }}
+          PLAN_HASH: ${{ steps.plan.outputs.hash }}
           PLAN_RECAP: ${{ steps.plan.outputs.recap }}
           APPLY_RECAP: ${{ steps.apply.outputs.recap }}
           POSTAUDIT_RECAP: ${{ steps.postaudit.outputs.recap }}
         shell: bash
         run: |
           {
-            echo "### Initial Compose rollback"
+            echo "### Previous-artifact Compose rollback"
             echo
-            echo "- Former artifact SHA-256: \`$ARTIFACT_HASH\`"
+            echo "- Former current artifact: \`$CURRENT_HASH\`"
+            echo "- Activated previous artifact: \`$TARGET_HASH\`"
             echo "- Pre-rollback audit: \`$PREAUDIT_RECAP\`"
+            echo "- Plan SHA-256: \`$PLAN_HASH\`"
             echo "- Reviewed plan: \`$PLAN_RECAP\`"
-            echo "- Rollback: \`$APPLY_RECAP\`"
-            echo "- Zero-change post-rollback audit: \`$POSTAUDIT_RECAP\`"
+            if [[ $APPLY_ROLLBACK == true ]]; then
+              echo "- Rollback: \`$APPLY_RECAP\`"
+              echo "- Zero-change post-rollback audit: \`$POSTAUDIT_RECAP\`"
+            else
+              echo "- Result: plan-only; artifacts, environments, images, and containers were unchanged"
+            fi
             echo
-            echo "The command prohibited pulls, builds, removals, and orphan removal."
+            echo "The workflow prohibited pulls, builds, create/removal actions, and orphan removal."
           } >>"$GITHUB_STEP_SUMMARY"

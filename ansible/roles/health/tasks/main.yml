@@ -1,14 +1,9 @@
 ---
-- name: List running Compose services
+- name: List running services from the active Compose artifact
   ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - ps
-      - --status
-      - running
-      - --services
-    chdir: "{{ audit_compose_project_dir }}"
+    argv: "{{ compose_runtime_cli + ['ps', '--status', 'running', '--services'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
   register: health_running_services
   changed_when: false
   check_mode: false
