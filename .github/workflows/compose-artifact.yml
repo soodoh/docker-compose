@@ -1,0 +1,81 @@
+name: Validate deterministic Compose artifact
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/compose-artifact.yml
+      - .sops.yaml
+      - docker-compose.yml
+      - scripts/check-sops-env.py
+      - scripts/compose-artifact.py
+      - scripts/restore-dotenv-layout.py
+      - secrets/**
+      - services/*.yml
+      - services/data/**
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/compose-artifact.yml
+      - .sops.yaml
+      - docker-compose.yml
+      - scripts/check-sops-env.py
+      - scripts/compose-artifact.py
+      - scripts/restore-dotenv-layout.py
+      - secrets/**
+      - services/*.yml
+      - services/data/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Hash and copy exact Compose artifact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out the exact candidate commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Prove deterministic artifact selection and copy
+        id: artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          desired_hash=$(python3 scripts/compose-artifact.py hash)
+          repeated_hash=$(python3 scripts/compose-artifact.py hash)
+          [[ $desired_hash == "$repeated_hash" ]]
+
+          artifact_root="$RUNNER_TEMP/compose-artifact"
+          copied_hash=$(python3 scripts/compose-artifact.py copy "$artifact_root")
+          [[ $copied_hash == "$desired_hash" ]]
+          staged_hash=$(python3 "$artifact_root/scripts/compose-artifact.py" \
+            --root "$artifact_root" --no-git hash)
+          [[ $staged_hash == "$desired_hash" ]]
+
+          file_count=$(python3 scripts/compose-artifact.py list | wc -l)
+          echo "hash=$desired_hash" >>"$GITHUB_OUTPUT"
+          echo "files=$file_count" >>"$GITHUB_OUTPUT"
+
+      - name: Summarize artifact identity
+        shell: bash
+        env:
+          ARTIFACT_HASH: ${{ steps.artifact.outputs.hash }}
+          ARTIFACT_FILES: ${{ steps.artifact.outputs.files }}
+        run: |
+          {
+            echo "### Deterministic Compose artifact"
+            echo
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Files: \`$ARTIFACT_FILES\`"
+            echo "- SHA-256: \`$ARTIFACT_HASH\`"
+            echo
+            echo "The artifact excludes Git metadata, documentation, worktrees, plaintext environment files, and unrelated repository files."
+          } >>"$GITHUB_STEP_SUMMARY"

@@ -46,7 +46,7 @@ x-backup-volumes: &backup-volumes
   # See the use of BACKUP_EXCLUDE_REGEXP
   - ${GAMES_PATH}/wolf/profile-data/paul/WolfES-DE:/backup/wolf/profile-data/paul/WolfES-DE:ro
   # Sensitive host files remain safe in S3 because backups are GPG-encrypted.
-  - ../.env:/backup/.env:ro
+  - /etc/docker-compose/production.env:/backup/.env:ro
   - ${HOME}/.ssh:/backup/.ssh:ro
   # Required for GPG public-key encryption
   - ./data/backup-gpg-public.asc:/etc/docker-volume-backup/gpg-public.asc:ro
