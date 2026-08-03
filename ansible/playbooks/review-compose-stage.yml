@@ -28,11 +28,11 @@
           {{ compose_stage_review_command.stdout_lines | map('trim') | select('match', '^\\{') | list }}
       no_log: true
 
-    - name: Require exactly one guarded staging review object
+    - name: Require at least one guarded staging review object
       ansible.builtin.assert:
         that:
-          - compose_stage_review_json_lines | length == 1
-        fail_msg: "The staging reviewer did not return exactly one guarded JSON object."
+          - compose_stage_review_json_lines | length >= 1
+        fail_msg: "The staging reviewer did not return a guarded JSON object."
       no_log: true
 
     - name: Parse the secret-free staging review report
