@@ -22,9 +22,9 @@
 - name: Record the production apply-lock owner
   ansible.builtin.copy:
     content: |
-      controller={{ ansible_user_id }}
-      tag={{ iac_apply_tag }}
-      started={{ ansible_date_time.iso8601 }}
+      controller={{ ansible_user | default('unknown') }}
+      operation={{ iac_apply_operation | default(iac_apply_tag | default('unspecified')) }}
+      started={{ ansible_facts['date_time']['iso8601'] }}
     dest: "{{ iac_apply_lock_path }}/owner"
     owner: root
     group: root
