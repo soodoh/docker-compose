@@ -75,6 +75,8 @@
     argv:
       - /usr/bin/docker
       - compose
+      - --ansi
+      - never
       - --dry-run
       - --project-name
       - "{{ compose_project_name }}"
@@ -194,6 +196,8 @@
         argv:
           - /usr/bin/docker
           - compose
+          - --ansi
+          - never
           - --dry-run
           - --project-name
           - "{{ compose_project_name }}"
