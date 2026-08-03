@@ -111,7 +111,7 @@ All temporary enable variables were removed after use. Cutover, failed-lock clea
 
 The apply job is independently disabled unless `COMPOSE_AUTO_APPLY_ENABLED=true`. A changed merged plan must still match the current `main` tip and reproduce the complete plan hash. Deployment refuses service additions/removals, Docker create/remove actions, and `services/data/**` changes that lack an explicit restart decision. It pulls only services whose reviewed image reference changed, preserves current as `previous` plus a root-only previous environment, rotates the hash-verified artifact before Docker convergence, and runs Compose without builds or orphan removal. No image or volume pruning occurs.
 
-Every apply attempt retains the production lock on failure. Success requires an idempotent post-deployment Compose action plan, all 41 services running, healthy Gluetun and Seerr, a zero-change deployment post-check, and a zero-change complete audit. There is no automatic stateful rollback; the tracked previous artifact and environment are recovery inputs for a separately reviewed rollback.
+Every apply attempt retains the production lock on failure. Success requires an idempotent post-deployment Compose action plan, all 41 services running, healthy Gluetun and Seerr, a zero-change deployment post-check, and a zero-change complete audit. There is no automatic stateful rollback; the tracked previous artifact and environment are recovery inputs for a separately reviewed rollback. A failed pre-apply canary may be retried manually only with the exact candidate hash, typed `deploy-canary:<candidate-sha256>` confirmation, the same canary-only policy, and the automatic-apply emergency stop enabled.
 
 ### Renovate canary lane
 

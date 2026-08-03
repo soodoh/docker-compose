@@ -29,6 +29,20 @@ on:
       - services/*.yml
       - services/data/**
   workflow_dispatch:
+    inputs:
+      apply_canary:
+        description: Apply one plan-eligible canary after planning
+        required: true
+        default: false
+        type: boolean
+      candidate_sha256:
+        description: Exact reviewed candidate artifact SHA-256
+        required: false
+        type: string
+      confirmation:
+        description: Enter deploy-canary:<candidate_sha256>
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -188,7 +202,8 @@ jobs:
     name: Apply the merged Compose plan
     needs: plan
     if: >-
-      github.event_name == 'push' &&
+      (github.event_name == 'push' ||
+        (github.event_name == 'workflow_dispatch' && inputs.apply_canary)) &&
       needs.plan.outputs.has_changes == 'true' &&
       vars.COMPOSE_AUTO_APPLY_ENABLED == 'true'
     runs-on: ubuntu-24.04
@@ -202,9 +217,12 @@ jobs:
           persist-credentials: false
           ref: ${{ github.sha }}
 
-      - name: Require the planned commit at the tip of main
+      - name: Require the planned commit and optional typed canary confirmation
         env:
           EXPECTED_ARTIFACT_HASH: ${{ needs.plan.outputs.artifact_hash }}
+          APPLY_CANARY: ${{ inputs.apply_canary }}
+          REQUESTED_HASH: ${{ inputs.candidate_sha256 }}
+          CONFIRMATION: ${{ inputs.confirmation }}
         shell: bash
         run: |
           set -euo pipefail
@@ -212,6 +230,11 @@ jobs:
           git fetch --quiet --no-tags origin refs/heads/main
           [[ $(git rev-parse FETCH_HEAD) == "$GITHUB_SHA" ]]
           [[ $(python3 scripts/compose-artifact.py hash) == "$EXPECTED_ARTIFACT_HASH" ]]
+          if [[ $GITHUB_EVENT_NAME == workflow_dispatch ]]; then
+            [[ $APPLY_CANARY == true ]]
+            [[ $REQUESTED_HASH == "$EXPECTED_ARTIFACT_HASH" ]]
+            [[ $CONFIRMATION == "deploy-canary:$EXPECTED_ARTIFACT_HASH" ]]
+          fi
 
       - name: Prepare the restricted apply controller
         uses: ./.github/actions/ansible-controller
