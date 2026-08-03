@@ -89,3 +89,17 @@ The Phase 4 implementation is fail-closed and inactive by default. `.github/work
 The role copies the already immutable artifact into the previously empty `current` directory, recomputes its hash, and runs only `docker compose up --detach --no-build --pull never` with explicit project name, project directory, environment file, and Compose file. It never passes `--remove-orphans`. A successful run requires an idempotent post-cutover dry run, all 41 services running, healthy Gluetun and Seerr, and a zero-change full audit before recording the deployed hash.
 
 There is no automatic rollback. A failure intentionally leaves the persistent production lock in place for inspection. The untouched `/home/docker/Projects/docker-compose` checkout and `.env` remain the initial rollback inputs. `.github/workflows/compose-rollback.yml` is separately disabled behind `COMPOSE_ROLLBACK_ENABLED=true`, requires typed `rollback:<deployed-artifact-sha256>` confirmation and another protected-environment approval, and applies the same no-pull/no-build/no-removal constraints. Lock removal after a failed operation is always a separate reviewed action.
+
+## Completed initial cutover
+
+The first authorized attempt, run [`30853421473`](https://github.com/soodoh/docker-compose/actions/runs/30853421473), stopped immediately after creating the production lock because its owner metadata referenced an unavailable Ansible variable. It executed no Docker command. Independent audit [`30853571318`](https://github.com/soodoh/docker-compose/actions/runs/30853571318) then reported `ok=45 changed=0 unreachable=0 failed=0`. The empty lock remained fail-closed until separately authorized clearance run [`30853977059`](https://github.com/soodoh/docker-compose/actions/runs/30853977059) inspected and removed only that directory.
+
+Authorized retry [`30854028095`](https://github.com/soodoh/docker-compose/actions/runs/30854028095) deployed artifact `533ed4a14fce8a811a41ff0a3fe5e6b182fe485f965499d80d8f0c27cf79b357`:
+
+- pre-cutover audit: `ok=45 changed=0 unreachable=0 failed=0`;
+- exact plan: `ok=22 changed=1 unreachable=0 failed=0`, with the expected 16 recreations and zero forbidden create/remove actions;
+- cutover and health verification: `ok=35 changed=3 unreachable=0 failed=0`;
+- post-cutover action plan: no further convergence proposed;
+- post-cutover audit: `ok=45 changed=0 unreachable=0 failed=0`.
+
+All temporary enable variables were removed after use. Cutover, failed-lock clearance, and rollback are disabled. `/srv/docker-compose/current` and `/etc/docker-compose/production.env` are now active, while the legacy checkout and `.env` remain untouched rollback inputs.
