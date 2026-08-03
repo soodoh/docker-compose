@@ -105,6 +105,17 @@ jobs:
           [[ $(jq -r '.failed' <<<"$recap") == 0 ]]
           echo "recap=$recap" >>"$GITHUB_OUTPUT"
 
+      - name: Review the complete secret-free dry run and model differences
+        working-directory: ansible
+        env:
+          ARTIFACT_HASH: ${{ steps.artifact.outputs.hash }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ansible-playbook -i inventory/production.yml \
+            playbooks/review-compose-stage.yml \
+            -e "compose_artifact_hash=$ARTIFACT_HASH"
+
       - name: Require zero staging changes after execution
         id: postcheck
         working-directory: ansible
