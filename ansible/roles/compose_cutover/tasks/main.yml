@@ -1,0 +1,227 @@
+---
+- name: Validate the initial Compose cutover contract
+  ansible.builtin.assert:
+    that:
+      - compose_artifact_hash is match('^[0-9a-f]{64}$')
+      - ansible_check_mode or (compose_cutover_confirmed | default(false) | ansible.builtin.bool)
+    fail_msg: >-
+      Initial Compose cutover requires the reviewed artifact hash and compose_cutover_confirmed=true
+      outside check mode.
+
+- name: Inspect cutover inputs and rollback paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    get_checksum: false
+    get_mime: false
+  become: true
+  register: compose_cutover_paths
+  loop:
+    - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+    - "{{ compose_current_dir }}"
+    - "{{ compose_runtime_env_path }}"
+    - "{{ audit_compose_project_dir }}/docker-compose.yml"
+    - "{{ audit_env_path }}"
+    - "{{ compose_deployed_hash_path }}"
+
+- name: Inspect the inactive current deployment directory
+  ansible.builtin.find:
+    paths: "{{ compose_current_dir }}"
+    hidden: true
+    recurse: false
+    file_type: any
+  become: true
+  register: compose_cutover_current_entries
+  when: compose_cutover_paths.results[1].stat.isdir | default(false)
+
+- name: Require staged inputs and untouched initial rollback inputs
+  ansible.builtin.assert:
+    that:
+      - compose_cutover_paths.results[0].stat.isdir | default(false)
+      - compose_cutover_paths.results[1].stat.isdir | default(false)
+      - compose_cutover_current_entries.matched == 0
+      - compose_cutover_paths.results[2].stat.isreg | default(false)
+      - compose_cutover_paths.results[2].stat.pw_name == 'root'
+      - compose_cutover_paths.results[2].stat.gr_name == 'root'
+      - compose_cutover_paths.results[2].stat.mode == '0600'
+      - compose_cutover_paths.results[3].stat.isreg | default(false)
+      - compose_cutover_paths.results[4].stat.isreg | default(false)
+      - not (compose_cutover_paths.results[5].stat.exists | default(false))
+    fail_msg: >-
+      Cutover inputs differ from the reviewed initial state. The staged artifact, empty current directory,
+      root-only runtime environment, untouched legacy checkout/environment, and absent deployed hash are mandatory.
+
+- name: Recompute the staged artifact identity
+  ansible.builtin.command:
+    argv:
+      - python
+      - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/scripts/compose-artifact.py"
+      - --root
+      - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+      - --no-git
+      - hash
+  become: true
+  register: compose_cutover_staged_hash
+  changed_when: false
+  check_mode: false
+
+- name: Require the exact reviewed staged artifact
+  ansible.builtin.assert:
+    that:
+      - compose_cutover_staged_hash.stdout == compose_artifact_hash
+    fail_msg: "Staged artifact identity differs from the reviewed cutover hash."
+
+- name: Re-run the exact guarded pre-cutover dry run
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/docker
+      - compose
+      - --dry-run
+      - --project-name
+      - "{{ compose_project_name }}"
+      - --project-directory
+      - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+      - --env-file
+      - "{{ compose_runtime_env_path }}"
+      - --file
+      - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/docker-compose.yml"
+      - create
+      - --no-build
+      - --pull
+      - never
+  become: true
+  environment:
+    HOME: "{{ compose_home_dir }}"
+  register: compose_cutover_dry_run
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Extract the exact proposed recreation set
+  ansible.builtin.set_fact:
+    compose_cutover_recreate_services: >-
+      {{ ((compose_cutover_dry_run.stdout_lines + compose_cutover_dry_run.stderr_lines)
+          | select('search', ' Container [a-z0-9-]+ Recreate $')
+          | map('regex_replace', '^.* Container ([a-z0-9-]+) Recreate $', '\\1')
+          | unique | sort) }}
+    compose_cutover_forbidden_action_lines: >-
+      {{ ((compose_cutover_dry_run.stdout_lines + compose_cutover_dry_run.stderr_lines)
+          | select('search', ' Container .* (Creating|Removing|Removed) $') | list) }}
+  no_log: true
+
+- name: Require only the reviewed recreation set
+  ansible.builtin.assert:
+    that:
+      - compose_cutover_recreate_services == compose_initial_recreate_services | sort
+      - compose_cutover_forbidden_action_lines | length == 0
+    fail_msg: >-
+      The pre-cutover dry run differs from the reviewed recreation set or proposes a create/removal action.
+  no_log: true
+
+- name: Report the check-mode cutover boundary
+  ansible.builtin.debug:
+    msg:
+      artifact_hash: "{{ compose_artifact_hash }}"
+      recreation_count: "{{ compose_cutover_recreate_services | length }}"
+      legacy_rollback_project: "{{ audit_compose_project_dir }}"
+  changed_when: true
+  when: ansible_check_mode
+
+- name: Publish and converge the reviewed initial deployment
+  when: not ansible_check_mode
+  block:
+    - name: Copy the immutable staged artifact into the inactive current directory
+      ansible.builtin.copy:
+        src: "{{ compose_staging_root }}/{{ compose_artifact_hash }}/"
+        dest: "{{ compose_current_dir }}/"
+        remote_src: true
+        owner: root
+        group: root
+        mode: preserve
+        directory_mode: "0755"
+      become: true
+
+    - name: Recompute the published current artifact identity
+      ansible.builtin.command:
+        argv:
+          - python
+          - "{{ compose_current_dir }}/scripts/compose-artifact.py"
+          - --root
+          - "{{ compose_current_dir }}"
+          - --no-git
+          - hash
+      become: true
+      register: compose_cutover_current_hash
+      changed_when: false
+
+    - name: Require the exact current artifact before Docker convergence
+      ansible.builtin.assert:
+        that:
+          - compose_cutover_current_hash.stdout == compose_artifact_hash
+        fail_msg: "Published current artifact differs from the reviewed hash; Docker was not converged."
+
+    - name: Converge the reviewed project without pulls, builds, removals, or orphan removal
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/docker
+          - compose
+          - --project-name
+          - "{{ compose_project_name }}"
+          - --project-directory
+          - "{{ compose_current_dir }}"
+          - --env-file
+          - "{{ compose_runtime_env_path }}"
+          - --file
+          - "{{ compose_current_dir }}/docker-compose.yml"
+          - up
+          - --detach
+          - --no-build
+          - --pull
+          - never
+      become: true
+      environment:
+        HOME: "{{ compose_home_dir }}"
+      register: compose_cutover_converge
+      no_log: true
+
+    - name: Verify no further Compose convergence is proposed
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/docker
+          - compose
+          - --dry-run
+          - --project-name
+          - "{{ compose_project_name }}"
+          - --project-directory
+          - "{{ compose_current_dir }}"
+          - --env-file
+          - "{{ compose_runtime_env_path }}"
+          - --file
+          - "{{ compose_current_dir }}/docker-compose.yml"
+          - create
+          - --no-build
+          - --pull
+          - never
+      become: true
+      environment:
+        HOME: "{{ compose_home_dir }}"
+      register: compose_cutover_post_dry_run
+      changed_when: false
+      no_log: true
+
+    - name: Require an idempotent post-cutover dry run
+      ansible.builtin.assert:
+        that:
+          - >-
+            ((compose_cutover_post_dry_run.stdout_lines + compose_cutover_post_dry_run.stderr_lines)
+            | select('search', ' Container .* (Create|Recreate|Remove) ') | list | length) == 0
+        fail_msg: "Post-cutover dry run still proposes container convergence."
+      no_log: true
+
+    - name: Record the deployed artifact identity atomically
+      ansible.builtin.copy:
+        content: "{{ compose_artifact_hash }}\n"
+        dest: "{{ compose_deployed_hash_path }}"
+        owner: root
+        group: root
+        mode: "0600"
+      become: true

@@ -76,3 +76,16 @@ The backup services now declare `/etc/docker-compose/production.env:/backup/.env
 ## Cutover boundary
 
 Phase 3 may populate staging, the empty stable directories, and the inactive root-only environment file. It must not synchronize an artifact into `current`, change runtime Compose labels, pull images, or converge containers. Those actions remain Phase 4 maintenance-window work.
+
+The Phase 4 implementation is fail-closed and inactive by default. `.github/workflows/compose-cutover.yml` requires all of the following before its job can run:
+
+- repository variable `COMPOSE_CUTOVER_ENABLED=true`;
+- the protected `infrastructure-apply` environment;
+- `main` at the exact reviewed artifact commit;
+- the exact 64-character staged artifact hash;
+- typed confirmation `cutover:<artifact-sha256>`; and
+- a zero-change full audit plus a check-mode plan that proposes exactly the 16 reviewed recreations and no creates or removals.
+
+The role copies the already immutable artifact into the previously empty `current` directory, recomputes its hash, and runs only `docker compose up --detach --no-build --pull never` with explicit project name, project directory, environment file, and Compose file. It never passes `--remove-orphans`. A successful run requires an idempotent post-cutover dry run, all 41 services running, healthy Gluetun and Seerr, and a zero-change full audit before recording the deployed hash.
+
+There is no automatic rollback. A failure intentionally leaves the persistent production lock in place for inspection. The untouched `/home/docker/Projects/docker-compose` checkout and `.env` remain the initial rollback inputs. `.github/workflows/compose-rollback.yml` is separately disabled behind `COMPOSE_ROLLBACK_ENABLED=true`, requires typed `rollback:<deployed-artifact-sha256>` confirmation and another protected-environment approval, and applies the same no-pull/no-build/no-removal constraints. Lock removal after a failed operation is always a separate reviewed action.
