@@ -39,6 +39,7 @@
         "compose-canary"
       ],
       "minimumReleaseAge": "7 days",
+      "pinDigests": true,
       "automerge": true,
       "automergeType": "pr",
       "platformAutomerge": true
