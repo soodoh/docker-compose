@@ -113,18 +113,24 @@ def main() -> None:
         re.search(rf"(?<![A-Za-z0-9_]){re.escape(key)}\\s*=", dry_run_output) is not None
         for key in env_keys
     )
-    matched_long_value_count = sum(
-        len(value) >= 12 and value in dry_run_output for value in env_values
-    )
-    dry_run_lines = [line for line in dry_run_output.splitlines() if line]
-    if matched_key_count or matched_long_value_count:
+    matched_long_values = {
+        value for value in env_values if len(value) >= 12 and value in dry_run_output
+    }
+    safe_dry_run_output = dry_run_output
+    redacted_value_occurrence_count = 0
+    for value in sorted(matched_long_values, key=len, reverse=True):
+        redacted_value_occurrence_count += safe_dry_run_output.count(value)
+        safe_dry_run_output = safe_dry_run_output.replace(value, "<redacted-env-value>")
+    dry_run_lines = [line for line in safe_dry_run_output.splitlines() if line]
+    if matched_key_count:
         write_report(
             args.output,
             {
                 "status": "blocked",
-                "reason": "environment_material_guard",
+                "reason": "environment_assignment_guard",
                 "matched_key_count": matched_key_count,
-                "matched_long_value_count": matched_long_value_count,
+                "redacted_value_count": len(matched_long_values),
+                "redacted_value_occurrence_count": redacted_value_occurrence_count,
                 "dry_run_line_count": len(dry_run_lines),
                 "dry_run_sha256": hashlib.sha256(dry_run_output.encode()).hexdigest(),
             },
@@ -165,6 +171,8 @@ def main() -> None:
         "dry_run": {
             "line_count": len(dry_run_lines),
             "sha256": hashlib.sha256(dry_run_output.encode()).hexdigest(),
+            "redacted_value_count": len(matched_long_values),
+            "redacted_value_occurrence_count": redacted_value_occurrence_count,
             "lines": dry_run_lines,
         },
     }
