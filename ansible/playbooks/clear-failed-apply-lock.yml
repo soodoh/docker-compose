@@ -1,0 +1,60 @@
+---
+- name: Clear one separately inspected failed production apply lock
+  hosts: docker_host
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files:
+    - "{{ playbook_dir }}/../group_vars/docker_host.yml"
+  tasks:
+    - name: Require explicit failed-lock clearance confirmation
+      ansible.builtin.assert:
+        that:
+          - ansible_check_mode or (iac_lock_clear_confirmed | default(false) | ansible.builtin.bool)
+        fail_msg: "Failed production lock clearance requires iac_lock_clear_confirmed=true."
+
+    - name: Inspect the failed production apply lock
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        get_checksum: false
+        get_mime: false
+      become: true
+      register: iac_failed_lock_paths
+      loop:
+        - "{{ iac_apply_lock_path }}"
+        - "{{ iac_apply_lock_path }}/owner"
+
+    - name: Inspect failed production lock contents
+      ansible.builtin.find:
+        paths: "{{ iac_apply_lock_path }}"
+        hidden: true
+        recurse: false
+        file_type: any
+      become: true
+      register: iac_failed_lock_entries
+      when: iac_failed_lock_paths.results[0].stat.isdir | default(false)
+
+    - name: Require the inspected empty failed lock
+      ansible.builtin.assert:
+        that:
+          - iac_failed_lock_paths.results[0].stat.isdir | default(false)
+          - not (iac_failed_lock_paths.results[1].stat.exists | default(false))
+          - iac_failed_lock_entries.matched == 0
+        fail_msg: "Production lock is absent, has an owner record, or contains unreviewed entries."
+
+    - name: Report the failed-lock clearance plan
+      ansible.builtin.debug:
+        msg:
+          lock_path: "{{ iac_apply_lock_path }}"
+          owner_record: absent
+          entry_count: 0
+      changed_when: true
+      when: ansible_check_mode
+
+    - name: Remove only the inspected empty failed lock
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/rmdir
+          - --
+          - "{{ iac_apply_lock_path }}"
+      become: true
+      when: not ansible_check_mode

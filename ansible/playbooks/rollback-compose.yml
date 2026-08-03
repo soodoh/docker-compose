@@ -11,6 +11,7 @@
         name: apply_lock
       vars:
         iac_apply_lock_action: acquire
+        iac_apply_operation: compose-rollback
   roles:
     - role: compose_rollback
   post_tasks:
@@ -23,3 +24,4 @@
         name: apply_lock
       vars:
         iac_apply_lock_action: release
+        iac_apply_operation: compose-rollback
