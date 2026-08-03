@@ -22,10 +22,10 @@
       changed_when: false
       no_log: true
 
-    - name: Select the single JSON staging review line
+    - name: Extract guarded JSON staging review objects
       ansible.builtin.set_fact:
         compose_stage_review_json_lines: >-
-          {{ compose_stage_review_command.stdout_lines | map('trim') | select('match', '^\\{') | list }}
+          {{ compose_stage_review_command.stdout | regex_findall('(?m)(\\{[^\\r\\n]*"status"[^\\r\\n]*\\})') }}
       no_log: true
 
     - name: Require at least one guarded staging review object
