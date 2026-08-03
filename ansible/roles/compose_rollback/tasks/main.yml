@@ -50,42 +50,55 @@
     fail_msg: "Deployed artifact identity differs from the separately reviewed rollback hash."
   no_log: true
 
-- name: Re-run the exact guarded legacy rollback dry run
-  ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - --ansi
-      - never
-      - --dry-run
-      - --project-name
-      - "{{ compose_project_name }}"
-      - --project-directory
-      - "{{ audit_compose_project_dir }}"
-      - --env-file
-      - "{{ audit_env_path }}"
-      - --file
-      - "{{ audit_compose_project_dir }}/docker-compose.yml"
-      - create
-      - --no-build
-      - --pull
-      - never
+- name: Remove any stale pre-rollback action plan
+  ansible.builtin.file:
+    path: /run/docker-compose-rollback-plan.json
+    state: absent
+  become: true
+  changed_when: false
+  no_log: true
+
+- name: Produce the root-only pre-rollback action plan
+  ansible.builtin.script:
+    cmd: >-
+      {{ role_path }}/../../../scripts/compose-action-plan.py
+      --project-name {{ compose_project_name }}
+      --project-directory {{ audit_compose_project_dir }}
+      --env-file {{ audit_env_path }}
+      --compose-file {{ audit_compose_project_dir }}/docker-compose.yml
+      --output /run/docker-compose-rollback-plan.json
+    executable: python
   become: true
   environment:
     HOME: "{{ compose_home_dir }}"
-  register: compose_rollback_dry_run
   changed_when: false
   check_mode: false
   no_log: true
 
-- name: Extract the exact proposed rollback recreation set
+- name: Read the root-only pre-rollback action plan
+  ansible.builtin.slurp:
+    src: /run/docker-compose-rollback-plan.json
+  become: true
+  register: compose_rollback_plan_file
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Parse the secret-free pre-rollback action plan
   ansible.builtin.set_fact:
+    compose_rollback_plan: "{{ compose_rollback_plan_file.content | b64decode | from_json }}"
     compose_rollback_recreate_services: >-
-      {{ ((compose_rollback_dry_run.stdout ~ '\n' ~ compose_rollback_dry_run.stderr)
-          | regex_findall('Container\\s+([a-z0-9-]+)\\s+Recreate') | unique | sort) }}
+      {{ (compose_rollback_plan_file.content | b64decode | from_json).recreate_services }}
     compose_rollback_forbidden_action_lines: >-
-      {{ ((compose_rollback_dry_run.stdout ~ '\n' ~ compose_rollback_dry_run.stderr)
-          | regex_findall('Container\\s+[a-z0-9-]+\\s+(?:Creating|Removing|Removed)')) }}
+      {{ (compose_rollback_plan_file.content | b64decode | from_json).forbidden_actions }}
+  no_log: true
+
+- name: Remove the root-only pre-rollback action plan
+  ansible.builtin.file:
+    path: /run/docker-compose-rollback-plan.json
+    state: absent
+  become: true
+  changed_when: false
   no_log: true
 
 - name: Report the secret-free proposed rollback recreation set
@@ -137,39 +150,49 @@
         HOME: "{{ compose_home_dir }}"
       no_log: true
 
-    - name: Verify no further legacy Compose convergence is proposed
-      ansible.builtin.command:
-        argv:
-          - /usr/bin/docker
-          - compose
-          - --ansi
-          - never
-          - --dry-run
-          - --project-name
-          - "{{ compose_project_name }}"
-          - --project-directory
-          - "{{ audit_compose_project_dir }}"
-          - --env-file
-          - "{{ audit_env_path }}"
-          - --file
-          - "{{ audit_compose_project_dir }}/docker-compose.yml"
-          - create
-          - --no-build
-          - --pull
-          - never
+    - name: Produce the root-only post-rollback action plan
+      ansible.builtin.script:
+        cmd: >-
+          {{ role_path }}/../../../scripts/compose-action-plan.py
+          --project-name {{ compose_project_name }}
+          --project-directory {{ audit_compose_project_dir }}
+          --env-file {{ audit_env_path }}
+          --compose-file {{ audit_compose_project_dir }}/docker-compose.yml
+          --output /run/docker-compose-rollback-post-plan.json
+        executable: python
       become: true
       environment:
         HOME: "{{ compose_home_dir }}"
-      register: compose_rollback_post_dry_run
+      changed_when: false
+      no_log: true
+
+    - name: Read the root-only post-rollback action plan
+      ansible.builtin.slurp:
+        src: /run/docker-compose-rollback-post-plan.json
+      become: true
+      register: compose_rollback_post_plan_file
+      changed_when: false
+      no_log: true
+
+    - name: Parse the secret-free post-rollback action plan
+      ansible.builtin.set_fact:
+        compose_rollback_post_plan: >-
+          {{ compose_rollback_post_plan_file.content | b64decode | from_json }}
+      no_log: true
+
+    - name: Remove the root-only post-rollback action plan
+      ansible.builtin.file:
+        path: /run/docker-compose-rollback-post-plan.json
+        state: absent
+      become: true
       changed_when: false
       no_log: true
 
     - name: Require an idempotent post-rollback dry run
       ansible.builtin.assert:
         that:
-          - >-
-            ((compose_rollback_post_dry_run.stdout_lines + compose_rollback_post_dry_run.stderr_lines)
-            | select('search', ' Container .* (Create|Recreate|Remove) ') | list | length) == 0
+          - compose_rollback_post_plan.recreate_services | length == 0
+          - compose_rollback_post_plan.forbidden_actions | length == 0
         fail_msg: "Post-rollback dry run still proposes container convergence."
       no_log: true
 

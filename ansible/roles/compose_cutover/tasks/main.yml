@@ -70,42 +70,55 @@
       - compose_cutover_staged_hash.stdout == compose_artifact_hash
     fail_msg: "Staged artifact identity differs from the reviewed cutover hash."
 
-- name: Re-run the exact guarded pre-cutover dry run
-  ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - --ansi
-      - never
-      - --dry-run
-      - --project-name
-      - "{{ compose_project_name }}"
-      - --project-directory
-      - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
-      - --env-file
-      - "{{ compose_runtime_env_path }}"
-      - --file
-      - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/docker-compose.yml"
-      - create
-      - --no-build
-      - --pull
-      - never
+- name: Remove any stale pre-cutover action plan
+  ansible.builtin.file:
+    path: /run/docker-compose-cutover-plan.json
+    state: absent
+  become: true
+  changed_when: false
+  no_log: true
+
+- name: Produce the root-only pre-cutover action plan
+  ansible.builtin.script:
+    cmd: >-
+      {{ role_path }}/../../../scripts/compose-action-plan.py
+      --project-name {{ compose_project_name }}
+      --project-directory {{ compose_staging_root }}/{{ compose_artifact_hash }}
+      --env-file {{ compose_runtime_env_path }}
+      --compose-file {{ compose_staging_root }}/{{ compose_artifact_hash }}/docker-compose.yml
+      --output /run/docker-compose-cutover-plan.json
+    executable: python
   become: true
   environment:
     HOME: "{{ compose_home_dir }}"
-  register: compose_cutover_dry_run
   changed_when: false
   check_mode: false
   no_log: true
 
-- name: Extract the exact proposed recreation set
+- name: Read the root-only pre-cutover action plan
+  ansible.builtin.slurp:
+    src: /run/docker-compose-cutover-plan.json
+  become: true
+  register: compose_cutover_plan_file
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Parse the secret-free pre-cutover action plan
   ansible.builtin.set_fact:
+    compose_cutover_plan: "{{ compose_cutover_plan_file.content | b64decode | from_json }}"
     compose_cutover_recreate_services: >-
-      {{ ((compose_cutover_dry_run.stdout ~ '\n' ~ compose_cutover_dry_run.stderr)
-          | regex_findall('Container\\s+([a-z0-9-]+)\\s+Recreate') | unique | sort) }}
+      {{ (compose_cutover_plan_file.content | b64decode | from_json).recreate_services }}
     compose_cutover_forbidden_action_lines: >-
-      {{ ((compose_cutover_dry_run.stdout ~ '\n' ~ compose_cutover_dry_run.stderr)
-          | regex_findall('Container\\s+[a-z0-9-]+\\s+(?:Creating|Removing|Removed)')) }}
+      {{ (compose_cutover_plan_file.content | b64decode | from_json).forbidden_actions }}
+  no_log: true
+
+- name: Remove the root-only pre-cutover action plan
+  ansible.builtin.file:
+    path: /run/docker-compose-cutover-plan.json
+    state: absent
+  become: true
+  changed_when: false
   no_log: true
 
 - name: Report the secret-free proposed recreation set
@@ -189,39 +202,49 @@
       register: compose_cutover_converge
       no_log: true
 
-    - name: Verify no further Compose convergence is proposed
-      ansible.builtin.command:
-        argv:
-          - /usr/bin/docker
-          - compose
-          - --ansi
-          - never
-          - --dry-run
-          - --project-name
-          - "{{ compose_project_name }}"
-          - --project-directory
-          - "{{ compose_current_dir }}"
-          - --env-file
-          - "{{ compose_runtime_env_path }}"
-          - --file
-          - "{{ compose_current_dir }}/docker-compose.yml"
-          - create
-          - --no-build
-          - --pull
-          - never
+    - name: Produce the root-only post-cutover action plan
+      ansible.builtin.script:
+        cmd: >-
+          {{ role_path }}/../../../scripts/compose-action-plan.py
+          --project-name {{ compose_project_name }}
+          --project-directory {{ compose_current_dir }}
+          --env-file {{ compose_runtime_env_path }}
+          --compose-file {{ compose_current_dir }}/docker-compose.yml
+          --output /run/docker-compose-cutover-post-plan.json
+        executable: python
       become: true
       environment:
         HOME: "{{ compose_home_dir }}"
-      register: compose_cutover_post_dry_run
+      changed_when: false
+      no_log: true
+
+    - name: Read the root-only post-cutover action plan
+      ansible.builtin.slurp:
+        src: /run/docker-compose-cutover-post-plan.json
+      become: true
+      register: compose_cutover_post_plan_file
+      changed_when: false
+      no_log: true
+
+    - name: Parse the secret-free post-cutover action plan
+      ansible.builtin.set_fact:
+        compose_cutover_post_plan: >-
+          {{ compose_cutover_post_plan_file.content | b64decode | from_json }}
+      no_log: true
+
+    - name: Remove the root-only post-cutover action plan
+      ansible.builtin.file:
+        path: /run/docker-compose-cutover-post-plan.json
+        state: absent
+      become: true
       changed_when: false
       no_log: true
 
     - name: Require an idempotent post-cutover dry run
       ansible.builtin.assert:
         that:
-          - >-
-            ((compose_cutover_post_dry_run.stdout_lines + compose_cutover_post_dry_run.stderr_lines)
-            | select('search', ' Container .* (Create|Recreate|Remove) ') | list | length) == 0
+          - compose_cutover_post_plan.recreate_services | length == 0
+          - compose_cutover_post_plan.forbidden_actions | length == 0
         fail_msg: "Post-cutover dry run still proposes container convergence."
       no_log: true
 
