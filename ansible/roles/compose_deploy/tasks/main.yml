@@ -1,0 +1,375 @@
+---
+- name: Validate the Compose deployment contract
+  ansible.builtin.assert:
+    that:
+      - compose_artifact_hash is match('^[0-9a-f]{64}$')
+      - ansible_check_mode or (compose_deploy_confirmed | default(false) | ansible.builtin.bool)
+    fail_msg: >-
+      Compose deployment requires the exact staged artifact hash and compose_deploy_confirmed=true
+      outside check mode.
+
+- name: Inspect candidate and active deployment inputs
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    get_checksum: false
+    get_mime: false
+  become: true
+  register: compose_deploy_paths
+  loop:
+    - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+    - "{{ compose_staged_env_path }}"
+    - "{{ compose_current_dir }}"
+    - "{{ compose_runtime_env_path }}"
+    - "{{ compose_deployed_hash_path }}"
+    - "{{ compose_staged_inventory_path }}"
+    - "{{ compose_runtime_inventory_path }}"
+
+- name: Require complete root-owned candidate and active inputs
+  ansible.builtin.assert:
+    that:
+      - compose_deploy_paths.results[0].stat.isdir | default(false)
+      - compose_deploy_paths.results[1].stat.isreg | default(false)
+      - compose_deploy_paths.results[1].stat.pw_name == 'root'
+      - compose_deploy_paths.results[1].stat.mode == '0600'
+      - compose_deploy_paths.results[2].stat.isdir | default(false)
+      - compose_deploy_paths.results[3].stat.isreg | default(false)
+      - compose_deploy_paths.results[3].stat.pw_name == 'root'
+      - compose_deploy_paths.results[3].stat.mode == '0600'
+      - compose_deploy_paths.results[4].stat.isreg | default(false)
+      - compose_deploy_paths.results[5].stat.isreg | default(false)
+      - compose_deploy_paths.results[6].stat.isreg | default(false)
+    fail_msg: "Candidate staging, active deployment, environment, hash, or inventory input is missing."
+
+- name: Recompute candidate and current artifact identities
+  ansible.builtin.command:
+    argv:
+      - python
+      - "{{ item.root }}/scripts/compose-artifact.py"
+      - --root
+      - "{{ item.root }}"
+      - --no-git
+      - hash
+  become: true
+  register: compose_deploy_artifact_hashes
+  changed_when: false
+  check_mode: false
+  loop:
+    - root: "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+    - root: "{{ compose_current_dir }}"
+
+- name: Read the deployed artifact identity without displaying it
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/cat
+      - "{{ compose_deployed_hash_path }}"
+  become: true
+  register: compose_deploy_recorded_hash
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Require exact candidate and active artifact identities
+  ansible.builtin.assert:
+    that:
+      - compose_deploy_artifact_hashes.results[0].stdout == compose_artifact_hash
+      - compose_deploy_artifact_hashes.results[1].stdout == compose_deploy_recorded_hash.stdout
+    fail_msg: "Candidate hash or active current/deployed identity differs from the reviewed state."
+  no_log: true
+
+- name: Remove stale root-only deployment plan files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  become: true
+  changed_when: false
+  no_log: true
+  loop:
+    - /run/docker-compose-deploy-actions.json
+    - /run/docker-compose-deploy-plan.json
+
+- name: Produce the root-only candidate action plan
+  ansible.builtin.script:
+    cmd: >-
+      {{ role_path }}/../../../scripts/compose-action-plan.py
+      --project-name {{ compose_project_name }}
+      --project-directory {{ compose_staging_root }}/{{ compose_artifact_hash }}
+      --env-file {{ compose_staged_env_path }}
+      --compose-file {{ compose_staging_root }}/{{ compose_artifact_hash }}/docker-compose.yml
+      --output /run/docker-compose-deploy-actions.json
+    executable: python
+  become: true
+  environment:
+    HOME: "{{ compose_home_dir }}"
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Produce the root-only combined deployment plan
+  ansible.builtin.script:
+    cmd: >-
+      {{ role_path }}/../../../scripts/compose-deployment-diff.py
+      --desired {{ compose_staged_inventory_path }}
+      --runtime {{ compose_runtime_inventory_path }}
+      --actions /run/docker-compose-deploy-actions.json
+      --candidate-root {{ compose_staging_root }}/{{ compose_artifact_hash }}
+      --current-root {{ compose_current_dir }}
+      --candidate-hash {{ compose_artifact_hash }}
+      --deployed-hash {{ compose_deploy_recorded_hash.stdout }}
+      --output /run/docker-compose-deploy-plan.json
+    executable: python
+  become: true
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Read the root-only combined deployment plan
+  ansible.builtin.slurp:
+    src: /run/docker-compose-deploy-plan.json
+  become: true
+  register: compose_deploy_plan_file
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Parse the secret-free deployment plan
+  ansible.builtin.set_fact:
+    compose_deploy_plan: "{{ compose_deploy_plan_file.content | b64decode | from_json }}"
+  no_log: true
+
+- name: Remove root-only deployment plan files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  become: true
+  changed_when: false
+  no_log: true
+  loop:
+    - /run/docker-compose-deploy-actions.json
+    - /run/docker-compose-deploy-plan.json
+
+- name: Display only the secret-free deployment plan
+  ansible.builtin.debug:
+    var: compose_deploy_plan
+
+- name: Require a deployment with no service-set or untracked data-file changes
+  ansible.builtin.assert:
+    that:
+      - compose_deploy_plan.missing_runtime_services | length == 0
+      - compose_deploy_plan.unexpected_runtime_services | length == 0
+      - compose_deploy_plan.forbidden_actions | length == 0
+      - compose_deploy_plan.manual_only_paths | length == 0
+    fail_msg: >-
+      Automatic deployment refuses service additions/removals, forbidden Compose actions, and
+      services/data changes that require an explicit service restart decision.
+
+- name: Report the check-mode deployment boundary
+  ansible.builtin.debug:
+    msg:
+      candidate_hash: "{{ compose_artifact_hash }}"
+      recreate_services: "{{ compose_deploy_plan.recreate_services }}"
+      image_services: "{{ compose_deploy_plan.image_services }}"
+      stateful_recreate_services: "{{ compose_deploy_plan.stateful_recreate_services }}"
+  changed_when: compose_deploy_plan.has_changes
+  when: ansible_check_mode
+
+- name: Deploy the exact staged Compose artifact
+  when:
+    - not ansible_check_mode
+    - compose_deploy_plan.has_changes
+  block:
+    - name: Pull only changed service images without starting containers
+      ansible.builtin.command:
+        argv: >-
+          {{ ['/usr/bin/docker', 'compose', '--project-name', compose_project_name,
+              '--project-directory', compose_staging_root ~ '/' ~ compose_artifact_hash,
+              '--env-file', compose_staged_env_path,
+              '--file', compose_staging_root ~ '/' ~ compose_artifact_hash ~ '/docker-compose.yml',
+              'pull', '--policy', 'always', '--ignore-buildable'] + compose_deploy_plan.image_services }}
+      become: true
+      environment:
+        HOME: "{{ compose_home_dir }}"
+      no_log: true
+      when: compose_deploy_plan.image_services | length > 0
+
+    - name: Create an incoming current artifact directory
+      ansible.builtin.tempfile:
+        state: directory
+        path: "{{ compose_deployment_root }}"
+        prefix: .deploy-
+      become: true
+      register: compose_deploy_incoming
+
+    - name: Copy the immutable candidate into the incoming current directory
+      ansible.builtin.copy:
+        src: "{{ compose_staging_root }}/{{ compose_artifact_hash }}/"
+        dest: "{{ compose_deploy_incoming.path }}/"
+        remote_src: true
+        owner: root
+        group: root
+        mode: preserve
+        directory_mode: "0755"
+      become: true
+
+    - name: Recompute the incoming current artifact identity
+      ansible.builtin.command:
+        argv:
+          - python
+          - "{{ compose_deploy_incoming.path }}/scripts/compose-artifact.py"
+          - --root
+          - "{{ compose_deploy_incoming.path }}"
+          - --no-git
+          - hash
+      become: true
+      register: compose_deploy_incoming_hash
+      changed_when: false
+
+    - name: Require the incoming current artifact identity
+      ansible.builtin.assert:
+        that:
+          - compose_deploy_incoming_hash.stdout == compose_artifact_hash
+        fail_msg: "Incoming current artifact differs from the approved candidate."
+
+    - name: Remove the older tracked previous artifact
+      ansible.builtin.file:
+        path: "{{ compose_previous_dir }}"
+        state: absent
+      become: true
+
+    - name: Preserve the active environment for rollback
+      ansible.builtin.copy:
+        src: "{{ compose_runtime_env_path }}"
+        dest: "{{ compose_previous_env_path }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      become: true
+      no_log: true
+
+    - name: Atomically rotate current and previous artifacts before Docker convergence
+      block:
+        - name: Move current to the tracked previous artifact
+          ansible.builtin.command:
+            argv:
+              - /usr/bin/mv
+              - --
+              - "{{ compose_current_dir }}"
+              - "{{ compose_previous_dir }}"
+          become: true
+
+        - name: Publish the incoming artifact as current
+          ansible.builtin.command:
+            argv:
+              - /usr/bin/mv
+              - --
+              - "{{ compose_deploy_incoming.path }}"
+              - "{{ compose_current_dir }}"
+          become: true
+      rescue:
+        - name: Inspect current after interrupted pre-Docker artifact rotation
+          ansible.builtin.stat:
+            path: "{{ compose_current_dir }}"
+          become: true
+          register: compose_deploy_rescue_current
+
+        - name: Restore previous as current only before Docker convergence
+          ansible.builtin.command:
+            argv:
+              - /usr/bin/mv
+              - --
+              - "{{ compose_previous_dir }}"
+              - "{{ compose_current_dir }}"
+          become: true
+          when: not (compose_deploy_rescue_current.stat.exists | default(false))
+
+        - name: Stop after pre-Docker artifact rotation failure
+          ansible.builtin.fail:
+            msg: "Artifact publication failed before Docker convergence; current was restored when absent."
+
+    - name: Activate the reviewed root-only candidate environment
+      ansible.builtin.copy:
+        src: "{{ compose_staged_env_path }}"
+        dest: "{{ compose_runtime_env_path }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      become: true
+      no_log: true
+
+    - name: Converge the reviewed project without builds, removal, or orphan removal
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/docker
+          - compose
+          - --project-name
+          - "{{ compose_project_name }}"
+          - --project-directory
+          - "{{ compose_current_dir }}"
+          - --env-file
+          - "{{ compose_runtime_env_path }}"
+          - --file
+          - "{{ compose_current_dir }}/docker-compose.yml"
+          - up
+          - --detach
+          - --no-build
+          - --pull
+          - never
+      become: true
+      environment:
+        HOME: "{{ compose_home_dir }}"
+      no_log: true
+
+    - name: Produce the root-only post-deployment action plan
+      ansible.builtin.script:
+        cmd: >-
+          {{ role_path }}/../../../scripts/compose-action-plan.py
+          --project-name {{ compose_project_name }}
+          --project-directory {{ compose_current_dir }}
+          --env-file {{ compose_runtime_env_path }}
+          --compose-file {{ compose_current_dir }}/docker-compose.yml
+          --output /run/docker-compose-deploy-post.json
+        executable: python
+      become: true
+      environment:
+        HOME: "{{ compose_home_dir }}"
+      changed_when: false
+      no_log: true
+
+    - name: Read the root-only post-deployment action plan
+      ansible.builtin.slurp:
+        src: /run/docker-compose-deploy-post.json
+      become: true
+      register: compose_deploy_post_file
+      changed_when: false
+      no_log: true
+
+    - name: Parse the secret-free post-deployment action plan
+      ansible.builtin.set_fact:
+        compose_deploy_post_plan: "{{ compose_deploy_post_file.content | b64decode | from_json }}"
+      no_log: true
+
+    - name: Remove the root-only post-deployment action plan
+      ansible.builtin.file:
+        path: /run/docker-compose-deploy-post.json
+        state: absent
+      become: true
+      changed_when: false
+      no_log: true
+
+    - name: Require an idempotent post-deployment action plan
+      ansible.builtin.assert:
+        that:
+          - compose_deploy_post_plan.recreate_services | length == 0
+          - compose_deploy_post_plan.forbidden_actions | length == 0
+        fail_msg: "Post-deployment Compose plan still proposes convergence."
+      no_log: true
+
+    - name: Record the deployed artifact identity atomically
+      ansible.builtin.copy:
+        content: "{{ compose_artifact_hash }}\n"
+        dest: "{{ compose_deployed_hash_path }}"
+        owner: root
+        group: root
+        mode: "0600"
+      become: true
