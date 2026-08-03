@@ -23,10 +23,9 @@ The canonical artifact hash is SHA-256 over a version marker followed by each so
 /etc/docker-compose/production.env
 /etc/docker-compose/staging/<artifact-sha256>.env
 /etc/docker-compose/previous.env
-/var/lib/docker-compose/deployed.sha256
 ```
 
-`current` is the only live project directory. Staging directories are immutable and hash-addressed, while `previous` and `previous.env` retain one separately reviewed rollback generation. GitHub Actions checkouts are controller inputs only; no live bind, audit, health check, or rollback operation depends on a host Git checkout.
+`current` is the only live project directory and its recomputed artifact hash is the deployment identity. Staging directories are immutable and hash-addressed, while `previous` and `previous.env` retain one separately reviewed rollback generation. GitHub Actions checkouts are controller inputs only; no live bind, audit, health check, or rollback operation depends on a host Git checkout.
 
 ## Staging workflow
 
@@ -71,7 +70,7 @@ It never emits environment values, resolved commands, labels, or the complete Co
 
 ## Backup environment mount
 
-The backup services now declare `/etc/docker-compose/production.env:/backup/.env:ro`. Existing containers continue using the old bind until the separately controlled cutover; no staging operation recreates them.
+The backup services declare `/etc/docker-compose/production.env:/backup/.env:ro`; active containers use the root-only production environment rather than a repository checkout.
 
 ## Cutover boundary
 
@@ -79,7 +78,7 @@ Staging may populate hash-addressed artifacts and inactive root-only candidate e
 
 The Phase 4 cutover used a temporary, fail-closed workflow requiring the protected environment, exact staged artifact, typed confirmation, and a zero-change audit. It copied the immutable artifact into the previously empty `current` directory and converged the exact 16 reviewed recreations without pulls, builds, removals, orphan removal, or volume operations.
 
-That one-time cutover workflow and role were retired after successful adoption. The ongoing rollback workflow now operates only on the hash-verified `current` and `previous` artifacts plus their root-only environments. It requires distinct exact hashes, typed `rollback:<current>:to:<target>` confirmation, protected-environment approval, a deterministic plan reproduced immediately before apply, an unchanged 41-service set, and zero create/removal actions. It swaps current and previous so a reviewed roll-forward remains available, recreates only the planned services with `--no-build --pull never --no-deps`, and requires an idempotent post-plan plus full health and audit verification. Failures retain the production lock; there is no automatic stateful rollback.
+That one-time cutover workflow and role were retired after successful adoption. The ongoing rollback workflow operates only on the hash-verified `current` and `previous` artifacts and requires their root-only environments to have the same private SHA-256 identity; an environment change requires a separate recovery plan. It requires distinct exact artifact hashes, typed confirmation, protected-environment approval, a deterministic private plan hash reproduced immediately before apply, an unchanged 41-service set, and zero create/removal actions. Docker converges only the reviewed services against a root-only normalized target with `--no-build --pull never --no-deps` while `current` remains unchanged and retryable. After idempotence is proved, GNU `mv --exchange` atomically swaps the two artifact directories. A plan-only mode uses typed `plan-rollback:<current>:to:<target>` confirmation and never converges or exchanges artifacts. Failures retain the production lock; there is no automatic stateful rollback.
 
 ## Completed initial cutover
 
@@ -99,9 +98,11 @@ The initial cutover, failed-lock clearance, and rollback enable variables were r
 
 `.github/workflows/compose-deploy.yml` is the post-cutover deployment path. Pull requests remain secret-free and unprivileged: `compose-artifact.yml` validates and hashes the exact candidate without contacting the host. After a reviewed merge, the trusted `main` workflow may use the protected apply identity to stage the exact artifact and its isolated candidate environment, display the restricted model differences, and produce a hash-locked check-mode deployment plan.
 
-The apply job is independently disabled unless `COMPOSE_AUTO_APPLY_ENABLED=true`. A changed merged plan must still match the current `main` tip and reproduce the deterministic secret-free deployment-plan hash. Deployment refuses service additions/removals, Docker create/remove actions, and `services/data/**` changes that lack an explicit restart decision. It pulls only services whose reviewed image reference changed, preserves current as `previous` plus a root-only previous environment, rotates the hash-verified artifact before Docker convergence, and runs Compose without builds or orphan removal. No image or volume pruning occurs.
+The apply job is independently disabled unless `COMPOSE_AUTO_APPLY_ENABLED=true`. A changed merged plan must still match the current `main` tip and reproduce the deterministic secret-free deployment-plan hash. Deployment refuses service additions/removals, Docker create/remove actions, and `services/data/**` changes that lack an explicit restart decision. It pulls only services whose reviewed image reference changed, preserves current as `previous` plus a root-only previous environment, rotates the hash-verified artifact, and converges only the reviewed recreation set with `--no-deps`, without builds or orphan removal. No image or volume pruning occurs.
 
-Every apply attempt retains the production lock on failure. Success requires an idempotent post-deployment Compose action plan, all 41 services running, healthy Gluetun and Seerr, a zero-change deployment post-check, and a zero-change complete audit. There is no automatic stateful rollback; the tracked previous artifact and environment are recovery inputs for a separately reviewed rollback. A failed pre-apply canary may be retried manually only with the exact candidate hash, typed `deploy-canary:<candidate-sha256>` confirmation, the same canary-only policy, and `COMPOSE_AUTO_APPLY_ENABLED=true`.
+Reviewed changes limited to deployment helper files under `scripts/` may use the separate `COMPOSE_ARTIFACT_PROMOTION_ENABLED=true` gate, exact candidate hash, and typed `promote-artifact:<hash>` confirmation. This artifact-only lane requires zero image differences, recreations, service-set changes, and forbidden actions; it rotates the artifact and environment but executes no Compose pull or `up` command.
+
+Every apply attempt retains the production lock on failure. Success requires an idempotent post-deployment Compose action plan, all 41 services running, healthy Gluetun and Seerr, a zero-change deployment post-check, and a zero-change complete audit. There is no automatic stateful rollback; the tracked previous artifact and unchanged previous environment are recovery inputs for a separately reviewed rollback. A failed pre-apply canary may be retried manually only with the exact candidate hash, typed `deploy-canary:<candidate-sha256>` confirmation, the same canary-only policy, and `COMPOSE_AUTO_APPLY_ENABLED=true`.
 
 ### Host-checkout independence
 

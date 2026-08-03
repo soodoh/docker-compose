@@ -20,7 +20,6 @@
     - "{{ compose_staged_env_path }}"
     - "{{ compose_current_dir }}"
     - "{{ compose_runtime_env_path }}"
-    - "{{ compose_deployed_hash_path }}"
     - "{{ compose_staged_inventory_path }}"
     - "{{ compose_runtime_inventory_path }}"
 
@@ -37,8 +36,7 @@
       - compose_deploy_paths.results[3].stat.mode == '0600'
       - compose_deploy_paths.results[4].stat.isreg | default(false)
       - compose_deploy_paths.results[5].stat.isreg | default(false)
-      - compose_deploy_paths.results[6].stat.isreg | default(false)
-    fail_msg: "Candidate staging, active deployment, environment, hash, or inventory input is missing."
+    fail_msg: "Candidate staging, active deployment, environment, or inventory input is missing."
 
 - name: Recompute candidate and current artifact identities
   ansible.builtin.command:
@@ -57,23 +55,12 @@
     - root: "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
     - root: "{{ compose_current_dir }}"
 
-- name: Read the deployed artifact identity without displaying it
-  ansible.builtin.command:
-    argv:
-      - /usr/bin/cat
-      - "{{ compose_deployed_hash_path }}"
-  become: true
-  register: compose_deploy_recorded_hash
-  changed_when: false
-  check_mode: false
-  no_log: true
 
 - name: Require exact candidate and active artifact identities
   ansible.builtin.assert:
     that:
       - compose_deploy_artifact_hashes.results[0].stdout == compose_artifact_hash
-      - compose_deploy_artifact_hashes.results[1].stdout == compose_deploy_recorded_hash.stdout
-    fail_msg: "Candidate hash or active current/deployed identity differs from the reviewed state."
+    fail_msg: "Candidate artifact identity differs from the reviewed state."
   no_log: true
 
 - name: Remove stale root-only deployment plan files
@@ -115,7 +102,7 @@
       --candidate-root {{ compose_staging_root }}/{{ compose_artifact_hash }}
       --current-root {{ compose_current_dir }}
       --candidate-hash {{ compose_artifact_hash }}
-      --deployed-hash {{ compose_deploy_recorded_hash.stdout }}
+      --deployed-hash {{ compose_deploy_artifact_hashes.results[1].stdout }}
       --canary-service {{ compose_canary_service }}
       --canary-path {{ compose_canary_path }}
       --output /run/docker-compose-deploy-plan.json
@@ -154,8 +141,11 @@
   ansible.builtin.set_fact:
     compose_deploy_effective_changes: >-
       {{ compose_deploy_plan.has_changes and
-         (not (compose_deploy_canary_only | default(false) | ansible.builtin.bool) or
-          compose_deploy_plan.canary_eligible) }}
+         (((compose_deploy_artifact_only | default(false) | ansible.builtin.bool) and
+           compose_deploy_plan.artifact_only_eligible) or
+          (not (compose_deploy_artifact_only | default(false) | ansible.builtin.bool) and
+           (not (compose_deploy_canary_only | default(false) | ansible.builtin.bool) or
+            compose_deploy_plan.canary_eligible))) }}
 
 - name: Display only the secret-free deployment plan
   ansible.builtin.debug:
@@ -312,28 +302,16 @@
       become: true
       no_log: true
 
-    - name: Converge the reviewed project without builds, removal, or orphan removal
+    - name: Converge only the reviewed services without builds, removal, or orphan removal
       ansible.builtin.command:
-        argv:
-          - /usr/bin/docker
-          - compose
-          - --project-name
-          - "{{ compose_project_name }}"
-          - --project-directory
-          - "{{ compose_current_dir }}"
-          - --env-file
-          - "{{ compose_runtime_env_path }}"
-          - --file
-          - "{{ compose_current_dir }}/docker-compose.yml"
-          - up
-          - --detach
-          - --no-build
-          - --pull
-          - never
+        argv: >-
+          {{ compose_runtime_cli + ['up', '--detach', '--no-build', '--pull', 'never', '--no-deps']
+             + (compose_deploy_plan.recreate_services | sort) }}
       become: true
       environment:
         HOME: "{{ compose_home_dir }}"
       no_log: true
+      when: compose_deploy_plan.recreate_services | length > 0
 
     - name: Produce the root-only post-deployment action plan
       ansible.builtin.script:
@@ -379,12 +357,3 @@
           - compose_deploy_post_plan.forbidden_actions | length == 0
         fail_msg: "Post-deployment Compose plan still proposes convergence."
       no_log: true
-
-    - name: Record the deployed artifact identity atomically
-      ansible.builtin.copy:
-        content: "{{ compose_artifact_hash }}\n"
-        dest: "{{ compose_deployed_hash_path }}"
-        owner: root
-        group: root
-        mode: "0600"
-      become: true

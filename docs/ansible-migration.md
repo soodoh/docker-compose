@@ -113,8 +113,8 @@ Run the complete plan from any trusted controller clone:
 
 ```sh
 cd <repository-clone>/ansible
-ansible-playbook --syntax-check playbooks/site.yml
-ansible-playbook playbooks/site.yml --check --diff
+ansible-playbook -i inventory/production.yml --syntax-check playbooks/site.yml
+ansible-playbook -i inventory/production.yml playbooks/site.yml --check --diff
 ```
 
 Validation completed with `ok=33 changed=0 failed=0`; the follow-up audit completed with `ok=45 changed=0 failed=0`. The protected pipeline remains apply-disabled; no normal `site.yml` run is authorized.
@@ -174,8 +174,7 @@ remote retention, or application consistency.
 4. **Phase 6:** after all apply blockers and fresh approval, converge one approved tag at a time in the order `host_files`,
    `base`, `maintenance`, `storage`, `docker`, with exact-plan review, protected-environment approval, guarded apply,
    second zero-change check, and runtime re-audit for each.
-5. **Phases 7-8:** retain this Compose directory and host-only `.env`; revalidate the healthy Gluetun and Seerr
-   baseline before a canary and stateful-last Compose adoption. Never pull automatically or remove orphans.
+5. **Phases 7-8:** completed stable-root Compose adoption, SOPS activation, protected ongoing deployment, and the stateless Renovate canary. Active operation uses `/srv/docker-compose/current` and the root-only production environment; no host Git checkout is retained.
 6. **Phase 9:** consider broader protected-main infrastructure automation only after host convergence. The staged Phase 6
    pipeline does not authorize Compose adoption, OpenTofu apply, management-plane changes, or removal of human approval.
 

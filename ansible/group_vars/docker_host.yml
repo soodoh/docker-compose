@@ -55,7 +55,6 @@ compose_staged_env_root: /etc/docker-compose/staging
 compose_staged_env_path: "{{ compose_staged_env_root }}/{{ compose_artifact_hash }}.env"
 compose_previous_env_path: /etc/docker-compose/previous.env
 compose_age_identity_path: /etc/sops/age/keys.txt
-compose_deployed_hash_path: /var/lib/docker-compose/deployed.sha256
 compose_runtime_cli:
   - /usr/bin/docker
   - compose

@@ -164,6 +164,7 @@ jobs:
         env:
           CURRENT_HASH: ${{ steps.artifact.outputs.current }}
           TARGET_HASH: ${{ steps.artifact.outputs.target }}
+          EXPECTED_PLAN_HASH: ${{ steps.plan.outputs.hash }}
         shell: bash
         run: |
           set -euo pipefail
@@ -172,6 +173,7 @@ jobs:
             playbooks/rollback-compose.yml \
             -e "compose_artifact_hash=$CURRENT_HASH" \
             -e "compose_rollback_target_hash=$TARGET_HASH" \
+            -e "compose_rollback_expected_plan_hash=$EXPECTED_PLAN_HASH" \
             -e compose_rollback_confirmed=true | tee "$apply_log"
           recap=$(python ../.github/scripts/parse-ansible-recap.py \
             "$apply_log" docker-host-production)
@@ -180,7 +182,7 @@ jobs:
           echo "recap=$recap" >>"$GITHUB_OUTPUT"
 
       - name: Require a zero-change post-rollback audit
-        if: inputs.apply_rollback
+        if: always() && inputs.apply_rollback
         id: postaudit
         working-directory: ansible
         shell: bash

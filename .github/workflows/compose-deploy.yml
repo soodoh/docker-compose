@@ -35,12 +35,17 @@ on:
         required: true
         default: false
         type: boolean
+      promote_artifact_only:
+        description: Promote reviewed deployment-helper changes without Docker convergence
+        required: true
+        default: false
+        type: boolean
       candidate_sha256:
         description: Exact reviewed candidate artifact SHA-256
         required: false
         type: string
       confirmation:
-        description: Enter deploy-canary:<candidate_sha256>
+        description: Enter deploy-canary:<hash> or promote-artifact:<hash>
         required: false
         type: string
 
@@ -138,6 +143,7 @@ jobs:
         working-directory: ansible
         env:
           ARTIFACT_HASH: ${{ steps.artifact.outputs.hash }}
+          ARTIFACT_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.promote_artifact_only }}
         shell: bash
         run: |
           set -euo pipefail
@@ -145,7 +151,8 @@ jobs:
           ansible-playbook -i inventory/production.yml \
             playbooks/deploy-compose.yml --check --diff \
             -e "compose_artifact_hash=$ARTIFACT_HASH" \
-            -e compose_deploy_canary_only=true | tee "$plan_log"
+            -e compose_deploy_canary_only=true \
+            -e "compose_deploy_artifact_only=$ARTIFACT_ONLY" | tee "$plan_log"
           recap=$(python ../.github/scripts/parse-ansible-recap.py \
             "$plan_log" docker-host-production)
           changed=$(jq -r '.changed' <<<"$recap")
@@ -164,6 +171,7 @@ jobs:
         env:
           ARTIFACT_HASH: ${{ steps.artifact.outputs.hash }}
           EXPECTED_PLAN_HASH: ${{ steps.plan.outputs.plan_hash }}
+          ARTIFACT_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.promote_artifact_only }}
         shell: bash
         run: |
           set -euo pipefail
@@ -171,7 +179,8 @@ jobs:
           ansible-playbook -i inventory/production.yml \
             playbooks/deploy-compose.yml --check --diff \
             -e "compose_artifact_hash=$ARTIFACT_HASH" \
-            -e compose_deploy_canary_only=true | tee "$replan_log"
+            -e compose_deploy_canary_only=true \
+            -e "compose_deploy_artifact_only=$ARTIFACT_ONLY" | tee "$replan_log"
           recap=$(python ../.github/scripts/parse-ansible-recap.py \
             "$replan_log" docker-host-production)
           [[ $(jq -r '.unreachable' <<<"$recap") == 0 ]]
@@ -202,10 +211,12 @@ jobs:
     name: Apply the merged Compose plan
     needs: plan
     if: >-
-      (github.event_name == 'push' ||
-        (github.event_name == 'workflow_dispatch' && inputs.apply_canary)) &&
       needs.plan.outputs.has_changes == 'true' &&
-      vars.COMPOSE_AUTO_APPLY_ENABLED == 'true'
+      ((github.event_name == 'push' && vars.COMPOSE_AUTO_APPLY_ENABLED == 'true') ||
+       (github.event_name == 'workflow_dispatch' && inputs.apply_canary &&
+        vars.COMPOSE_AUTO_APPLY_ENABLED == 'true') ||
+       (github.event_name == 'workflow_dispatch' && inputs.promote_artifact_only &&
+        vars.COMPOSE_ARTIFACT_PROMOTION_ENABLED == 'true'))
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment: infrastructure-apply
@@ -217,10 +228,11 @@ jobs:
           persist-credentials: false
           ref: ${{ github.sha }}
 
-      - name: Require the planned commit and optional typed canary confirmation
+      - name: Require the planned commit and typed operation confirmation
         env:
           EXPECTED_ARTIFACT_HASH: ${{ needs.plan.outputs.artifact_hash }}
           APPLY_CANARY: ${{ inputs.apply_canary }}
+          PROMOTE_ARTIFACT_ONLY: ${{ inputs.promote_artifact_only }}
           REQUESTED_HASH: ${{ inputs.candidate_sha256 }}
           CONFIRMATION: ${{ inputs.confirmation }}
         shell: bash
@@ -231,9 +243,14 @@ jobs:
           [[ $(git rev-parse FETCH_HEAD) == "$GITHUB_SHA" ]]
           [[ $(python3 scripts/compose-artifact.py hash) == "$EXPECTED_ARTIFACT_HASH" ]]
           if [[ $GITHUB_EVENT_NAME == workflow_dispatch ]]; then
-            [[ $APPLY_CANARY == true ]]
+            [[ $APPLY_CANARY == true || $PROMOTE_ARTIFACT_ONLY == true ]]
+            [[ $APPLY_CANARY != "$PROMOTE_ARTIFACT_ONLY" ]]
             [[ $REQUESTED_HASH == "$EXPECTED_ARTIFACT_HASH" ]]
-            [[ $CONFIRMATION == "deploy-canary:$EXPECTED_ARTIFACT_HASH" ]]
+            if [[ $PROMOTE_ARTIFACT_ONLY == true ]]; then
+              [[ $CONFIRMATION == "promote-artifact:$EXPECTED_ARTIFACT_HASH" ]]
+            else
+              [[ $CONFIRMATION == "deploy-canary:$EXPECTED_ARTIFACT_HASH" ]]
+            fi
           fi
 
       - name: Prepare the restricted apply controller
@@ -251,6 +268,7 @@ jobs:
         env:
           ARTIFACT_HASH: ${{ needs.plan.outputs.artifact_hash }}
           EXPECTED_PLAN_HASH: ${{ needs.plan.outputs.plan_hash }}
+          ARTIFACT_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.promote_artifact_only }}
         shell: bash
         run: |
           set -euo pipefail
@@ -258,7 +276,8 @@ jobs:
           ansible-playbook -i inventory/production.yml \
             playbooks/deploy-compose.yml --check --diff \
             -e "compose_artifact_hash=$ARTIFACT_HASH" \
-            -e compose_deploy_canary_only=true | tee "$replan_log"
+            -e compose_deploy_canary_only=true \
+            -e "compose_deploy_artifact_only=$ARTIFACT_ONLY" | tee "$replan_log"
           recap=$(python ../.github/scripts/parse-ansible-recap.py \
             "$replan_log" docker-host-production)
           [[ $(jq -r '.unreachable' <<<"$recap") == 0 ]]
@@ -273,6 +292,7 @@ jobs:
         working-directory: ansible
         env:
           ARTIFACT_HASH: ${{ needs.plan.outputs.artifact_hash }}
+          ARTIFACT_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.promote_artifact_only }}
         shell: bash
         run: |
           set -euo pipefail
@@ -283,6 +303,7 @@ jobs:
             playbooks/deploy-compose.yml \
             -e "compose_artifact_hash=$ARTIFACT_HASH" \
             -e compose_deploy_canary_only=true \
+            -e "compose_deploy_artifact_only=$ARTIFACT_ONLY" \
             -e compose_deploy_confirmed=true | tee "$apply_log"
           recap=$(python ../.github/scripts/parse-ansible-recap.py \
             "$apply_log" docker-host-production)
@@ -296,6 +317,7 @@ jobs:
         working-directory: ansible
         env:
           ARTIFACT_HASH: ${{ needs.plan.outputs.artifact_hash }}
+          ARTIFACT_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.promote_artifact_only }}
         shell: bash
         run: |
           set -euo pipefail
@@ -303,7 +325,8 @@ jobs:
           ansible-playbook -i inventory/production.yml \
             playbooks/deploy-compose.yml --check --diff \
             -e "compose_artifact_hash=$ARTIFACT_HASH" \
-            -e compose_deploy_canary_only=true | tee "$post_log"
+            -e compose_deploy_canary_only=true \
+            -e "compose_deploy_artifact_only=$ARTIFACT_ONLY" | tee "$post_log"
           recap=$(python ../.github/scripts/parse-ansible-recap.py \
             "$post_log" docker-host-production)
           [[ $(jq -r '.changed' <<<"$recap") == 0 ]]

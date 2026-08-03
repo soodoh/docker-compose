@@ -21,6 +21,7 @@ def normalized_compose_file(
     env_file: Path,
     compose_file: Path,
     bind_root_override: Path,
+    output_path: Path | None = None,
 ) -> Path:
     result = subprocess.run(
         [
@@ -55,6 +56,12 @@ def normalized_compose_file(
                 continue
             mount["source"] = str(bind_root_override.resolve() / relative)
 
+    content = json.dumps(model, sort_keys=True, separators=(",", ":")) + "\n"
+    if output_path is not None:
+        output_path.write_text(content, encoding="utf-8")
+        output_path.chmod(0o600)
+        return output_path
+
     with tempfile.NamedTemporaryFile(
         mode="w",
         encoding="utf-8",
@@ -63,8 +70,7 @@ def normalized_compose_file(
         dir="/run",
         delete=False,
     ) as handle:
-        json.dump(model, handle, sort_keys=True, separators=(",", ":"))
-        handle.write("\n")
+        handle.write(content)
         return Path(handle.name)
 
 
@@ -75,6 +81,7 @@ def main() -> None:
     parser.add_argument("--env-file", required=True, type=Path)
     parser.add_argument("--compose-file", required=True, type=Path)
     parser.add_argument("--bind-root-override", type=Path)
+    parser.add_argument("--normalized-output", type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
 
@@ -89,6 +96,7 @@ def main() -> None:
                 args.env_file,
                 args.compose_file,
                 args.bind_root_override,
+                args.normalized_output,
             )
             dry_run_file = normalized_file
             dry_run_project_directory = args.bind_root_override
@@ -118,7 +126,7 @@ def main() -> None:
             text=True,
         )
     finally:
-        if normalized_file is not None:
+        if normalized_file is not None and args.normalized_output is None:
             normalized_file.unlink(missing_ok=True)
     output = ANSI_PATTERN.sub("", result.stdout + result.stderr)
     actions = [
