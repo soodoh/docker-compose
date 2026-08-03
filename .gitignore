@@ -4,6 +4,8 @@ pnpm-debug.log*
 
 # misc
 .DS_Store
+__pycache__/
+*.pyc
 
 # pnpm
 pnpm-debug.log*
@@ -11,6 +13,7 @@ pnpm-debug.log*
 # local env files
 .env
 *.env
+!secrets/production.sops.env
 
 # local worktrees
 .worktrees/

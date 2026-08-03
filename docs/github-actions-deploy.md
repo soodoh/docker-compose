@@ -79,7 +79,7 @@ tag: host_files
 ```
 
 The automation allowlist is `host_files`, `base`, `maintenance`, `storage`, and `docker`. `compose`, `hardware`, `health`,
-and `management_plane` are excluded. Compose adoption remains blocked by restore, remote-backup, and health gates.
+and `management_plane` are excluded. Compose adoption remains blocked by restore, remote-backup, and separately approved cutover gates.
 Management-plane work remains a separate bootstrap procedure.
 
 ## Automatic plan

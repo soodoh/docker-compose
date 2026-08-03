@@ -212,7 +212,7 @@
       - audit_declared_volumes.stdout_lines | length == audit_expected_declared_volume_count
     fail_msg: "Phase 0 stop gate: Compose service or declared-volume counts changed."
 
-- name: Inspect known unhealthy containers without exposing configuration
+- name: Inspect required container health without exposing configuration
   ansible.builtin.command:
     argv:
       - /usr/bin/docker

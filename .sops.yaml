@@ -1,0 +1,3 @@
+creation_rules:
+  - path_regex: ^secrets/production\.sops\.env$
+    age: age1vvzm5pczjum52v5alall8euucjen9q4v9xa5g0xmswhna5vare9qwv9rq6

@@ -19,7 +19,7 @@
       - health_running_services.stdout_lines | length == audit_expected_compose_service_count
     fail_msg: "One or more adopted Compose services are not running."
 
-- name: Inspect known health blockers without exposing container configuration
+- name: Inspect required container health without exposing container configuration
   ansible.builtin.command:
     argv:
       - /usr/bin/docker
@@ -34,7 +34,7 @@
   changed_when: false
   check_mode: false
 
-- name: Assert known health blockers have not drifted
+- name: Assert required container health remains stable
   ansible.builtin.assert:
     that:
       - item.stdout == item.item.key ~ '|running|' ~ item.item.value
@@ -43,8 +43,8 @@
   loop_control:
     label: "{{ item.item.key }}"
 
-- name: Report unresolved Compose adoption blockers
+- name: Report the healthy Compose baseline
   ansible.builtin.debug:
     msg: >-
-      Gluetun and Seerr remain unhealthy. This check records current state only and does not waive the
-      Phase 8 health gate.
+      Gluetun and Seerr are healthy. This check preserves the current baseline and does not authorize
+      Compose convergence.
