@@ -116,6 +116,8 @@
       --current-root {{ compose_current_dir }}
       --candidate-hash {{ compose_artifact_hash }}
       --deployed-hash {{ compose_deploy_recorded_hash.stdout }}
+      --canary-service {{ compose_canary_service }}
+      --canary-path {{ compose_canary_path }}
       --output /run/docker-compose-deploy-plan.json
     executable: python
   become: true
@@ -148,6 +150,13 @@
     - /run/docker-compose-deploy-actions.json
     - /run/docker-compose-deploy-plan.json
 
+- name: Select changes permitted by the requested deployment lane
+  ansible.builtin.set_fact:
+    compose_deploy_effective_changes: >-
+      {{ compose_deploy_plan.has_changes and
+         (not (compose_deploy_canary_only | default(false) | ansible.builtin.bool) or
+          compose_deploy_plan.canary_eligible) }}
+
 - name: Display only the secret-free deployment plan
   ansible.builtin.debug:
     var: compose_deploy_plan
@@ -170,13 +179,13 @@
       recreate_services: "{{ compose_deploy_plan.recreate_services }}"
       image_services: "{{ compose_deploy_plan.image_services }}"
       stateful_recreate_services: "{{ compose_deploy_plan.stateful_recreate_services }}"
-  changed_when: compose_deploy_plan.has_changes
+  changed_when: compose_deploy_effective_changes
   when: ansible_check_mode
 
 - name: Deploy the exact staged Compose artifact
   when:
     - not ansible_check_mode
-    - compose_deploy_plan.has_changes
+    - compose_deploy_effective_changes
   block:
     - name: Pull only changed service images without starting containers
       ansible.builtin.command:

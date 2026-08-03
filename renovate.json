@@ -4,6 +4,10 @@
     "config:recommended",
     "group:allNonMajor"
   ],
+  "labels": [
+    "dependencies"
+  ],
+  "prConcurrentLimit": 5,
   "packageRules": [
     {
       "matchDepTypes": [
@@ -11,6 +15,31 @@
         "devDependencies"
       ],
       "rangeStrategy": "bump"
+    },
+    {
+      "description": "Keep Docker updates isolated and manually reviewed",
+      "matchDatasources": [
+        "docker"
+      ],
+      "groupName": null,
+      "separateMinorPatch": true,
+      "minimumReleaseAge": "3 days",
+      "automerge": false
+    },
+    {
+      "description": "Mark the sole stateless Compose deployment canary",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/flaresolverr/flaresolverr"
+      ],
+      "labels": [
+        "dependencies",
+        "compose-canary"
+      ],
+      "minimumReleaseAge": "7 days",
+      "automerge": false
     },
     {
       "matchDatasources": [
