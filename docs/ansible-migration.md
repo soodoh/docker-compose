@@ -28,7 +28,7 @@ Read-only inspection on 2026-07-30 historically confirmed:
 - Docker package/client is `29.6.2`; the running daemon reports `29.6.1`.
 - Docker Compose is `5.3.1` and `docker compose config --quiet` succeeds.
 - Docker, cronie, and sshd are enabled and active. Tailscale is absent.
-- All 41 declared Compose services are running; Gluetun and Seerr remain unhealthy.
+- At that historical observation, all 41 declared Compose services were running while Gluetun and Seerr remained unhealthy; both are healthy in the current baseline.
 - Compose declares 30 volumes. The Docker project owns 33 named volumes when the three legacy volumes are
   included.
 - `happier-data`, `nzbget-data`, and `nzbhydra2-data` exist under their `docker-compose_` engine names.
@@ -106,7 +106,7 @@ bootstrap command and reported that the audit completed with `changed=0`.
   It asserts the adopted aligned client/server version and refuses drift.
 - `compose` performs only config, count, legacy-volume, and dry-run-create preflight checks. It never runs Compose
   up/down/pull/restart, removes orphans, or changes volumes.
-- `health` verifies 41 services remain running and reports Gluetun and Seerr as unresolved blockers.
+- `health` verifies 41 services remain running and requires Gluetun and Seerr to remain healthy.
 
 Package, service, and copy tasks elevate only during a separately guarded normal run; check mode is unprivileged.
 Run the complete Phase 3 plan with:
@@ -174,8 +174,8 @@ remote retention, or application consistency.
 4. **Phase 6:** after all apply blockers and fresh approval, converge one approved tag at a time in the order `host_files`,
    `base`, `maintenance`, `storage`, `docker`, with exact-plan review, protected-environment approval, guarded apply,
    second zero-change check, and runtime re-audit for each.
-5. **Phases 7-8:** retain this Compose directory and host-only `.env`; resolve or waive health blockers before a
-   canary and stateful-last Compose adoption. Never pull automatically or remove orphans.
+5. **Phases 7-8:** retain this Compose directory and host-only `.env`; revalidate the healthy Gluetun and Seerr
+   baseline before a canary and stateful-last Compose adoption. Never pull automatically or remove orphans.
 6. **Phase 9:** consider broader protected-main infrastructure automation only after host convergence. The staged Phase 6
    pipeline does not authorize Compose adoption, OpenTofu apply, management-plane changes, or removal of human approval.
 
