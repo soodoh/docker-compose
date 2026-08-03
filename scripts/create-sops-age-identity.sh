@@ -9,7 +9,7 @@ fi
 readonly IDENTITY_DIR=/etc/sops/age
 readonly IDENTITY_FILE="$IDENTITY_DIR/keys.txt"
 readonly RECOVERY_CIPHERTEXT=/home/docker/sops-age-recovery.txt.gpg
-readonly RECOVERY_PUBLIC_KEY=/home/docker/Projects/docker-compose/services/data/backup-gpg-public.asc
+readonly RECOVERY_PUBLIC_KEY=/srv/docker-compose/current/services/data/backup-gpg-public.asc
 readonly RECOVERY_GPG_FINGERPRINT=5B14A67EC89DBA1F4C0FEE7CA678E17443DBD7A4
 
 for tool in /usr/local/bin/age-keygen /usr/bin/gpg /usr/bin/install; do

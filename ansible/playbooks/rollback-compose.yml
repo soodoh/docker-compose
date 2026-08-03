@@ -1,5 +1,5 @@
 ---
-- name: Perform the separately approved initial Compose rollback
+- name: Perform the separately approved previous-artifact Compose rollback
   hosts: docker_host
   gather_facts: true
   any_errors_fatal: true

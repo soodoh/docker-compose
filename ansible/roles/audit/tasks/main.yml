@@ -43,11 +43,12 @@
   loop_control:
     label: "{{ item.key }}"
 
-- name: Inspect the host-only Compose environment file metadata
+- name: Inspect the active root-only Compose environment metadata
   ansible.builtin.stat:
-    path: "{{ audit_env_path }}"
+    path: "{{ compose_runtime_env_path }}"
     get_checksum: false
     get_mime: false
+  become: true
   register: audit_env_stat
 
 - name: Inspect the protected home directory metadata
@@ -57,18 +58,19 @@
     get_mime: false
   register: audit_home_stat
 
-- name: Assert environment-file containment matches the adopted baseline
+- name: Assert active environment-file protection matches the adopted baseline
   ansible.builtin.assert:
     that:
       - audit_env_stat.stat.exists
       - audit_env_stat.stat.isreg
-      - audit_env_stat.stat.mode == '0644'
-      - audit_env_stat.stat.pw_name == 'docker'
-      - audit_env_stat.stat.gr_name == 'docker'
+      - audit_env_stat.stat.mode == '0600'
+      - audit_env_stat.stat.pw_name == 'root'
+      - audit_env_stat.stat.gr_name == 'root'
       - audit_home_stat.stat.isdir
       - audit_home_stat.stat.mode == '0700'
     fail_msg: >-
-      Phase 0 stop gate: .env metadata or its containing home directory changed. Contents were not read.
+      Phase 0 stop gate: active production environment metadata or the protected home directory changed.
+      Contents were not read.
 
 - name: Verify exact adopted fstab entries without changing mounts
   ansible.builtin.command:
@@ -142,63 +144,46 @@
     fail_msg: >-
       Docker client, daemon, or Compose version differs from the adopted post-reboot baseline.
 
-- name: Validate the resolved Compose model without displaying it
+- name: Validate the active resolved Compose model without displaying it
   ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - config
-      - --quiet
-    chdir: "{{ audit_compose_project_dir }}"
+    argv: "{{ compose_runtime_cli + ['config', '--quiet'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
   changed_when: false
   check_mode: false
 
-- name: List declared Compose services
+- name: List declared services from the active Compose artifact
   ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - config
-      - --services
-    chdir: "{{ audit_compose_project_dir }}"
+    argv: "{{ compose_runtime_cli + ['config', '--services'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
   register: audit_declared_services
   changed_when: false
   check_mode: false
 
-- name: List declared Compose volumes
+- name: List declared volumes from the active Compose artifact
   ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - config
-      - --volumes
-    chdir: "{{ audit_compose_project_dir }}"
+    argv: "{{ compose_runtime_cli + ['config', '--volumes'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
   register: audit_declared_volumes
   changed_when: false
   check_mode: false
 
-- name: List running Compose services
+- name: List running services from the active Compose project
   ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - ps
-      - --status
-      - running
-      - --services
-    chdir: "{{ audit_compose_project_dir }}"
+    argv: "{{ compose_runtime_cli + ['ps', '--status', 'running', '--services'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
   register: audit_running_services
   changed_when: false
   check_mode: false
 
-- name: List Compose container identifiers
+- name: List active Compose container identifiers
   ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - ps
-      - --quiet
-    chdir: "{{ audit_compose_project_dir }}"
+    argv: "{{ compose_runtime_cli + ['ps', '--quiet'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
   register: audit_container_ids
   changed_when: false
   check_mode: false
@@ -440,14 +425,10 @@
       Phase 0 stop gate: no encrypted local backup was found. Restore drilling and remote-backup
       verification remain manual requirements.
 
-- name: Simulate Compose create without builds, pulls, or changes
+- name: Simulate active Compose create without builds, pulls, or changes
   ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - --dry-run
-      - create
-      - --no-build
-    chdir: "{{ audit_compose_project_dir }}"
+    argv: "{{ compose_runtime_cli + ['--dry-run', 'create', '--no-build', '--pull', 'never'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
   changed_when: false
   check_mode: false

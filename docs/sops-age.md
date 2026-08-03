@@ -2,7 +2,7 @@
 
 ## Status
 
-The foundation is installed and verified but is not active for Compose. The existing `/home/docker/Projects/docker-compose/.env` remains byte-for-byte unchanged and is still the runtime input.
+The foundation is active for Compose. GitHub Actions stages the exact encrypted repository artifact, and the host decrypts it with `/etc/sops/age/keys.txt` into root-owned `/etc/docker-compose/production.env`; the legacy checkout `.env` is not a runtime input.
 
 The repository contains only:
 
@@ -45,12 +45,12 @@ The private identity was encrypted to the existing backup GPG recipient before t
 
 ## Encryption and exact reconstruction
 
-SOPS dotenv encryption preserves all variable names, values, comments, and ordering, but SOPS 3.13.3 removes blank lines. The source has 20 blank lines. To satisfy byte-for-byte recovery without changing the active `.env`:
+SOPS dotenv encryption preserves all variable names, values, comments, and ordering, but SOPS 3.13.3 removes blank lines. The original source had 20 blank lines. Exact reconstruction was proved before activation:
 
 1. `scripts/extract-dotenv-keys.py` records sorted names and non-secret blank-line positions.
 2. SOPS encrypts the source as dotenv using the single `.sops.yaml` creation rule.
 3. `scripts/restore-dotenv-layout.py` deterministically restores those blank lines after decryption.
-4. Root-only verification decrypts into a mode `0700` temporary directory, reconstructs the layout, and uses `cmp --silent` against the source.
+4. Root-only verification decrypted into a mode `0700` temporary directory, reconstructed the layout, and used `cmp --silent` against the migration source.
 
 The final verification reported:
 
@@ -60,7 +60,7 @@ source_byte_match=pass
 variable_name_sets=pass count=90
 ```
 
-The active `.env` checksum and metadata were unchanged by encryption.
+The migrated source checksum and metadata were unchanged during encryption. Production now uses only the root-owned reconstructed environment.
 
 ## Secret-free CI
 
@@ -78,5 +78,5 @@ The active `.env` checksum and metadata were unchanged by encryption.
 - Do not use `SOPS_AGE_KEY`, which would place the private identity in an environment value.
 - Host decryption must use `SOPS_AGE_KEY_FILE=/etc/sops/age/keys.txt` with Ansible `no_log: true` and a root-only temporary file.
 - Never print `sops decrypt` output or resolved Compose configuration.
-- Do not delete or modify the existing `.env` until the separately staged deployment-root cutover passes.
+- Treat `/etc/docker-compose/production.env` and `/etc/docker-compose/previous.env` as root-only runtime and rollback inputs; never print or copy their contents.
 - Do not copy the production identity into GitHub secrets, workflow files, artifacts, or summaries.

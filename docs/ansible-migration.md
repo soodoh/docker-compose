@@ -109,10 +109,10 @@ bootstrap command and reported that the audit completed with `changed=0`.
 - `health` verifies 41 services remain running and requires Gluetun and Seerr to remain healthy.
 
 Package, service, and copy tasks elevate only during a separately guarded normal run; check mode is unprivileged.
-Run the complete Phase 3 plan with:
+Run the complete plan from any trusted controller clone:
 
 ```sh
-cd /home/docker/Projects/docker-compose/ansible
+cd <repository-clone>/ansible
 ansible-playbook --syntax-check playbooks/site.yml
 ansible-playbook playbooks/site.yml --check --diff
 ```

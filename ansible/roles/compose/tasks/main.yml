@@ -1,35 +1,26 @@
 ---
-- name: Validate Compose without displaying resolved configuration
+- name: Validate the active Compose artifact without displaying resolved configuration
   ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - config
-      - --quiet
-    chdir: "{{ audit_compose_project_dir }}"
+    argv: "{{ compose_runtime_cli + ['config', '--quiet'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
   changed_when: false
   check_mode: false
 
-- name: List declared Compose services
+- name: List declared Compose services from the active artifact
   ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - config
-      - --services
-    chdir: "{{ audit_compose_project_dir }}"
+    argv: "{{ compose_runtime_cli + ['config', '--services'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
   register: compose_declared_services
   changed_when: false
   check_mode: false
 
-- name: List declared Compose volumes
+- name: List declared Compose volumes from the active artifact
   ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - config
-      - --volumes
-    chdir: "{{ audit_compose_project_dir }}"
+    argv: "{{ compose_runtime_cli + ['config', '--volumes'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
   register: compose_declared_volumes
   changed_when: false
   check_mode: false
@@ -54,14 +45,10 @@
   changed_when: false
   check_mode: false
 
-- name: Simulate Compose create without builds, pulls, orphan removal, or changes
+- name: Simulate active Compose create without builds, pulls, orphan removal, or changes
   ansible.builtin.command:
-    argv:
-      - /usr/bin/docker
-      - compose
-      - --dry-run
-      - create
-      - --no-build
-    chdir: "{{ audit_compose_project_dir }}"
+    argv: "{{ compose_runtime_cli + ['--dry-run', 'create', '--no-build', '--pull', 'never'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
   changed_when: false
   check_mode: false

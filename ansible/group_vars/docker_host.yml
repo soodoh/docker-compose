@@ -1,7 +1,5 @@
 ---
 audit_baseline_observed_at: "2026-07-31T14:45:10-07:00"
-audit_compose_project_dir: /home/docker/Projects/docker-compose
-audit_env_path: "{{ audit_compose_project_dir }}/.env"
 audit_home_dir: /home/docker
 
 audit_expected_distribution: Archlinux
@@ -58,27 +56,21 @@ compose_staged_env_path: "{{ compose_staged_env_root }}/{{ compose_artifact_hash
 compose_previous_env_path: /etc/docker-compose/previous.env
 compose_age_identity_path: /etc/sops/age/keys.txt
 compose_deployed_hash_path: /var/lib/docker-compose/deployed.sha256
+compose_runtime_cli:
+  - /usr/bin/docker
+  - compose
+  - --project-name
+  - "{{ compose_project_name }}"
+  - --project-directory
+  - "{{ compose_current_dir }}"
+  - --env-file
+  - "{{ compose_runtime_env_path }}"
+  - --file
+  - "{{ compose_current_dir }}/docker-compose.yml"
 compose_staged_inventory_path: /var/lib/docker-compose/staged-model.json
 compose_runtime_inventory_path: /var/lib/docker-compose/runtime-model.json
 compose_canary_service: flaresolverr
 compose_canary_path: services/servarr.yml
-compose_initial_recreate_services:
-  - bookshelf
-  - caddy
-  - caro-tachidesk
-  - daily-local-backup
-  - flaresolverr
-  - gluetun
-  - litellm
-  - prowlarr
-  - qbittorrent
-  - radarr
-  - radarr-4k
-  - sabnzbd
-  - seerr
-  - sonarr
-  - tachidesk
-  - weekly-remote-backup
 
 audit_expected_declared_volume_count: 30
 audit_expected_compose_project_volume_count: 33
@@ -123,19 +115,19 @@ audit_expected_devices:
   - /dev/uinput
 
 audit_wolf_file_pairs:
-  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/wolf-input.conf"
+  - tracked: "{{ compose_current_dir }}/services/data/wolf/wolf-input.conf"
     host: /etc/modules-load.d/wolf-input.conf
-  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/85-wolf-virtual-inputs.rules"
+  - tracked: "{{ compose_current_dir }}/services/data/wolf/85-wolf-virtual-inputs.rules"
     host: /etc/udev/rules.d/85-wolf-virtual-inputs.rules
-  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/waybar-disabled"
+  - tracked: "{{ compose_current_dir }}/services/data/wolf/waybar-disabled"
     host: /mnt/games/wolf/cfg/waybar-disabled
-  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/sway-borderless-frontends.conf"
+  - tracked: "{{ compose_current_dir }}/services/data/wolf/sway-borderless-frontends.conf"
     host: /mnt/games/wolf/cfg/sway-borderless-frontends.conf
-  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/es-de/es_systems.xml"
+  - tracked: "{{ compose_current_dir }}/services/data/wolf/es-de/es_systems.xml"
     host: /mnt/games/wolf/cfg/es-de/es_systems.xml
-  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/es-de/wolf-xbox-one.cfg"
+  - tracked: "{{ compose_current_dir }}/services/data/wolf/es-de/wolf-xbox-one.cfg"
     host: /mnt/games/wolf/cfg/es-de/wolf-xbox-one.cfg
-  - tracked: "{{ audit_compose_project_dir }}/services/data/wolf/es-de/dolphin-config.sh"
+  - tracked: "{{ compose_current_dir }}/services/data/wolf/es-de/dolphin-config.sh"
     host: "/mnt/games/roms/dolphin-config/Configure Dolphin.sh"
 
 audit_expected_dkms_kernel: 7.1.5-arch1-2

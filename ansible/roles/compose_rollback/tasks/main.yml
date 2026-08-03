@@ -1,14 +1,16 @@
 ---
-- name: Validate the initial Compose rollback contract
+- name: Validate the previous-artifact rollback contract
   ansible.builtin.assert:
     that:
       - compose_artifact_hash is match('^[0-9a-f]{64}$')
+      - compose_rollback_target_hash is match('^[0-9a-f]{64}$')
+      - compose_artifact_hash != compose_rollback_target_hash
       - ansible_check_mode or (compose_rollback_confirmed | default(false) | ansible.builtin.bool)
     fail_msg: >-
-      Initial Compose rollback requires the deployed artifact hash and compose_rollback_confirmed=true
-      outside check mode.
+      Compose rollback requires distinct current and previous artifact hashes and
+      compose_rollback_confirmed=true outside check mode.
 
-- name: Inspect rollback inputs
+- name: Inspect current and previous deployment inputs
   ansible.builtin.stat:
     path: "{{ item }}"
     get_checksum: false
@@ -18,19 +20,40 @@
   loop:
     - "{{ compose_current_dir }}"
     - "{{ compose_runtime_env_path }}"
-    - "{{ audit_compose_project_dir }}/docker-compose.yml"
-    - "{{ audit_env_path }}"
+    - "{{ compose_previous_dir }}"
+    - "{{ compose_previous_env_path }}"
     - "{{ compose_deployed_hash_path }}"
 
-- name: Require both current and untouched legacy rollback inputs
+- name: Require complete root-owned current and previous inputs
   ansible.builtin.assert:
     that:
       - compose_rollback_paths.results[0].stat.isdir | default(false)
       - compose_rollback_paths.results[1].stat.isreg | default(false)
-      - compose_rollback_paths.results[2].stat.isreg | default(false)
+      - compose_rollback_paths.results[1].stat.pw_name == 'root'
+      - compose_rollback_paths.results[1].stat.mode == '0600'
+      - compose_rollback_paths.results[2].stat.isdir | default(false)
       - compose_rollback_paths.results[3].stat.isreg | default(false)
+      - compose_rollback_paths.results[3].stat.pw_name == 'root'
+      - compose_rollback_paths.results[3].stat.mode == '0600'
       - compose_rollback_paths.results[4].stat.isreg | default(false)
-    fail_msg: "Current deployment or untouched initial legacy rollback inputs are missing."
+    fail_msg: "Current or previous rollback input is missing or incorrectly protected."
+
+- name: Recompute current and previous artifact identities
+  ansible.builtin.command:
+    argv:
+      - python
+      - "{{ item }}/scripts/compose-artifact.py"
+      - --root
+      - "{{ item }}"
+      - --no-git
+      - hash
+  become: true
+  register: compose_rollback_artifact_hashes
+  changed_when: false
+  check_mode: false
+  loop:
+    - "{{ compose_current_dir }}"
+    - "{{ compose_previous_dir }}"
 
 - name: Read the deployed artifact identity without displaying it
   ansible.builtin.command:
@@ -43,14 +66,43 @@
   check_mode: false
   no_log: true
 
-- name: Require the exact deployed artifact selected for rollback
+- name: Require exact current and previous artifact identities
   ansible.builtin.assert:
     that:
+      - compose_rollback_artifact_hashes.results[0].stdout == compose_artifact_hash
+      - compose_rollback_artifact_hashes.results[1].stdout == compose_rollback_target_hash
       - compose_rollback_deployed_hash.stdout == compose_artifact_hash
-    fail_msg: "Deployed artifact identity differs from the separately reviewed rollback hash."
+    fail_msg: "Current, previous, or recorded artifact identity differs from the reviewed rollback."
   no_log: true
 
-- name: Remove any stale pre-rollback action plan
+- name: List current and previous declared services without displaying configuration
+  ansible.builtin.command:
+    argv: >-
+      {{ ['/usr/bin/docker', 'compose', '--project-name', compose_project_name,
+          '--project-directory', item.root, '--env-file', item.env,
+          '--file', item.root ~ '/docker-compose.yml', 'config', '--services'] }}
+  become: true
+  environment:
+    HOME: "{{ compose_home_dir }}"
+  register: compose_rollback_service_sets
+  changed_when: false
+  check_mode: false
+  loop:
+    - root: "{{ compose_current_dir }}"
+      env: "{{ compose_runtime_env_path }}"
+    - root: "{{ compose_previous_dir }}"
+      env: "{{ compose_previous_env_path }}"
+  no_log: true
+
+- name: Require rollback to preserve the complete service set
+  ansible.builtin.assert:
+    that:
+      - compose_rollback_service_sets.results[0].stdout_lines | sort == compose_rollback_service_sets.results[1].stdout_lines | sort
+      - compose_rollback_service_sets.results[0].stdout_lines | length == audit_expected_compose_service_count
+    fail_msg: "Previous artifact changes the adopted Compose service set."
+  no_log: true
+
+- name: Remove any stale root-only rollback plan
   ansible.builtin.file:
     path: /run/docker-compose-rollback-plan.json
     state: absent
@@ -58,14 +110,15 @@
   changed_when: false
   no_log: true
 
-- name: Produce the root-only pre-rollback action plan
+- name: Produce the root-only previous-artifact action plan
   ansible.builtin.script:
     cmd: >-
       {{ role_path }}/../../../scripts/compose-action-plan.py
       --project-name {{ compose_project_name }}
-      --project-directory {{ audit_compose_project_dir }}
-      --env-file {{ audit_env_path }}
-      --compose-file {{ audit_compose_project_dir }}/docker-compose.yml
+      --project-directory {{ compose_previous_dir }}
+      --env-file {{ compose_previous_env_path }}
+      --compose-file {{ compose_previous_dir }}/docker-compose.yml
+      --bind-root-override {{ compose_current_dir }}
       --output /run/docker-compose-rollback-plan.json
     executable: python
   become: true
@@ -75,7 +128,7 @@
   check_mode: false
   no_log: true
 
-- name: Read the root-only pre-rollback action plan
+- name: Read the root-only previous-artifact action plan
   ansible.builtin.slurp:
     src: /run/docker-compose-rollback-plan.json
   become: true
@@ -84,16 +137,12 @@
   check_mode: false
   no_log: true
 
-- name: Parse the secret-free pre-rollback action plan
+- name: Parse the secret-free rollback plan
   ansible.builtin.set_fact:
     compose_rollback_plan: "{{ compose_rollback_plan_file.content | b64decode | from_json }}"
-    compose_rollback_recreate_services: >-
-      {{ (compose_rollback_plan_file.content | b64decode | from_json).recreate_services }}
-    compose_rollback_forbidden_action_lines: >-
-      {{ (compose_rollback_plan_file.content | b64decode | from_json).forbidden_actions }}
   no_log: true
 
-- name: Remove the root-only pre-rollback action plan
+- name: Remove the root-only rollback plan
   ansible.builtin.file:
     path: /run/docker-compose-rollback-plan.json
     state: absent
@@ -101,63 +150,88 @@
   changed_when: false
   no_log: true
 
-- name: Report the secret-free proposed rollback recreation set
-  ansible.builtin.debug:
-    msg:
-      recreation_services: "{{ compose_rollback_recreate_services }}"
-      forbidden_action_count: "{{ compose_rollback_forbidden_action_lines | length }}"
+- name: Build the deterministic secret-free rollback identity
+  ansible.builtin.set_fact:
+    compose_rollback_plan_identity:
+      current_hash: "{{ compose_artifact_hash }}"
+      target_hash: "{{ compose_rollback_target_hash }}"
+      recreate_services: "{{ compose_rollback_plan.recreate_services | sort }}"
+      forbidden_actions: "{{ compose_rollback_plan.forbidden_actions }}"
+  no_log: true
 
-- name: Require only the reviewed rollback recreation set
+- name: Display only the secret-free rollback plan
+  ansible.builtin.debug:
+    var: compose_rollback_plan_identity
+
+- name: Report the deterministic secret-free rollback plan identity
+  ansible.builtin.debug:
+    msg: >-
+      compose_rollback_plan_sha256={{ (compose_rollback_plan_identity | to_json) | hash('sha256') }}
+
+- name: Require rollback without create or removal actions
   ansible.builtin.assert:
     that:
-      - compose_rollback_recreate_services == compose_initial_recreate_services | sort
-      - compose_rollback_forbidden_action_lines | length == 0
-    fail_msg: "Rollback dry run differs from the reviewed recreation set or proposes create/removal."
+      - compose_rollback_plan.forbidden_actions | length == 0
+    fail_msg: "Previous-artifact rollback proposes a create or removal action."
   no_log: true
 
 - name: Report the check-mode rollback boundary
   ansible.builtin.debug:
     msg:
-      deployed_artifact_hash: "{{ compose_artifact_hash }}"
-      recreation_count: "{{ compose_rollback_recreate_services | length }}"
-      rollback_project: "{{ audit_compose_project_dir }}"
+      current_artifact_hash: "{{ compose_artifact_hash }}"
+      target_artifact_hash: "{{ compose_rollback_target_hash }}"
+      recreation_services: "{{ compose_rollback_plan.recreate_services | sort }}"
   changed_when: true
   when: ansible_check_mode
 
-- name: Re-converge the untouched legacy project
+- name: Activate the exact reviewed previous deployment
   when: not ansible_check_mode
   block:
-    - name: Converge the legacy project without pulls, builds, removals, or orphan removal
+    - name: Swap current and previous artifacts and environments before Docker convergence
+      ansible.builtin.script:
+        cmd: >-
+          {{ role_path }}/../../../scripts/swap-compose-deployment.py
+          --current-dir {{ compose_current_dir }}
+          --previous-dir {{ compose_previous_dir }}
+          --current-env {{ compose_runtime_env_path }}
+          --previous-env {{ compose_previous_env_path }}
+        executable: python
+      become: true
+      no_log: true
+
+    - name: Require the activated artifact identity before Docker convergence
       ansible.builtin.command:
         argv:
-          - /usr/bin/docker
-          - compose
-          - --project-name
-          - "{{ compose_project_name }}"
-          - --project-directory
-          - "{{ audit_compose_project_dir }}"
-          - --env-file
-          - "{{ audit_env_path }}"
-          - --file
-          - "{{ audit_compose_project_dir }}/docker-compose.yml"
-          - up
-          - --detach
-          - --no-build
-          - --pull
-          - never
+          - python
+          - "{{ compose_current_dir }}/scripts/compose-artifact.py"
+          - --root
+          - "{{ compose_current_dir }}"
+          - --no-git
+          - hash
+      become: true
+      register: compose_rollback_activated_hash
+      changed_when: false
+      failed_when: compose_rollback_activated_hash.stdout != compose_rollback_target_hash
+
+    - name: Recreate only the reviewed rollback services without pulls or builds
+      ansible.builtin.command:
+        argv: >-
+          {{ compose_runtime_cli + ['up', '--detach', '--no-build', '--pull', 'never', '--no-deps']
+             + (compose_rollback_plan.recreate_services | sort) }}
       become: true
       environment:
         HOME: "{{ compose_home_dir }}"
       no_log: true
+      when: compose_rollback_plan.recreate_services | length > 0
 
     - name: Produce the root-only post-rollback action plan
       ansible.builtin.script:
         cmd: >-
           {{ role_path }}/../../../scripts/compose-action-plan.py
           --project-name {{ compose_project_name }}
-          --project-directory {{ audit_compose_project_dir }}
-          --env-file {{ audit_env_path }}
-          --compose-file {{ audit_compose_project_dir }}/docker-compose.yml
+          --project-directory {{ compose_current_dir }}
+          --env-file {{ compose_runtime_env_path }}
+          --compose-file {{ compose_current_dir }}/docker-compose.yml
           --output /run/docker-compose-rollback-post-plan.json
         executable: python
       become: true
@@ -176,8 +250,7 @@
 
     - name: Parse the secret-free post-rollback action plan
       ansible.builtin.set_fact:
-        compose_rollback_post_plan: >-
-          {{ compose_rollback_post_plan_file.content | b64decode | from_json }}
+        compose_rollback_post_plan: "{{ compose_rollback_post_plan_file.content | b64decode | from_json }}"
       no_log: true
 
     - name: Remove the root-only post-rollback action plan
@@ -188,16 +261,19 @@
       changed_when: false
       no_log: true
 
-    - name: Require an idempotent post-rollback dry run
+    - name: Require an idempotent post-rollback action plan
       ansible.builtin.assert:
         that:
           - compose_rollback_post_plan.recreate_services | length == 0
           - compose_rollback_post_plan.forbidden_actions | length == 0
-        fail_msg: "Post-rollback dry run still proposes container convergence."
+        fail_msg: "Post-rollback Compose plan still proposes container convergence."
       no_log: true
 
-    - name: Remove the active stable-deployment identity after rollback
-      ansible.builtin.file:
-        path: "{{ compose_deployed_hash_path }}"
-        state: absent
+    - name: Record the activated artifact identity atomically
+      ansible.builtin.copy:
+        content: "{{ compose_rollback_target_hash }}\n"
+        dest: "{{ compose_deployed_hash_path }}"
+        owner: root
+        group: root
+        mode: "0600"
       become: true

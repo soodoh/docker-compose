@@ -82,10 +82,10 @@ Official references:
 
 ## Check-mode plan
 
-This command is read-only and does not require an auth key:
+These commands are read-only, require no auth key, and may run from any trusted controller clone:
 
 ```sh
-cd /home/docker/Projects/docker-compose/ansible
+cd <repository-clone>/ansible
 ansible-playbook --syntax-check playbooks/bootstrap.yml
 ansible-playbook playbooks/bootstrap.yml --check --diff --tags management_plane
 ```
