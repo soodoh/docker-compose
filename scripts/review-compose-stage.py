@@ -157,6 +157,7 @@ def main() -> None:
         "network_mode",
         "networks",
         "healthcheck_sha256",
+        "healthcheck_fields_sha256",
     )
     differences = {
         field: service_differences(desired_services, runtime_services, field)
