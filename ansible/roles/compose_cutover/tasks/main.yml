@@ -101,13 +101,11 @@
 - name: Extract the exact proposed recreation set
   ansible.builtin.set_fact:
     compose_cutover_recreate_services: >-
-      {{ ((compose_cutover_dry_run.stdout_lines + compose_cutover_dry_run.stderr_lines)
-          | select('search', ' Container [a-z0-9-]+ Recreate\\s*$')
-          | map('regex_replace', '^.* Container ([a-z0-9-]+) Recreate\\s*$', '\\1')
-          | unique | sort) }}
+      {{ ((compose_cutover_dry_run.stdout ~ '\n' ~ compose_cutover_dry_run.stderr)
+          | regex_findall('Container\\s+([a-z0-9-]+)\\s+Recreate') | unique | sort) }}
     compose_cutover_forbidden_action_lines: >-
-      {{ ((compose_cutover_dry_run.stdout_lines + compose_cutover_dry_run.stderr_lines)
-          | select('search', ' Container .* (Creating|Removing|Removed)\\s*$') | list) }}
+      {{ ((compose_cutover_dry_run.stdout ~ '\n' ~ compose_cutover_dry_run.stderr)
+          | regex_findall('Container\\s+[a-z0-9-]+\\s+(?:Creating|Removing|Removed)')) }}
   no_log: true
 
 - name: Report the secret-free proposed recreation set
