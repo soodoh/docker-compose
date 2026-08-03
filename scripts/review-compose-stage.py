@@ -34,6 +34,14 @@ def environment_entries(path: Path) -> tuple[list[str], list[str]]:
     return keys, values
 
 
+def write_report(path: Path, report: dict[str, object]) -> None:
+    path.write_text(
+        json.dumps(report, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+    path.chmod(0o600)
+
+
 def service_differences(
     desired_services: dict[str, object], runtime_services: dict[str, object], field: str
 ) -> dict[str, object]:
@@ -61,6 +69,7 @@ def main() -> None:
     parser.add_argument("--project-directory", required=True, type=Path)
     parser.add_argument("--env-file", required=True, type=Path)
     parser.add_argument("--project-name", default="docker-compose")
+    parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
 
     desired = load_json(args.desired)
@@ -100,25 +109,25 @@ def main() -> None:
     )
     dry_run_output = ANSI_PATTERN.sub("", dry_run.stdout + dry_run.stderr)
     env_keys, env_values = environment_entries(args.env_file)
-    matched_key_count = sum(key in dry_run_output for key in env_keys)
+    matched_key_count = sum(
+        re.search(rf"(?<![A-Za-z0-9_]){re.escape(key)}\\s*=", dry_run_output) is not None
+        for key in env_keys
+    )
     matched_long_value_count = sum(
         len(value) >= 12 and value in dry_run_output for value in env_values
     )
     dry_run_lines = [line for line in dry_run_output.splitlines() if line]
     if matched_key_count or matched_long_value_count:
-        print(
-            json.dumps(
-                {
-                    "status": "blocked",
-                    "reason": "environment_material_guard",
-                    "matched_key_count": matched_key_count,
-                    "matched_long_value_count": matched_long_value_count,
-                    "dry_run_line_count": len(dry_run_lines),
-                    "dry_run_sha256": hashlib.sha256(dry_run_output.encode()).hexdigest(),
-                },
-                sort_keys=True,
-                separators=(",", ":"),
-            )
+        write_report(
+            args.output,
+            {
+                "status": "blocked",
+                "reason": "environment_material_guard",
+                "matched_key_count": matched_key_count,
+                "matched_long_value_count": matched_long_value_count,
+                "dry_run_line_count": len(dry_run_lines),
+                "dry_run_sha256": hashlib.sha256(dry_run_output.encode()).hexdigest(),
+            },
         )
         return
 
@@ -159,7 +168,7 @@ def main() -> None:
             "lines": dry_run_lines,
         },
     }
-    print(json.dumps(report, sort_keys=True, separators=(",", ":")))
+    write_report(args.output, report)
 
 
 if __name__ == "__main__":
