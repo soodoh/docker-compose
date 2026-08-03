@@ -80,13 +80,19 @@
   ansible.builtin.set_fact:
     compose_rollback_recreate_services: >-
       {{ ((compose_rollback_dry_run.stdout_lines + compose_rollback_dry_run.stderr_lines)
-          | select('search', ' Container [a-z0-9-]+ Recreate $')
-          | map('regex_replace', '^.* Container ([a-z0-9-]+) Recreate $', '\\1')
+          | select('search', ' Container [a-z0-9-]+ Recreate\\s*$')
+          | map('regex_replace', '^.* Container ([a-z0-9-]+) Recreate\\s*$', '\\1')
           | unique | sort) }}
     compose_rollback_forbidden_action_lines: >-
       {{ ((compose_rollback_dry_run.stdout_lines + compose_rollback_dry_run.stderr_lines)
-          | select('search', ' Container .* (Creating|Removing|Removed) $') | list) }}
+          | select('search', ' Container .* (Creating|Removing|Removed)\\s*$') | list) }}
   no_log: true
+
+- name: Report the secret-free proposed rollback recreation set
+  ansible.builtin.debug:
+    msg:
+      recreation_services: "{{ compose_rollback_recreate_services }}"
+      forbidden_action_count: "{{ compose_rollback_forbidden_action_lines | length }}"
 
 - name: Require only the reviewed rollback recreation set
   ansible.builtin.assert:
