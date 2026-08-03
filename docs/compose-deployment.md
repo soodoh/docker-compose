@@ -47,6 +47,14 @@ The existing `/home/docker/Projects/docker-compose` checkout and `.env` remain u
 
 This workflow does not run Compose pull, build, create, up, restart, removal, orphan removal, or volume operations. The normal staging execution is separately confirmation-gated even after entering the protected apply environment.
 
+### Completed staging evidence
+
+Manual run [`30850160213`](https://github.com/soodoh/docker-compose/actions/runs/30850160213) staged and reviewed artifact `533ed4a14fce8a811a41ff0a3fe5e6b182fe485f965499d80d8f0c27cf79b357`. Its post-stage check reported `ok=5 changed=0 unreachable=0 failed=0`, the guarded model review reported `ok=7 changed=0 unreachable=0 failed=0`, and the complete audit reported `ok=45 changed=0 unreachable=0 failed=0` with all 41 containers still running.
+
+The normalized model has identical service names, images, ports, volumes, devices, network modes, and network memberships. Five intentional bind-source changes remain for the stable-root migration: Caddy, Gluetun, LiteLLM, and the two backup services. The backup SSH source was explicitly preserved as `/home/docker/.ssh`; the two backup environment mounts change from the untouched checkout `.env` to the byte-verified root-only production environment file.
+
+The exact no-pull/no-build dry run schedules recreation of those five services plus the eleven services sharing Gluetun's network namespace. It schedules no creates, removals, or volume operations. Ten health-check identity differences remain visible as hashed diagnostics; nine do not schedule any Compose action, while Gluetun is already accounted for by its bind-source migration. Nothing in this evidence authorizes the cutover.
+
 ## Secret-free model evidence
 
 `scripts/compose-model-inventory.py` captures resolved Compose JSON and Docker inspection data only in process memory, then emits a restricted model containing:
