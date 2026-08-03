@@ -95,6 +95,7 @@
       --project-directory {{ compose_staging_root }}/{{ compose_artifact_hash }}
       --env-file {{ compose_staged_env_path }}
       --compose-file {{ compose_staging_root }}/{{ compose_artifact_hash }}/docker-compose.yml
+      --bind-root-override {{ compose_current_dir }}
       --output /run/docker-compose-deploy-actions.json
     executable: python
   become: true
