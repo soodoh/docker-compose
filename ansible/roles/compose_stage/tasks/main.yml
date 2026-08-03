@@ -1,0 +1,313 @@
+---
+- name: Validate the Compose staging contract
+  ansible.builtin.assert:
+    that:
+      - compose_artifact_hash is match('^[0-9a-f]{64}$')
+      - compose_artifact_controller_dir | length > 0
+      - ansible_check_mode or (compose_stage_confirmed | default(false) | ansible.builtin.bool)
+    fail_msg: >-
+      Compose staging requires a 64-character artifact hash, an exact controller artifact directory,
+      and compose_stage_confirmed=true outside check mode.
+
+- name: Recompute the controller artifact hash
+  ansible.builtin.command:
+    argv:
+      - python
+      - "{{ compose_artifact_controller_dir }}/scripts/compose-artifact.py"
+      - --root
+      - "{{ compose_artifact_controller_dir }}"
+      - --no-git
+      - hash
+  delegate_to: localhost
+  become: false
+  register: compose_stage_controller_hash
+  changed_when: false
+
+- name: Require the reviewed controller artifact hash
+  ansible.builtin.assert:
+    that:
+      - compose_stage_controller_hash.stdout == compose_artifact_hash
+    fail_msg: "Controller artifact hash differs from the reviewed hash."
+
+- name: Inspect the final staging and runtime environment paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    get_checksum: false
+    get_mime: false
+  become: true
+  register: compose_stage_existing_paths
+  loop:
+    - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+    - "{{ compose_runtime_env_path }}"
+
+- name: Report the expected staging changes in check mode
+  ansible.builtin.debug:
+    msg: >-
+      Artifact {{ compose_artifact_hash }} will be installed under the root-owned staging tree and
+      the SOPS environment will be decrypted to the root-only runtime path.
+  changed_when: >-
+    not compose_stage_existing_paths.results[0].stat.exists or
+    not compose_stage_existing_paths.results[1].stat.exists
+  when: ansible_check_mode
+
+- name: Stage and validate the exact Compose artifact
+  when: not ansible_check_mode
+  block:
+    - name: Create stable Compose deployment directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      become: true
+      loop:
+        - path: "{{ compose_deployment_root }}"
+          mode: "0755"
+        - path: "{{ compose_current_dir }}"
+          mode: "0755"
+        - path: "{{ compose_staging_root }}"
+          mode: "0755"
+        - path: "{{ compose_previous_dir }}"
+          mode: "0755"
+        - path: /etc/docker-compose
+          mode: "0700"
+        - path: /var/lib/docker-compose
+          mode: "0700"
+
+    - name: Create an incoming root-owned artifact directory
+      ansible.builtin.tempfile:
+        state: directory
+        path: "{{ compose_staging_root }}"
+        prefix: .incoming-
+      become: true
+      register: compose_stage_incoming
+      when: not compose_stage_existing_paths.results[0].stat.exists
+
+    - name: Copy only the deterministic artifact from the controller checkout
+      ansible.builtin.copy:
+        src: "{{ compose_artifact_controller_dir }}/"
+        dest: "{{ compose_stage_incoming.path }}/"
+        owner: root
+        group: root
+        mode: preserve
+        directory_mode: "0755"
+      become: true
+      when: not compose_stage_existing_paths.results[0].stat.exists
+
+    - name: Recompute the incoming host artifact hash
+      ansible.builtin.command:
+        argv:
+          - python
+          - "{{ compose_stage_incoming.path }}/scripts/compose-artifact.py"
+          - --root
+          - "{{ compose_stage_incoming.path }}"
+          - --no-git
+          - hash
+      become: true
+      register: compose_stage_incoming_hash
+      changed_when: false
+      when: not compose_stage_existing_paths.results[0].stat.exists
+
+    - name: Require the incoming host artifact hash
+      ansible.builtin.assert:
+        that:
+          - compose_stage_incoming_hash.stdout == compose_artifact_hash
+        fail_msg: "Incoming host artifact hash differs from the reviewed hash."
+      when: not compose_stage_existing_paths.results[0].stat.exists
+
+    - name: Atomically publish the immutable staging directory
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/mv
+          - --
+          - "{{ compose_stage_incoming.path }}"
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+      become: true
+      when: not compose_stage_existing_paths.results[0].stat.exists
+
+    - name: Recompute the published host artifact hash
+      ansible.builtin.command:
+        argv:
+          - python
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/scripts/compose-artifact.py"
+          - --root
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+          - --no-git
+          - hash
+      become: true
+      register: compose_stage_host_hash
+      changed_when: false
+
+    - name: Require the published host artifact hash
+      ansible.builtin.assert:
+        that:
+          - compose_stage_host_hash.stdout == compose_artifact_hash
+        fail_msg: "Published host artifact hash differs from the reviewed hash."
+
+    - name: Create a root-only decryption workspace
+      ansible.builtin.tempfile:
+        state: directory
+        path: /etc/docker-compose
+        prefix: .decrypt-
+      become: true
+      register: compose_stage_decrypt_workspace
+      no_log: true
+
+    - name: Decrypt the canonical production environment in the root-only workspace
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/sops
+          - decrypt
+          - --input-type
+          - dotenv
+          - --output-type
+          - dotenv
+          - --output
+          - "{{ compose_stage_decrypt_workspace.path }}/canonical.env"
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/secrets/production.sops.env"
+      environment:
+        SOPS_AGE_KEY_FILE: "{{ compose_age_identity_path }}"
+      become: true
+      no_log: true
+
+    - name: Restore the exact non-secret dotenv layout
+      ansible.builtin.command:
+        argv:
+          - python
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/scripts/restore-dotenv-layout.py"
+          - "{{ compose_stage_decrypt_workspace.path }}/canonical.env"
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/secrets/production.env.layout.json"
+          - "{{ compose_stage_decrypt_workspace.path }}/production.env"
+      become: true
+      no_log: true
+
+    - name: Atomically install the root-only runtime environment
+      ansible.builtin.copy:
+        src: "{{ compose_stage_decrypt_workspace.path }}/production.env"
+        dest: "{{ compose_runtime_env_path }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      become: true
+      diff: false
+      no_log: true
+
+    - name: Validate staged Compose without displaying the resolved model
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/docker
+          - compose
+          - --project-name
+          - "{{ compose_project_name }}"
+          - --project-directory
+          - "{{ compose_current_dir }}"
+          - --env-file
+          - "{{ compose_runtime_env_path }}"
+          - --file
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/docker-compose.yml"
+          - config
+          - --quiet
+      become: true
+      changed_when: false
+      no_log: true
+
+    - name: Produce the secret-free staged model inventory
+      ansible.builtin.command:
+        argv:
+          - python
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/scripts/compose-model-inventory.py"
+          - desired
+          - --artifact-root
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+          - --project-directory
+          - "{{ compose_current_dir }}"
+          - --env-file
+          - "{{ compose_runtime_env_path }}"
+          - --project-name
+          - "{{ compose_project_name }}"
+          - --output
+          - "{{ compose_stage_decrypt_workspace.path }}/staged-model.json"
+      become: true
+      changed_when: false
+      no_log: true
+
+    - name: Produce the secret-free runtime model inventory
+      ansible.builtin.command:
+        argv:
+          - python
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/scripts/compose-model-inventory.py"
+          - runtime
+          - --project-name
+          - "{{ compose_project_name }}"
+          - --output
+          - "{{ compose_stage_decrypt_workspace.path }}/runtime-model.json"
+      become: true
+      changed_when: false
+      no_log: true
+
+    - name: Install the secret-free model inventories
+      ansible.builtin.copy:
+        src: "{{ item.source }}"
+        dest: "{{ item.destination }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      become: true
+      loop:
+        - source: "{{ compose_stage_decrypt_workspace.path }}/staged-model.json"
+          destination: "{{ compose_staged_inventory_path }}"
+        - source: "{{ compose_stage_decrypt_workspace.path }}/runtime-model.json"
+          destination: "{{ compose_runtime_inventory_path }}"
+
+    - name: Simulate Compose create without pulls, builds, removal, or mutation
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/docker
+          - compose
+          - --dry-run
+          - --project-name
+          - "{{ compose_project_name }}"
+          - --project-directory
+          - "{{ compose_current_dir }}"
+          - --env-file
+          - "{{ compose_runtime_env_path }}"
+          - --file
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/docker-compose.yml"
+          - create
+          - --no-build
+          - --pull
+          - never
+      become: true
+      register: compose_stage_dry_run
+      changed_when: false
+      no_log: true
+
+    - name: Report the reviewed dry-run identity without model data
+      ansible.builtin.debug:
+        msg:
+          artifact_hash: "{{ compose_artifact_hash }}"
+          dry_run_sha256: "{{ compose_stage_dry_run.stdout | hash('sha256') }}"
+          dry_run_lines: "{{ compose_stage_dry_run.stdout_lines | length }}"
+
+  always:
+    - name: Remove any remaining incoming staging workspace
+      ansible.builtin.file:
+        path: "{{ compose_stage_incoming.path | default('/nonexistent') }}"
+        state: absent
+      become: true
+      when:
+        - not ansible_check_mode
+        - compose_stage_incoming is defined
+
+    - name: Remove the root-only decryption workspace
+      ansible.builtin.file:
+        path: "{{ compose_stage_decrypt_workspace.path | default('/nonexistent') }}"
+        state: absent
+      become: true
+      no_log: true
+      when:
+        - not ansible_check_mode
+        - compose_stage_decrypt_workspace is defined

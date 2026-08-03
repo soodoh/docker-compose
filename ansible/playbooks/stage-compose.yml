@@ -1,0 +1,9 @@
+---
+- name: Stage and validate an exact Compose artifact without runtime convergence
+  hosts: docker_host
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files:
+    - "{{ playbook_dir }}/../group_vars/docker_host.yml"
+  roles:
+    - role: compose_stage

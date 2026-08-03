@@ -45,6 +45,17 @@ age_archive_sha256: bdc69c09cbdd6cf8b1f333d372a1f58247b3a33146406333e30c0f26e8f5
 age_binary_sha256: 2e305637f2a0555305e21c17fb74446acbb39b53135d43d4b744e50c287133a5
 age_keygen_binary_sha256: c56ef69834e18ca4d3b953117f4481522c35fb6862a5d2871685aa4685893664
 
+compose_project_name: docker-compose
+compose_deployment_root: /srv/docker-compose
+compose_current_dir: /srv/docker-compose/current
+compose_staging_root: /srv/docker-compose/staging
+compose_previous_dir: /srv/docker-compose/previous
+compose_runtime_env_path: /etc/docker-compose/production.env
+compose_age_identity_path: /etc/sops/age/keys.txt
+compose_deployed_hash_path: /var/lib/docker-compose/deployed.sha256
+compose_staged_inventory_path: /var/lib/docker-compose/staged-model.json
+compose_runtime_inventory_path: /var/lib/docker-compose/runtime-model.json
+
 audit_expected_declared_volume_count: 30
 audit_expected_compose_project_volume_count: 33
 
