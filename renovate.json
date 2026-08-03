@@ -39,7 +39,9 @@
         "compose-canary"
       ],
       "minimumReleaseAge": "7 days",
-      "automerge": false
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
     },
     {
       "matchDatasources": [
