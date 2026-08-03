@@ -98,6 +98,13 @@ def normalized_healthcheck(healthcheck: object) -> dict[str, object] | None:
     return normalized or None
 
 
+def healthcheck_field_hashes(healthcheck: object) -> dict[str, str]:
+    normalized = normalized_healthcheck(healthcheck)
+    if normalized is None:
+        return {}
+    return {field: stable_hash(value) for field, value in sorted(normalized.items())}
+
+
 def mapped_bind_source(
     source: object, artifact_root: Path, bind_root_override: Path | None
 ) -> object:
@@ -200,6 +207,7 @@ def desired_inventory(args: Namespace) -> dict[str, object]:
             "healthcheck_sha256": (
                 stable_hash(normalized_healthcheck(healthcheck)) if healthcheck else None
             ),
+            "healthcheck_fields_sha256": healthcheck_field_hashes(healthcheck),
         }
 
     volumes = sorted((model.get("volumes") or {}).keys())
@@ -324,6 +332,7 @@ def runtime_inventory(args: Namespace) -> dict[str, object]:
             "healthcheck_sha256": (
                 stable_hash(normalized_healthcheck(healthcheck)) if healthcheck else None
             ),
+            "healthcheck_fields_sha256": healthcheck_field_hashes(healthcheck),
         }
 
     volume_result = subprocess.run(
