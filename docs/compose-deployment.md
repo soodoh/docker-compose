@@ -104,3 +104,11 @@ Authorized retry [`30854028095`](https://github.com/soodoh/docker-compose/action
 - post-cutover audit: `ok=45 changed=0 unreachable=0 failed=0`.
 
 All temporary enable variables were removed after use. Cutover, failed-lock clearance, and rollback are disabled. `/srv/docker-compose/current` and `/etc/docker-compose/production.env` are now active, while the legacy checkout and `.env` remain untouched rollback inputs.
+
+## Protected ongoing deployment
+
+`.github/workflows/compose-deploy.yml` is the post-cutover deployment path. Pull requests remain secret-free and unprivileged: `compose-artifact.yml` validates and hashes the exact candidate without contacting the host. After a reviewed merge, the trusted `main` workflow may use the protected apply identity to stage the exact artifact and its isolated candidate environment, display the restricted model differences, and produce a hash-locked check-mode deployment plan.
+
+The apply job is independently disabled unless `COMPOSE_AUTO_APPLY_ENABLED=true`. A changed merged plan must still match the current `main` tip and reproduce the complete plan hash. Deployment refuses service additions/removals, Docker create/remove actions, and `services/data/**` changes that lack an explicit restart decision. It pulls only services whose reviewed image reference changed, preserves current as `previous` plus a root-only previous environment, rotates the hash-verified artifact before Docker convergence, and runs Compose without builds or orphan removal. No image or volume pruning occurs.
+
+Every apply attempt retains the production lock on failure. Success requires an idempotent post-deployment Compose action plan, all 41 services running, healthy Gluetun and Seerr, a zero-change deployment post-check, and a zero-change complete audit. There is no automatic stateful rollback; the tracked previous artifact and environment are recovery inputs for a separately reviewed rollback.
