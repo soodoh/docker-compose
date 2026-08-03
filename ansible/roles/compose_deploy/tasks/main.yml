@@ -69,10 +69,12 @@
     state: absent
   become: true
   changed_when: false
+  check_mode: false
   no_log: true
   loop:
     - /run/docker-compose-deploy-actions.json
     - /run/docker-compose-deploy-plan.json
+    - /run/docker-compose-deploy-post.json
 
 - name: Produce the root-only candidate action plan
   ansible.builtin.script:
@@ -132,6 +134,7 @@
     state: absent
   become: true
   changed_when: false
+  check_mode: false
   no_log: true
   loop:
     - /run/docker-compose-deploy-actions.json

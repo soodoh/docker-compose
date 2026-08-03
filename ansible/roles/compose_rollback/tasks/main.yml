@@ -120,6 +120,7 @@
     state: absent
   become: true
   changed_when: false
+  check_mode: false
   no_log: true
   loop:
     - /run/docker-compose-rollback-plan.json
@@ -166,6 +167,7 @@
     state: absent
   become: true
   changed_when: false
+  check_mode: false
   no_log: true
 
 - name: Build the private deterministic rollback identity
@@ -176,13 +178,15 @@
       environment_sha256: "{{ compose_rollback_environment_hashes.results[0].stdout.split() | first }}"
       recreate_services: "{{ compose_rollback_plan.recreate_services | sort }}"
       forbidden_actions: "{{ compose_rollback_plan.forbidden_actions }}"
+      action_count: "{{ compose_rollback_plan.action_count }}"
     compose_rollback_plan_hash: >-
       {{ ({
         'current_hash': compose_artifact_hash,
         'target_hash': compose_rollback_target_hash,
         'environment_sha256': compose_rollback_environment_hashes.results[0].stdout.split() | first,
         'recreate_services': compose_rollback_plan.recreate_services | sort,
-        'forbidden_actions': compose_rollback_plan.forbidden_actions
+        'forbidden_actions': compose_rollback_plan.forbidden_actions,
+        'action_count': compose_rollback_plan.action_count
       } | to_json) | hash('sha256') }}
   no_log: true
 
@@ -255,6 +259,7 @@
         that:
           - (compose_rollback_apply_plan.recreate_services | sort) == (compose_rollback_plan.recreate_services | sort)
           - compose_rollback_apply_plan.forbidden_actions == compose_rollback_plan.forbidden_actions
+          - compose_rollback_apply_plan.action_count == compose_rollback_plan.action_count
         fail_msg: "Apply-time rollback actions differ from the reviewed plan."
       no_log: true
 
