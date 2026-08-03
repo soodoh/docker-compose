@@ -4,16 +4,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - .github/workflows/compose-artifact.yml
-      - .sops.yaml
-      - docker-compose.yml
-      - scripts/check-sops-env.py
-      - scripts/compose-artifact.py
-      - scripts/restore-dotenv-layout.py
-      - secrets/**
-      - services/*.yml
-      - services/data/**
   push:
     branches:
       - main
