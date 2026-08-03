@@ -22,9 +22,22 @@
       changed_when: false
       no_log: true
 
+    - name: Select the single JSON staging review line
+      ansible.builtin.set_fact:
+        compose_stage_review_json_lines: >-
+          {{ compose_stage_review_command.stdout_lines | select('match', '^\\{') | list }}
+      no_log: true
+
+    - name: Require exactly one guarded staging review object
+      ansible.builtin.assert:
+        that:
+          - compose_stage_review_json_lines | length == 1
+        fail_msg: "The staging reviewer did not return exactly one guarded JSON object."
+      no_log: true
+
     - name: Parse the secret-free staging review report
       ansible.builtin.set_fact:
-        compose_stage_review: "{{ compose_stage_review_command.stdout | from_json }}"
+        compose_stage_review: "{{ compose_stage_review_json_lines[0] | from_json }}"
       no_log: true
 
     - name: Display only the secret-free staging review report
