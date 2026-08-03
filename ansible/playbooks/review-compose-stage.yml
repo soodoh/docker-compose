@@ -25,7 +25,7 @@
     - name: Select the single JSON staging review line
       ansible.builtin.set_fact:
         compose_stage_review_json_lines: >-
-          {{ compose_stage_review_command.stdout_lines | select('match', '^\\{') | list }}
+          {{ compose_stage_review_command.stdout_lines | map('trim') | select('match', '^\\{') | list }}
       no_log: true
 
     - name: Require exactly one guarded staging review object
