@@ -14,6 +14,18 @@ def stable_hash(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def mapped_bind_source(
+    source: object, artifact_root: Path, bind_root_override: Path | None
+) -> object:
+    if not isinstance(source, str) or bind_root_override is None:
+        return source
+    try:
+        relative_source = Path(source).resolve().relative_to(artifact_root)
+    except ValueError:
+        return source
+    return str(bind_root_override.resolve() / relative_source)
+
+
 def run_json(command: list[str]) -> Any:
     result = subprocess.run(
         command,
@@ -67,7 +79,9 @@ def desired_inventory(args: Namespace) -> dict[str, object]:
             "binds": sorted(
                 (
                     {
-                        "source": mount.get("source"),
+                        "source": mapped_bind_source(
+                            mount.get("source"), artifact_root, args.bind_root_override
+                        ),
                         "target": mount.get("target"),
                         "read_only": mount.get("read_only", False),
                     }
@@ -237,6 +251,7 @@ def parse_args() -> Namespace:
     desired.add_argument("--project-directory", required=True, type=Path)
     desired.add_argument("--env-file", required=True, type=Path)
     desired.add_argument("--project-name", default="docker-compose")
+    desired.add_argument("--bind-root-override", type=Path)
     desired.add_argument("--output", type=Path)
     runtime = subparsers.add_parser("runtime")
     runtime.add_argument("--project-name", default="docker-compose")

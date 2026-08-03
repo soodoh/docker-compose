@@ -40,7 +40,7 @@ The existing `/home/docker/Projects/docker-compose` checkout and `.env` remain u
 6. decrypts SOPS only on the host through `/etc/sops/age/keys.txt`;
 7. restores the non-secret dotenv layout in a root-only temporary directory;
 8. atomically installs `/etc/docker-compose/production.env` as `root:root 0600` with `no_log: true`;
-9. validates with explicit project name, project directory, environment file, and `docker compose config --quiet`;
+9. validates with explicit project name, immutable staging project directory, environment file, and `docker compose config --quiet`;
 10. writes root-owned secret-free desired and runtime inventories;
 11. runs `docker compose --dry-run create --no-build --pull never`; and
 12. requires a zero-change staging post-check and complete read-only audit.
@@ -59,7 +59,7 @@ This workflow does not run Compose pull, build, create, up, restart, removal, or
 - network modes and network names; and
 - SHA-256 identities of health-check definitions.
 
-It never emits environment values, resolved commands, labels, or the complete Compose model. The desired inventory resolves relative bind sources against `/srv/docker-compose/current`, not a temporary staging or GitHub checkout.
+It never emits environment values, resolved commands, labels, or the complete Compose model. Compose resolves and dry-runs the immutable staged tree so every include and helper exists; the sanitized desired inventory then translates artifact-relative bind sources to `/srv/docker-compose/current`, never a temporary staging or GitHub checkout.
 
 ## Backup environment mount
 

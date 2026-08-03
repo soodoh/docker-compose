@@ -203,7 +203,7 @@
           - --project-name
           - "{{ compose_project_name }}"
           - --project-directory
-          - "{{ compose_current_dir }}"
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
           - --env-file
           - "{{ compose_runtime_env_path }}"
           - --file
@@ -223,11 +223,13 @@
           - --artifact-root
           - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
           - --project-directory
-          - "{{ compose_current_dir }}"
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
           - --env-file
           - "{{ compose_runtime_env_path }}"
           - --project-name
           - "{{ compose_project_name }}"
+          - --bind-root-override
+          - "{{ compose_current_dir }}"
           - --output
           - "{{ compose_stage_decrypt_workspace.path }}/staged-model.json"
       become: true
@@ -272,7 +274,7 @@
           - --project-name
           - "{{ compose_project_name }}"
           - --project-directory
-          - "{{ compose_current_dir }}"
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
           - --env-file
           - "{{ compose_runtime_env_path }}"
           - --file
