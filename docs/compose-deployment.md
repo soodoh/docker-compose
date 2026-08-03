@@ -112,3 +112,15 @@ All temporary enable variables were removed after use. Cutover, failed-lock clea
 The apply job is independently disabled unless `COMPOSE_AUTO_APPLY_ENABLED=true`. A changed merged plan must still match the current `main` tip and reproduce the complete plan hash. Deployment refuses service additions/removals, Docker create/remove actions, and `services/data/**` changes that lack an explicit restart decision. It pulls only services whose reviewed image reference changed, preserves current as `previous` plus a root-only previous environment, rotates the hash-verified artifact before Docker convergence, and runs Compose without builds or orphan removal. No image or volume pruning occurs.
 
 Every apply attempt retains the production lock on failure. Success requires an idempotent post-deployment Compose action plan, all 41 services running, healthy Gluetun and Seerr, a zero-change deployment post-check, and a zero-change complete audit. There is no automatic stateful rollback; the tracked previous artifact and environment are recovery inputs for a separately reviewed rollback.
+
+### Renovate canary lane
+
+The automatic apply lane is initially restricted to `flaresolverr`, a stateless service without a Compose-managed volume. A candidate is canary-eligible only when all checks agree that:
+
+- the candidate changes exactly `services/servarr.yml`;
+- `flaresolverr` is the only image-reference difference;
+- `flaresolverr` is the only proposed recreation;
+- no stateful service, service-set change, create/remove action, secret file, or `services/data/**` path is involved; and
+- the candidate and active artifact identities are exact.
+
+All other Compose changes still produce a protected plan but report zero effective automatic changes, so the apply job cannot start. Renovate Docker updates are ungrouped, have a minimum release age, and default to `automerge: false`; the Flaresolverr package receives the `compose-canary` label and a seven-day release age. `COMPOSE_AUTO_PLAN_ENABLED=true` is active, while `COMPOSE_AUTO_APPLY_ENABLED` remains unset pending explicit canary activation approval.

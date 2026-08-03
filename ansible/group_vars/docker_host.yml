@@ -60,6 +60,8 @@ compose_age_identity_path: /etc/sops/age/keys.txt
 compose_deployed_hash_path: /var/lib/docker-compose/deployed.sha256
 compose_staged_inventory_path: /var/lib/docker-compose/staged-model.json
 compose_runtime_inventory_path: /var/lib/docker-compose/runtime-model.json
+compose_canary_service: flaresolverr
+compose_canary_path: services/servarr.yml
 compose_initial_recreate_services:
   - bookshelf
   - caddy

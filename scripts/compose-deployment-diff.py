@@ -22,6 +22,8 @@ def main() -> None:
     parser.add_argument("--current-root", required=True, type=Path)
     parser.add_argument("--candidate-hash", required=True)
     parser.add_argument("--deployed-hash", required=True)
+    parser.add_argument("--canary-service", required=True)
+    parser.add_argument("--canary-path", required=True)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
 
@@ -72,6 +74,16 @@ def main() -> None:
         if candidate_paths.get(path) != current_paths.get(path)
     )
 
+    canary_eligible = (
+        args.candidate_hash != args.deployed_hash
+        and image_services == [args.canary_service]
+        and sorted(set(recreate_services)) == [args.canary_service]
+        and not stateful_services
+        and not forbidden_actions
+        and desired_names == runtime_names
+        and changed_paths == [args.canary_path]
+    )
+
     report = {
         "candidate_hash": args.candidate_hash,
         "deployed_hash": args.deployed_hash,
@@ -86,6 +98,9 @@ def main() -> None:
         "manual_only_paths": [
             path for path in changed_paths if path.startswith("services/data/")
         ],
+        "canary_service": args.canary_service,
+        "canary_path": args.canary_path,
+        "canary_eligible": canary_eligible,
     }
     args.output.write_text(
         json.dumps(report, sort_keys=True, separators=(",", ":")) + "\n",
