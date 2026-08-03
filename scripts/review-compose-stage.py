@@ -53,6 +53,15 @@ def service_differences(
             raise SystemExit("service inventory entry must be an object")
         desired_value = desired_service.get(field)
         runtime_value = runtime_service.get(field)
+        if field == "volumes" and isinstance(desired_value, list) and isinstance(runtime_value, list):
+            desired_targets = {
+                mount.get("target") for mount in desired_value if isinstance(mount, dict)
+            }
+            runtime_value = [
+                mount
+                for mount in runtime_value
+                if isinstance(mount, dict) and mount.get("target") in desired_targets
+            ]
         if desired_value != runtime_value:
             differences[service_name] = {
                 "desired": desired_value,

@@ -5,6 +5,7 @@ from argparse import ArgumentParser, Namespace
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 from typing import Any
 
@@ -50,6 +51,27 @@ def runtime_ports(bindings: dict[str, object]) -> list[dict[str, object]]:
     return sorted(ports, key=lambda port: json.dumps(port, sort_keys=True))
 
 
+DURATION_PATTERN = re.compile(r"(\d+(?:\.\d+)?)(ns|us|µs|ms|s|m|h)")
+DURATION_FACTORS = {
+    "ns": 1,
+    "us": 1_000,
+    "µs": 1_000,
+    "ms": 1_000_000,
+    "s": 1_000_000_000,
+    "m": 60_000_000_000,
+    "h": 3_600_000_000_000,
+}
+
+
+def normalized_duration(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    parts = DURATION_PATTERN.findall(value)
+    if not parts or "".join(number + unit for number, unit in parts) != value:
+        return value
+    return int(sum(float(number) * DURATION_FACTORS[unit] for number, unit in parts))
+
+
 def normalized_healthcheck(healthcheck: object) -> dict[str, object] | None:
     if not isinstance(healthcheck, dict):
         return None
@@ -65,7 +87,11 @@ def normalized_healthcheck(healthcheck: object) -> dict[str, object] | None:
     for field, names in aliases.items():
         value = next((healthcheck[name] for name in names if name in healthcheck), None)
         if value not in (None, 0, "", []):
-            normalized[field] = value
+            normalized[field] = (
+                normalized_duration(value)
+                if field in {"interval", "timeout", "start_period", "start_interval"}
+                else value
+            )
     disabled = healthcheck.get("disable") is True or normalized.get("test") == ["NONE"]
     if disabled:
         return {"disable": True}
@@ -247,6 +273,8 @@ def runtime_inventory(args: Namespace) -> dict[str, object]:
             target_service = container_services.get(target)
             if target_service:
                 network_mode = f"service:{target_service}"
+        elif network_mode == "host":
+            runtime_networks = []
         elif network_mode in runtime_networks:
             network_mode = None
         services[service_name] = {
