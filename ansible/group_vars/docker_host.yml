@@ -56,6 +56,23 @@ compose_age_identity_path: /etc/sops/age/keys.txt
 compose_deployed_hash_path: /var/lib/docker-compose/deployed.sha256
 compose_staged_inventory_path: /var/lib/docker-compose/staged-model.json
 compose_runtime_inventory_path: /var/lib/docker-compose/runtime-model.json
+compose_initial_recreate_services:
+  - bookshelf
+  - caddy
+  - caro-tachidesk
+  - daily-local-backup
+  - flaresolverr
+  - gluetun
+  - litellm
+  - prowlarr
+  - qbittorrent
+  - radarr
+  - radarr-4k
+  - sabnzbd
+  - seerr
+  - sonarr
+  - tachidesk
+  - weekly-remote-backup
 
 audit_expected_declared_volume_count: 30
 audit_expected_compose_project_volume_count: 33
