@@ -100,11 +100,27 @@ def main() -> None:
     )
     dry_run_output = ANSI_PATTERN.sub("", dry_run.stdout + dry_run.stderr)
     env_keys, env_values = environment_entries(args.env_file)
-    if any(key in dry_run_output for key in env_keys) or any(
+    matched_key_count = sum(key in dry_run_output for key in env_keys)
+    matched_long_value_count = sum(
         len(value) >= 12 and value in dry_run_output for value in env_values
-    ):
-        raise SystemExit("dry-run output contains runtime environment material")
+    )
     dry_run_lines = [line for line in dry_run_output.splitlines() if line]
+    if matched_key_count or matched_long_value_count:
+        print(
+            json.dumps(
+                {
+                    "status": "blocked",
+                    "reason": "environment_material_guard",
+                    "matched_key_count": matched_key_count,
+                    "matched_long_value_count": matched_long_value_count,
+                    "dry_run_line_count": len(dry_run_lines),
+                    "dry_run_sha256": hashlib.sha256(dry_run_output.encode()).hexdigest(),
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        )
+        return
 
     desired_names = set(desired_services)
     runtime_names = set(runtime_services)
@@ -123,6 +139,7 @@ def main() -> None:
         for field in compared_fields
     }
     report = {
+        "status": "pass",
         "project_name": args.project_name,
         "desired_service_count": desired.get("service_count"),
         "runtime_container_count": runtime.get("container_count"),

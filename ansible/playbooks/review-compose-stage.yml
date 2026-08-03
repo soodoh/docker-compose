@@ -30,3 +30,9 @@
     - name: Display only the secret-free staging review report
       ansible.builtin.debug:
         var: compose_stage_review
+
+    - name: Require the staging review to pass every output guard
+      ansible.builtin.assert:
+        that:
+          - compose_stage_review.status == 'pass'
+        fail_msg: "The secret-free staging review was blocked; inspect only the guarded report above."
