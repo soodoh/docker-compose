@@ -112,7 +112,7 @@
 - name: Install account-specific bootstrap-authorized public keys
   ansible.builtin.copy:
     dest: "/home/{{ item.name }}/.ssh/authorized_keys"
-    content: "{{ item.keys | reject('equalto', '') | join('\n') }}\n"
+    content: "{{ item['keys'] | reject('equalto', '') | join('\n') }}\n"
     owner: "{{ item.name }}"
     group: "{{ item.name }}"
     mode: "0600"
@@ -122,7 +122,7 @@
     - name: tofu-apply
       keys: "{{ proxmox_apply_ssh_public_keys }}"
   when:
-    - item.keys | reject('equalto', '') | list | length > 0
+    - item['keys'] | reject('equalto', '') | list | length > 0
     - not ansible_check_mode or item.name in proxmox_host_existing_ssh_users
   no_log: true
 
