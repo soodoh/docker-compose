@@ -85,15 +85,15 @@ with tarfile.open(root / "duplicate.tar.gz", "w:gz") as archive:
     archive.addfile(member, io.BytesIO(data))
 PY
 
-python3 "$repo_root/scripts/restore-critical-archive.py" \
-  --archive "$work/valid.tar.gz" --target "$work/valid-target" \
-  | grep -q '^critical_restore=verified '
+valid_output=$(python3 "$repo_root/scripts/restore-critical-archive.py" \
+  --archive "$work/valid.tar.gz" --target "$work/valid-target")
+grep -q '^critical_restore=verified ' <<<"$valid_output"
 mode=$(stat -f '%Mp%Lp' "$work/valid-target/backup/.env" 2>/dev/null || stat -c '%a' "$work/valid-target/backup/.env")
 [[ ${mode#0} == 600 ]]
 
-python3 "$repo_root/scripts/restore-critical-archive.py" \
-  --archive "$work/safe-symlink.tar.gz" --target "$work/safe-symlink-target" \
-  | grep -q '^critical_restore=verified '
+symlink_output=$(python3 "$repo_root/scripts/restore-critical-archive.py" \
+  --archive "$work/safe-symlink.tar.gz" --target "$work/safe-symlink-target")
+grep -q '^critical_restore=verified ' <<<"$symlink_output"
 [[ -L $work/safe-symlink-target/backup/hass-data/link ]]
 
 reject_archive() {
