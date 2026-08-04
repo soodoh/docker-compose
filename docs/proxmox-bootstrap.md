@@ -20,6 +20,18 @@ scripts/bootstrap-proxmox-host --mode check \
   --hardware-env /root/home-lab-hardware.env
 ```
 
+If check mode reports a ZFS userspace/kernel mismatch, align only the reviewed signed Proxmox kernel and ZFS packages before bootstrap:
+
+```sh
+scripts/migrate-proxmox-zfs-stack --check
+export PROXMOX_CONSOLE_CONFIRMED=true
+export PROXMOX_ZFS_MIGRATION_CONFIRMED=install-reviewed-zfs-and-kernel-packages
+scripts/migrate-proxmox-zfs-stack --apply
+systemctl reboot
+```
+
+After reconnecting through the console or trusted LAN, run `scripts/migrate-proxmox-zfs-stack --verify`, then rerun bootstrap check mode. The migration script pins the reviewed package versions and refuses degraded storage or stopped protected guests.
+
 Review the complete result. Set only the reviewed mutation gates true, then supply a short-lived, preauthorized, one-use Tailscale key tagged for `tag:proxmox` and two distinct SSH public keys:
 
 ```sh

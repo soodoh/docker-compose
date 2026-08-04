@@ -100,13 +100,15 @@ jobs:
           python -m py_compile scripts/*.py .github/scripts/*.py
           shellcheck scripts/reconcile-infrastructure scripts/bootstrap-aws-state \
             scripts/bootstrap-proxmox-host scripts/build-recovery-bundle \
-            scripts/collect-proxmox-protected-inputs scripts/migrate-sops-recipients \
+            scripts/collect-proxmox-protected-inputs scripts/migrate-proxmox-zfs-stack \
+            scripts/migrate-sops-recipients \
             scripts/prepare-omada-plan-input scripts/publish-wolf-images \
             scripts/rehearse-recovery scripts/restore-critical-backup \
             scripts/test-recovery-tools .github/scripts/prepare-ansible-controller.sh
           bash -n scripts/reconcile-infrastructure scripts/bootstrap-aws-state \
             scripts/bootstrap-proxmox-host scripts/build-recovery-bundle \
-            scripts/collect-proxmox-protected-inputs scripts/migrate-sops-recipients \
+            scripts/collect-proxmox-protected-inputs scripts/migrate-proxmox-zfs-stack \
+            scripts/migrate-sops-recipients \
             scripts/prepare-omada-plan-input scripts/publish-wolf-images \
             scripts/rehearse-recovery scripts/restore-critical-backup \
             scripts/test-recovery-tools
