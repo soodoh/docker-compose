@@ -76,7 +76,7 @@ if [[ -e $lock_path ]]; then
   owner_file="$lock_path/owner"
   [[ -f $owner_file && $(stat -c %u "$owner_file") == 0 && $(stat -c %a "$owner_file") == 600 ]]
   [[ $(find "$lock_path" -mindepth 1 -maxdepth 1 | wc -l) == 1 ]]
-  grep -qx 'controller=root' "$owner_file"
+  grep -Eq '^controller=(root|unknown)$' "$owner_file"
   grep -qx 'operation=proxmox-bootstrap' "$owner_file"
   [[ $(grep -c '^started=' "$owner_file") == 1 ]]
   rm "$owner_file"
