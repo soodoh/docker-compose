@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "docker-compose",
+      "name": "home-lab",
       "devDependencies": {
         "@commitlint/cli": "^21.2.1",
         "@commitlint/config-conventional": "^21.2.0",

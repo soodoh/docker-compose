@@ -20,13 +20,13 @@ Three manual plan-only stability runs (`30688128628`, `30688167935`, and `306882
 plan output for `host_files`, each with `ok=3 changed=0 unreachable=0 failed=0`. Each ephemeral controller cleaned up,
 and no `tag:ci-plan` or `tag:ci-apply` peer remained.
 
-The first protected bootstrap check ([`30676568592`](https://github.com/soodoh/docker-compose/actions/runs/30676568592))
+The first protected bootstrap check ([`30676568592`](https://github.com/soodoh/home-lab/actions/runs/30676568592))
 proved the `infrastructure-apply` OIDC exchange and ephemeral `tag:ci-apply` enrollment, then stopped before ping, SSH,
 or Ansible because the shared route assertion saw only `192.168.0.123/32`. Cleanup succeeded. Deployment controllers
 now disable accepted subnet routes immediately after enrollment and require zero non-tailnet IPv4 or IPv6 routes before host contact;
 the manual audit retains its separately approved two-route behavior.
 
-The approved bootstrap apply ([`30677520382`](https://github.com/soodoh/docker-compose/actions/runs/30677520382))
+The approved bootstrap apply ([`30677520382`](https://github.com/soodoh/home-lab/actions/runs/30677520382))
 completed with `ok=16 changed=3 unreachable=0 failed=0`. Its immediate check reported `changed=0`, and unprivileged
 `ansible-plan` connectivity succeeded. The job was marked failed only because the boundary audit used sudo's runas-user
 option instead of the other-user option when listing effective policy. The audit command was corrected; no rollback or
@@ -46,6 +46,14 @@ commands. Plans therefore use the unprivileged `ansible-plan` identity, while ap
 |---|---|---|---|---|
 | Automatic or manually dispatched plan | `infrastructure-plan` | `tag:ci-plan` | `ansible-plan` | No general sudo and no supplementary groups |
 | Merge-approved apply | `infrastructure-apply` | `tag:ci-apply` | `ansible-deploy` | Existing passwordless sudo after a required PR merge |
+
+Both active federated identities trust `https://token.actions.githubusercontent.com` and bind their GitHub environment
+to the renamed repository through these exact subjects:
+
+```text
+repo:soodoh/home-lab:environment:infrastructure-plan
+repo:soodoh/home-lab:environment:infrastructure-apply
+```
 
 The plan account's only sudo rule is the exact no-argument helper below:
 
