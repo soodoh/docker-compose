@@ -171,7 +171,8 @@
 - name: Block routine convergence while ZFS versions mismatch
   ansible.builtin.assert:
     that:
-      - proxmox_storage_zfs_versions.stdout_lines | unique | length == 1
+      - proxmox_storage_zfs_versions.stdout_lines | length == 2
+      - proxmox_storage_zfs_versions.stdout_lines[0] == proxmox_storage_zfs_versions.stdout_lines[1]
     fail_msg: "ZFS userspace/kernel mismatch requires a reviewed package and reboot migration."
   when:
     - proxmox_storage_pool_runtime_available | bool
@@ -185,7 +186,9 @@
   when:
     - ansible_check_mode
     - proxmox_storage_pool_runtime_available | bool
-    - proxmox_storage_zfs_versions.stdout_lines | unique | length != 1
+    - >-
+      proxmox_storage_zfs_versions.stdout_lines | length != 2 or
+      proxmox_storage_zfs_versions.stdout_lines[0] != proxmox_storage_zfs_versions.stdout_lines[1]
 
 - name: Inspect SMART and scrub review evidence
   ansible.builtin.stat:
