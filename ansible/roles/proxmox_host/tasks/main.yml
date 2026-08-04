@@ -58,12 +58,57 @@
   loop: "{{ proxmox_services }}"
   when: not ansible_check_mode
 
-- name: Report package and service convergence deferred by check mode
+- name: Inspect required host packages during check mode
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/dpkg-query
+      - --show
+      - "--showformat=${db:Status-Status}"
+      - "{{ item }}"
+  register: proxmox_host_package_inspection
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  loop: "{{ proxmox_packages }}"
+  when: ansible_check_mode
+
+- name: Inspect required service enablement during check mode
+  ansible.builtin.command:
+    argv:
+      - /bin/systemctl
+      - is-enabled
+      - --quiet
+      - "{{ item }}"
+  register: proxmox_host_service_enablement
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  loop: "{{ proxmox_services }}"
+  when: ansible_check_mode
+
+- name: Inspect required service state during check mode
+  ansible.builtin.command:
+    argv:
+      - /bin/systemctl
+      - is-active
+      - --quiet
+      - "{{ item }}"
+  register: proxmox_host_service_state
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  loop: "{{ proxmox_services }}"
+  when: ansible_check_mode
+
+- name: Report package and service drift during check mode
   ansible.builtin.debug:
     msg:
       packages: "{{ proxmox_packages }}"
       services: "{{ proxmox_services }}"
-  changed_when: true
+  changed_when: >-
+    proxmox_host_package_inspection.results | rejectattr('stdout', 'equalto', 'installed') | list | length > 0 or
+    proxmox_host_service_enablement.results | rejectattr('rc', 'equalto', 0) | list | length > 0 or
+    proxmox_host_service_state.results | rejectattr('rc', 'equalto', 0) | list | length > 0
   when: ansible_check_mode
 - name: Inspect infrastructure SSH service users before convergence
   ansible.builtin.command:
