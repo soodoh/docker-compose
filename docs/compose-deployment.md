@@ -48,7 +48,7 @@ This workflow does not run Compose pull, build, create, up, restart, removal, or
 
 ### Completed staging evidence
 
-Manual run [`30850160213`](https://github.com/soodoh/docker-compose/actions/runs/30850160213) staged and reviewed artifact `533ed4a14fce8a811a41ff0a3fe5e6b182fe485f965499d80d8f0c27cf79b357`. Its post-stage check reported `ok=5 changed=0 unreachable=0 failed=0`, the guarded model review reported `ok=7 changed=0 unreachable=0 failed=0`, and the complete audit reported `ok=45 changed=0 unreachable=0 failed=0` with all 41 containers still running.
+Manual run [`30850160213`](https://github.com/soodoh/home-lab/actions/runs/30850160213) staged and reviewed artifact `533ed4a14fce8a811a41ff0a3fe5e6b182fe485f965499d80d8f0c27cf79b357`. Its post-stage check reported `ok=5 changed=0 unreachable=0 failed=0`, the guarded model review reported `ok=7 changed=0 unreachable=0 failed=0`, and the complete audit reported `ok=45 changed=0 unreachable=0 failed=0` with all 41 containers still running.
 
 The normalized model has identical service names, images, ports, volumes, devices, network modes, and network memberships. Five intentional bind-source changes remain for the stable-root migration: Caddy, Gluetun, LiteLLM, and the two backup services. The backup SSH source was explicitly preserved as `/home/docker/.ssh`; the two backup environment mounts change from the untouched checkout `.env` to the byte-verified root-only production environment file.
 
@@ -82,9 +82,9 @@ That one-time cutover workflow and role were retired after successful adoption. 
 
 ## Completed initial cutover
 
-The first authorized attempt, run [`30853421473`](https://github.com/soodoh/docker-compose/actions/runs/30853421473), stopped immediately after creating the production lock because its owner metadata referenced an unavailable Ansible variable. It executed no Docker command. Independent audit [`30853571318`](https://github.com/soodoh/docker-compose/actions/runs/30853571318) then reported `ok=45 changed=0 unreachable=0 failed=0`. The empty lock remained fail-closed until separately authorized clearance run [`30853977059`](https://github.com/soodoh/docker-compose/actions/runs/30853977059) inspected and removed only that directory.
+The first authorized attempt, run [`30853421473`](https://github.com/soodoh/home-lab/actions/runs/30853421473), stopped immediately after creating the production lock because its owner metadata referenced an unavailable Ansible variable. It executed no Docker command. Independent audit [`30853571318`](https://github.com/soodoh/home-lab/actions/runs/30853571318) then reported `ok=45 changed=0 unreachable=0 failed=0`. The empty lock remained fail-closed until separately authorized clearance run [`30853977059`](https://github.com/soodoh/home-lab/actions/runs/30853977059) inspected and removed only that directory.
 
-Authorized retry [`30854028095`](https://github.com/soodoh/docker-compose/actions/runs/30854028095) deployed artifact `533ed4a14fce8a811a41ff0a3fe5e6b182fe485f965499d80d8f0c27cf79b357`:
+Authorized retry [`30854028095`](https://github.com/soodoh/home-lab/actions/runs/30854028095) deployed artifact `533ed4a14fce8a811a41ff0a3fe5e6b182fe485f965499d80d8f0c27cf79b357`:
 
 - pre-cutover audit: `ok=45 changed=0 unreachable=0 failed=0`;
 - exact plan: `ok=22 changed=1 unreachable=0 failed=0`, with the expected 16 recreations and zero forbidden create/remove actions;
@@ -108,13 +108,13 @@ Every apply attempt retains the production lock on failure. Success requires an 
 
 Active audit, health, Compose preflight, Wolf-file comparison, deployment, and rollback operations all resolve the exact stable artifact with explicit project name, project directory, environment file, and Compose file arguments. The production environment metadata gate requires `root:root 0600`. No workflow runs `git pull` on the server or reads a host checkout. A merge from any machine therefore follows the same GitHub-controlled artifact path.
 
-PR [#219](https://github.com/soodoh/docker-compose/pull/219) retired the one-time cutover code, initial legacy rollback, recorded-hash side metadata, and every tracked host-checkout path. It also changed rollback to converge the exact normalized previous model before an atomic artifact exchange, privately binds the plan to both artifact hashes and the unchanged environment hash, and ensures plan-only normalized configuration is passed through standard input rather than written to disk.
+PR [#219](https://github.com/soodoh/home-lab/pull/219) retired the one-time cutover code, initial legacy rollback, recorded-hash side metadata, and every tracked host-checkout path. It also changed rollback to converge the exact normalized previous model before an atomic artifact exchange, privately binds the plan to both artifact hashes and the unchanged environment hash, and ensures plan-only normalized configuration is passed through standard input rather than written to disk.
 
-Checkout-retirement proof was performed with `/home/docker/Projects/docker-compose` moved out of the path and replaced temporarily by an empty directory:
+Checkout-retirement proof was performed before the repository rename, with `/home/docker/Projects/docker-compose` moved out of the path and replaced temporarily by an empty directory:
 
-- full audit [`30863883940`](https://github.com/soodoh/docker-compose/actions/runs/30863883940): `ok=45 changed=0 unreachable=0 failed=0`;
-- exact Compose plan [`30863947303`](https://github.com/soodoh/docker-compose/actions/runs/30863947303): both plans `ok=24 changed=0 unreachable=0 failed=0`; apply skipped;
-- previous-artifact rollback plan [`30864021531`](https://github.com/soodoh/docker-compose/actions/runs/30864021531): pre-audit `ok=45 changed=0`, two identical private plan hashes, each `ok=26 changed=1`, unchanged environment identity, zero forbidden actions, and only Flaresolverr in the reviewed recreation set; apply skipped.
+- full audit [`30863883940`](https://github.com/soodoh/home-lab/actions/runs/30863883940): `ok=45 changed=0 unreachable=0 failed=0`;
+- exact Compose plan [`30863947303`](https://github.com/soodoh/home-lab/actions/runs/30863947303): both plans `ok=24 changed=0 unreachable=0 failed=0`; apply skipped;
+- previous-artifact rollback plan [`30864021531`](https://github.com/soodoh/home-lab/actions/runs/30864021531): pre-audit `ok=45 changed=0`, two identical private plan hashes, each `ok=26 changed=1`, unchanged environment identity, zero forbidden actions, and only Flaresolverr in the reviewed recreation set; apply skipped.
 
 The retired checkout and its inactive plaintext `.env` were then removed. Runtime artifacts, root-only environments, images, containers, volumes, and the production lock were unchanged throughout this proof.
 
@@ -134,11 +134,11 @@ The canary lane was explicitly authorized. Flaresolverr alone may use platform P
 
 ### Completed Renovate canary proof
 
-Renovate PR [#214](https://github.com/soodoh/docker-compose/pull/214) changed only `services/servarr.yml`, received the `dependencies` and `compose-canary` labels, passed the required deterministic-artifact check, and squash-merged commit `8a5a8166eb905f3a6ff117ab0b945356c6237638`. It pinned only `ghcr.io/flaresolverr/flaresolverr` to digest `sha256:139dfee…`.
+Renovate PR [#214](https://github.com/soodoh/home-lab/pull/214) changed only `services/servarr.yml`, received the `dependencies` and `compose-canary` labels, passed the required deterministic-artifact check, and squash-merged commit `8a5a8166eb905f3a6ff117ab0b945356c6237638`. It pinned only `ghcr.io/flaresolverr/flaresolverr` to digest `sha256:139dfee…`.
 
-The first merge-triggered attempt, run [`30857616854`](https://github.com/soodoh/docker-compose/actions/runs/30857616854), failed closed while revalidating the plan because it compared the complete Ansible logs, which contain nondeterministic output. The deployment step and both post-apply steps were skipped. `COMPOSE_AUTO_APPLY_ENABLED` was immediately removed, and no pull, lock acquisition, artifact rotation, or container recreation occurred. PR [#216](https://github.com/soodoh/docker-compose/pull/216) replaced the full-log identity with a SHA-256 over the canonical secret-free deployment-plan object and added an immediate second check-mode plan; runs [`30859720774`](https://github.com/soodoh/docker-compose/actions/runs/30859720774) and [`30859890365`](https://github.com/soodoh/docker-compose/actions/runs/30859890365) reproduced that identity while apply remained disabled.
+The first merge-triggered attempt, run [`30857616854`](https://github.com/soodoh/home-lab/actions/runs/30857616854), failed closed while revalidating the plan because it compared the complete Ansible logs, which contain nondeterministic output. The deployment step and both post-apply steps were skipped. `COMPOSE_AUTO_APPLY_ENABLED` was immediately removed, and no pull, lock acquisition, artifact rotation, or container recreation occurred. PR [#216](https://github.com/soodoh/home-lab/pull/216) replaced the full-log identity with a SHA-256 over the canonical secret-free deployment-plan object and added an immediate second check-mode plan; runs [`30859720774`](https://github.com/soodoh/home-lab/actions/runs/30859720774) and [`30859890365`](https://github.com/soodoh/home-lab/actions/runs/30859890365) reproduced that identity while apply remained disabled.
 
-After PR [#217](https://github.com/soodoh/docker-compose/pull/217) added the exact-hash and typed-confirmation retry path, authorized run [`30859967393`](https://github.com/soodoh/docker-compose/actions/runs/30859967393) deployed artifact `199f446bc918683947c844217bbf0efe927155e46c606e1ddf6fbfd511c03ea2`:
+After PR [#217](https://github.com/soodoh/home-lab/pull/217) added the exact-hash and typed-confirmation retry path, authorized run [`30859967393`](https://github.com/soodoh/home-lab/actions/runs/30859967393) deployed artifact `199f446bc918683947c844217bbf0efe927155e46c606e1ddf6fbfd511c03ea2`:
 
 - the initial plan, immediate repeated plan, and protected apply revalidation each reported `ok=25 changed=1 unreachable=0 failed=0` and the same deterministic plan identity;
 - the guarded model reported only the Flaresolverr image reference and recreation, no stateful recreation, and no service-set, create/remove, secret, or data-file change;

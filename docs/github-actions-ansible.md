@@ -9,8 +9,8 @@ available through the unprivileged deployment workflow documented in
 
 ## Trust boundaries
 
-During activation, the public repository `soodoh/docker-compose` used the default mutable-name GitHub OIDC subject
-format. The retired Tailscale federated identity trusted exactly:
+During activation, the public repository used its former `soodoh/docker-compose` name and the default mutable-name
+GitHub OIDC subject format. The now-retired Tailscale federated identity trusted exactly:
 
 ```text
 Issuer:  https://token.actions.githubusercontent.com
@@ -76,7 +76,7 @@ and received authenticated pongs from Docker through `DERP(lax)`. The custom pro
 step logged out successfully and stopped Tailscale. The corrected probe explicitly accepts either a direct path or DERP,
 matching the pinned action's connectivity semantics.
 
-The fourth approved dispatch ([`30671079353`](https://github.com/soodoh/docker-compose/actions/runs/30671079353))
+The fourth approved dispatch ([`30671079353`](https://github.com/soodoh/home-lab/actions/runs/30671079353))
 completed successfully from commit `72c9317`:
 
 - The ephemeral OIDC-authenticated `tag:ci` runner joined the tailnet.
@@ -91,7 +91,7 @@ completed successfully from commit `72c9317`:
   `tag:ci` peers.
 
 The restored manual-audit identity and current access policy were reverified by run
-[`30708870726`](https://github.com/soodoh/docker-compose/actions/runs/30708870726), again reporting
+[`30708870726`](https://github.com/soodoh/home-lab/actions/runs/30708870726), again reporting
 `ok=45 changed=0 unreachable=0 failed=0` with exact routes, verified host key, and successful cleanup.
 
 The manual read-only activation gate completed successfully. The standalone workflow was later retired when the plan

@@ -1,4 +1,4 @@
-# Server setup
+# Home lab
 
 ## Coral Edge TPU driver on Linux 7.1+
 

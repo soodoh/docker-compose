@@ -1,15 +1,15 @@
 {
-  "name": "docker-compose",
+  "name": "home-lab",
   "version": "1.0.0",
   "description": "My docker compose files for my home server",
   "main": "./",
   "author": "Paul DiLoreto <soodohh@pm.me>",
   "bugs": {
-    "url": "https://github.com/soodoh/docker-compose/issues"
+    "url": "https://github.com/soodoh/home-lab/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/soodoh/docker-compose.git"
+    "url": "git+https://github.com/soodoh/home-lab.git"
   },
   "license": "MIT",
   "packageManager": "bun@1.2.4",
