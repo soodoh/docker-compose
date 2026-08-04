@@ -5,6 +5,7 @@
   any_errors_fatal: true
   vars_files:
     - "{{ playbook_dir }}/../../infrastructure/contract/home-lab.yml"
+    - "{{ playbook_dir }}/../group_vars/proxmox_hosts.yml"
   pre_tasks:
     - name: Require the exact Proxmox host and explicit steady apply approval
       ansible.builtin.assert:
