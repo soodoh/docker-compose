@@ -108,6 +108,16 @@ Every apply attempt retains the production lock on failure. Success requires an 
 
 Active audit, health, Compose preflight, Wolf-file comparison, deployment, and rollback operations all resolve the exact stable artifact with explicit project name, project directory, environment file, and Compose file arguments. The production environment metadata gate requires `root:root 0600`. No workflow runs `git pull` on the server or reads a host checkout. A merge from any machine therefore follows the same GitHub-controlled artifact path.
 
+PR [#219](https://github.com/soodoh/docker-compose/pull/219) retired the one-time cutover code, initial legacy rollback, recorded-hash side metadata, and every tracked host-checkout path. It also changed rollback to converge the exact normalized previous model before an atomic artifact exchange, privately binds the plan to both artifact hashes and the unchanged environment hash, and ensures plan-only normalized configuration is passed through standard input rather than written to disk.
+
+Checkout-retirement proof was performed with `/home/docker/Projects/docker-compose` moved out of the path and replaced temporarily by an empty directory:
+
+- full audit [`30863883940`](https://github.com/soodoh/docker-compose/actions/runs/30863883940): `ok=45 changed=0 unreachable=0 failed=0`;
+- exact Compose plan [`30863947303`](https://github.com/soodoh/docker-compose/actions/runs/30863947303): both plans `ok=24 changed=0 unreachable=0 failed=0`; apply skipped;
+- previous-artifact rollback plan [`30864021531`](https://github.com/soodoh/docker-compose/actions/runs/30864021531): pre-audit `ok=45 changed=0`, two identical private plan hashes, each `ok=26 changed=1`, unchanged environment identity, zero forbidden actions, and only Flaresolverr in the reviewed recreation set; apply skipped.
+
+The retired checkout and its inactive plaintext `.env` were then removed. Runtime artifacts, root-only environments, images, containers, volumes, and the production lock were unchanged throughout this proof.
+
 ### Renovate canary lane
 
 The automatic apply lane is initially restricted to `flaresolverr`, a stateless service without a Compose-managed volume. A candidate is canary-eligible only when all checks agree that:
