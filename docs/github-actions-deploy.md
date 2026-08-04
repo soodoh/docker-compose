@@ -39,12 +39,12 @@ and unprivileged `ansible-plan` connectivity succeeded.
 ## Separate trust paths
 
 Ansible check mode is not a security boundary: repository-controlled tasks can disable check mode or execute arbitrary
-commands. Automatic plans therefore must not use the passwordless-root `ansible-deploy` identity.
+commands. Plans therefore use the unprivileged `ansible-plan` identity, while applies use the separately protected
+`ansible-deploy` identity.
 
 | Purpose | GitHub environment | Tailscale tag | Host user | Privilege |
 |---|---|---|---|---|
-| Manual audit | `infrastructure-plan` | `tag:ci` | `ansible-deploy` | Existing passwordless sudo; manual dispatch only |
-| Automatic plan | `infrastructure-auto-plan` | `tag:ci-plan` | `ansible-plan` | No general sudo and no supplementary groups |
+| Automatic or manually dispatched plan | `infrastructure-plan` | `tag:ci-plan` | `ansible-plan` | No general sudo and no supplementary groups |
 | Merge-approved apply | `infrastructure-apply` | `tag:ci-apply` | `ansible-deploy` | Existing passwordless sudo after a required PR merge |
 
 The plan account's only sudo rule is the exact no-argument helper below:
@@ -82,7 +82,7 @@ The automation allowlist is `host_files`, `base`, `maintenance`, `storage`, and 
 
 ## Automatic plan
 
-The plan job uses `infrastructure-auto-plan`, its exact GitHub OIDC subject, `tag:ci-plan`, and
+The plan job uses `infrastructure-plan`, its exact GitHub OIDC subject, `tag:ci-plan`, and
 [`inventory/production-plan.yml`](../ansible/inventory/production-plan.yml). It:
 
 1. Checks out the triggering commit without persisted Git credentials.
@@ -147,7 +147,7 @@ retains deletion and non-fast-forward protection. Because `soodoh` is the only c
 review approvals; deliberately merging the pull request is the apply approval. The `infrastructure-apply` environment
 adds main-only deployment restriction and disabled administrator bypass, but no second reviewer gate.
 
-The manual audit and deployment workflow share the `ansible-production` concurrency group with cancellation disabled.
+The deployment workflow uses the `ansible-production` concurrency group with cancellation disabled.
 Normal `site.yml` runs also use the persistent host-side `/var/lib/iac-ansible-production.lock` advisory lock,
 coordinating repository applies across GitHub and non-GitHub operators. Check mode never creates the lock. Successful
 convergence removes it; failure or cancellation intentionally leaves the root-owned lock directory for manual
@@ -156,9 +156,10 @@ metadata recording.
 
 ## Activation status
 
-The plan identity, route restrictions, OIDC identities, environment-bound tags, zero-change bootstrap verification,
-three stable plans, hash-locked controller, host lock, and zero-change full remote audit are complete. Automatic PR plans
-and merge-triggered applies are enabled.
+The unprivileged plan identity, protected apply identity, route restrictions, environment-bound OIDC credentials,
+zero-change bootstrap verification, stable plans, hash-locked controller, host lock, and full remote audit are complete.
+Automatic PR plans and merge-triggered applies are enabled. The earlier standalone privileged manual-audit workflow and
+its `tag:ci` identity have been retired.
 
 A pull request is allowed to contact the unprivileged plan identity only when its head branch belongs to this repository.
 Fork and draft pull requests skip the job. A merge never bypasses the current-main check, merged-commit replan/hash,

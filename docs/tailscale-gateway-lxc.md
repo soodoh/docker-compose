@@ -6,6 +6,10 @@ This is a repository-only design for a future Proxmox LXC. It does **not** autho
 creating or starting a container, changing Proxmox networking, enabling IP forwarding, installing Tailscale,
 advertising routes, or changing tailnet policy.
 
+The `tag:ci` GitHub workload identity and routed CI path below are retained as historical design context only. That
+identity was retired after plan/apply automation moved to direct Docker connectivity through `tag:ci-plan` and
+`tag:ci-apply`; the gateway remains available as an independent recovery path.
+
 The gateway provides a stable management path when the Docker VM is absent or being reprovisioned:
 
 ```text

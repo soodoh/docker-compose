@@ -38,13 +38,13 @@ Completed prerequisites:
 1. Protected unprivileged `tag:infra-router` CT 101 is healthy and independently recoverable.
 2. Only `192.168.0.123/32` and `192.168.0.100/32` are advertised and approved.
 3. Routed PVE TCP/8006 and Docker TCP/22 work; unapproved PVE TCP/22 is denied.
-4. `tag:docker-host`, `tag:ci`, least-privilege grants, and Tailscale SSH rules are saved and validated.
+4. `tag:docker-host`, the original `tag:ci` manual-audit grant, and Tailscale SSH rules were saved and validated.
 5. Fresh LAN SSH and Proxmox serial-console recovery were reconfirmed after gateway activation.
 
 The one-use, non-ephemeral `tag:docker-host` key was supplied only through the controller environment and a root-only
 temporary file. It was consumed during enrollment and removed immediately afterward.
 
-Conceptual policy fragment—merge it into the existing policy rather than replacing the policy wholesale:
+Historical conceptual policy fragment used during bootstrap—`tag:ci` was later retired and must not be restored:
 
 ```json
 {
@@ -70,8 +70,9 @@ Conceptual policy fragment—merge it into the existing policy rather than repla
 }
 ```
 
-Add a separately reviewed human-administrator rule for initial testing and recovery. Do not grant `tag:ci` root SSH
-or access to unrelated tailnet nodes.
+The current CI identities are `tag:ci-plan` and `tag:ci-apply` and use direct Docker connectivity as documented in
+[`github-actions-deploy.md`](./github-actions-deploy.md). The gateway, LAN SSH, and console remain independent recovery
+paths.
 
 Official references:
 
