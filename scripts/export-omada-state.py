@@ -112,7 +112,8 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--connect-host", required=True)
     parser.add_argument("--ca-file", type=Path, required=True)
-    parser.add_argument("--network", default="LAN")
+    parser.add_argument("--network", default="")
+    parser.add_argument("--gateway-subnet", default="")
     args = parser.parse_args()
 
     url = os.environ.get("OMADA_URL", "")
@@ -138,9 +139,17 @@ def main() -> None:
 
     base = f"/{client.controller_id}/api/v2/sites/{site_id}"
     networks = client.list_all(f"{base}/setting/lan/networks")
-    matching_networks = [network for network in networks if network.get("name") == args.network]
+    if args.gateway_subnet:
+        matching_networks = [
+            network for network in networks if network.get("gatewaySubnet") == args.gateway_subnet
+        ]
+        selector = "--gateway-subnet"
+    else:
+        network_name = args.network or "LAN"
+        matching_networks = [network for network in networks if network.get("name") == network_name]
+        selector = "--network"
     if len(matching_networks) != 1:
-        raise SystemExit("exactly one Omada network must match --network")
+        raise SystemExit(f"exactly one Omada network must match {selector}")
     network = matching_networks[0]
     network_id = required_string(network, "id")
     dhcp = network.get("dhcpSettings")

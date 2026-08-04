@@ -12,6 +12,7 @@ OMADA_SITE='<site-name>' \
   scripts/export-omada-state.py \
     --connect-host 192.168.0.100 \
     --ca-file .local/omada/controller-ca.pem \
+    --gateway-subnet 192.168.0.1/24 \
     --output .local/omada/export.json
 ```
 
