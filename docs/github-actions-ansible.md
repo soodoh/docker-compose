@@ -1,15 +1,16 @@
-# GitHub Actions remote Ansible audit
+# Retired GitHub Actions remote Ansible audit
 
 ## Status
 
-This phase adds a **manual, read-only** GitHub-hosted controller. It does not authorize `site.yml`, a normal Ansible
-run, package changes, Docker lifecycle operations, or infrastructure apply. The first workflow must only run
-`audit.yml --check --diff` through direct Tailscale SSH.
+This document is the historical activation and verification record for the retired privileged manual-audit path. The
+standalone `ansible-audit.yml` workflow and its `tag:ci` identity are no longer active. Manual plan-only dispatch remains
+available through the unprivileged deployment workflow documented in
+[`github-actions-deploy.md`](./github-actions-deploy.md).
 
 ## Trust boundaries
 
-The public repository is `soodoh/docker-compose`, with default branch `main`. Its current GitHub OIDC configuration
-uses the default mutable-name subject format. The Tailscale federated identity therefore trusts exactly:
+During activation, the public repository `soodoh/docker-compose` used the default mutable-name GitHub OIDC subject
+format. The retired Tailscale federated identity trusted exactly:
 
 ```text
 Issuer:  https://token.actions.githubusercontent.com
@@ -18,25 +19,25 @@ Scope:   auth_keys
 Tag:     tag:ci
 ```
 
-The GitHub environment `infrastructure-plan` has a custom deployment-branch policy allowing only `main`. It contains
-two non-secret environment variables:
+The former GitHub environment `infrastructure-plan` had a custom deployment-branch policy allowing only `main` and
+contained two non-secret environment variables:
 
 ```text
 TS_OAUTH_CLIENT_ID
 TS_AUDIENCE
 ```
 
-There is no OAuth secret and no reusable auth key. The workflow is `workflow_dispatch` only, uses a GitHub-hosted
-runner, and requests only `contents: read` and `id-token: write`. The Tailscale action exchanges the GitHub OIDC token
-for a short-lived credential and creates an ephemeral `tag:ci` node that is removed after the job.
+There was no OAuth secret or reusable auth key. The workflow was `workflow_dispatch` only, used a GitHub-hosted runner,
+and requested only `contents: read` and `id-token: write`. The Tailscale action exchanged the GitHub OIDC token for a
+short-lived credential and created an ephemeral `tag:ci` node that was removed after the job.
 
-Tailnet policy limits `tag:ci` to direct Docker TCP/22, the two approved routed destinations (Docker TCP/22 and
-Proxmox TCP/8006), and Tailscale SSH to Docker as `ansible-deploy`. The deployment user is outside the Docker group and
-reaches privileged read-only audit commands only through its separately validated passwordless sudo policy.
+Tailnet policy limited `tag:ci` to direct Docker TCP/22, the two approved routed destinations (Docker TCP/22 and Proxmox
+TCP/8006), and Tailscale SSH to Docker as `ansible-deploy`. The deployment user was outside the Docker group and reached
+privileged read-only audit commands only through its separately validated passwordless sudo policy.
 
 ## Workflow behavior
 
-[`.github/workflows/ansible-audit.yml`](../.github/workflows/ansible-audit.yml):
+The retired workflow performed these steps:
 
 1. Checks out the repository with an action pinned to a full commit SHA.
 2. Installs pinned Python 3.13 and the complete hash-locked Ansible controller environment.
@@ -93,9 +94,9 @@ The restored manual-audit identity and current access policy were reverified by 
 [`30708870726`](https://github.com/soodoh/docker-compose/actions/runs/30708870726), again reporting
 `ok=45 changed=0 unreachable=0 failed=0` with exact routes, verified host key, and successful cleanup.
 
-The manual read-only activation gate is complete. This audit workflow remains `workflow_dispatch` only and shares the
-`ansible-production` concurrency group with the separately protected deployment pipeline documented in
-[`github-actions-deploy.md`](./github-actions-deploy.md). It never runs `site.yml` or performs an apply.
+The manual read-only activation gate completed successfully. The standalone workflow was later retired when the plan
+identity was consolidated under `infrastructure-plan`; normal protected applies continue to run the complete privileged
+audit after convergence.
 
 ## Failure policy
 

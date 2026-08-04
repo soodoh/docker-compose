@@ -85,8 +85,8 @@ read-only CLI probes, and makes assertions. Every `command` task declares `chang
 probes execute during `--check`, so both ordinary audit and check-mode audit must finish with `changed=0`. There are
 no handlers or Docker mutations.
 
-Production inventory targets the stable Docker Tailscale IP as `ansible-deploy`. The manual GitHub-hosted audit in
-[`github-actions-ansible.md`](./github-actions-ansible.md) completed successfully with
+Production inventory targets the stable Docker Tailscale IP as `ansible-deploy`. The now-retired manual GitHub-hosted
+audit recorded in [`github-actions-ansible.md`](./github-actions-ansible.md) completed successfully with
 `ok=45 changed=0 unreachable=0 failed=0`; its ephemeral `tag:ci` node logged out cleanly.
 
 The operator separately installed `ansible` `14.2.0-1` (`ansible-core` `2.21.2`) using the previously approved
@@ -140,12 +140,15 @@ Final bootstrap, audit, and site checks all report `changed=0`.
 The completed record and rollback boundaries are in [`tailscale-bootstrap.md`](./tailscale-bootstrap.md). Production
 inventory is now validated through the successful remote audit.
 
-The completed Phase 5 audit uses GitHub OIDC workload identity, an `infrastructure-plan` environment restricted to
-`main`, an ephemeral `tag:ci` node, pinned actions, strict SSH host-key checking, and `audit.yml --check --diff` only.
+The completed Phase 5 manual audit used a main-restricted GitHub OIDC environment, an ephemeral `tag:ci` node, pinned
+actions, strict SSH host-key checking, and `audit.yml --check --diff` only. That standalone path was later retired; its
+activation record remains in [`github-actions-ansible.md`](./github-actions-ansible.md).
+
 The deployment pipeline is documented in [`github-actions-deploy.md`](./github-actions-deploy.md). Same-repository pull
-requests automatically plan through the restricted `ansible-plan` identity; drafts and forks cannot contact the host.
-The required PR merge is the explicit approval for a changed merged-commit plan to use the one-tag guard, persistent host
-lock, zero-change post-check, and complete audit without a second environment-review click.
+requests and manual dispatches plan through the unprivileged `infrastructure-plan`/`tag:ci-plan` identity; drafts and
+forks cannot contact the host. The required PR merge is the explicit approval for a changed merged-commit plan to use
+the one-tag guard, persistent host lock, zero-change post-check, and complete audit without a second environment-review
+click.
 ## Recovery work still required
 
 A manual restore drill is mandatory before any stateful Compose adoption or apply. It must be separately planned
