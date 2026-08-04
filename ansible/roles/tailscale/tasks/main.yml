@@ -120,7 +120,6 @@
       - /usr/bin/tailscale
       - set
       - "--hostname={{ tailscale_hostname }}"
-      - "--advertise-tags={{ tailscale_advertise_tags }}"
       - "--advertise-routes={{ tailscale_advertise_routes | join(',') }}"
       - "--accept-dns={{ tailscale_accept_dns | ternary('true', 'false') }}"
       - "--accept-routes={{ tailscale_accept_routes | ternary('true', 'false') }}"
@@ -136,7 +135,6 @@
       ((tailscale_preferences_before.stdout | from_json).RouteAll | default(false) | bool) != (tailscale_accept_routes | bool) or
       ((tailscale_preferences_before.stdout | from_json).Hostname | default('')) != tailscale_hostname or
       (((tailscale_preferences_before.stdout | from_json).AdvertiseRoutes | default([], true)) | sort) != (tailscale_advertise_routes | sort) or
-      (((tailscale_preferences_before.stdout | from_json).AdvertiseTags | default([], true)) | sort) != ([tailscale_advertise_tags] | sort) or
       ((tailscale_preferences_before.stdout | from_json).NetfilterMode | default(0) | int) != 2
 
 - name: Verify Tailscale reaches the running backend state
@@ -168,8 +166,9 @@
     that:
       - (tailscale_status_after.stdout | from_json).BackendState == 'Running'
       - tailscale_ipv4.stdout | length > 0
+      - tailscale_advertise_tags in ((tailscale_status_after.stdout | from_json).Self.Tags | default([]))
     fail_msg: >-
-      Tailscale did not reach Running with an IPv4 address. Keep LAN SSH and Proxmox console recovery available.
+      Tailscale did not reach Running with the expected IPv4 address and device tag. Keep LAN SSH and Proxmox console recovery available.
   no_log: true
   when: not ansible_check_mode
 
