@@ -10,6 +10,7 @@
       - "{{ network.bridge }}"
   register: proxmox_network_management_address
   changed_when: false
+  check_mode: false
 
 - name: Require the expected management address before network reconciliation
   ansible.builtin.assert:
