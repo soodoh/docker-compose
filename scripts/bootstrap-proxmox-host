@@ -69,6 +69,20 @@ fi
 : "${PROXMOX_PLAN_SSH_PUBLIC_KEYS:?missing plan-account public key}"
 : "${PROXMOX_APPLY_SSH_PUBLIC_KEYS:?missing apply-account public key}"
 [[ $PROXMOX_PLAN_SSH_PUBLIC_KEYS != "$PROXMOX_APPLY_SSH_PUBLIC_KEYS" ]]
+lock_path=/var/lib/iac-ansible-production.lock
+if [[ -e $lock_path ]]; then
+  [[ ${PROXMOX_BOOTSTRAP_RESUME_CONFIRMED:-} == resume-matching-failed-proxmox-bootstrap ]]
+  [[ -d $lock_path && $(stat -c %u "$lock_path") == 0 && $(stat -c %a "$lock_path") == 700 ]]
+  owner_file="$lock_path/owner"
+  [[ -f $owner_file && $(stat -c %u "$owner_file") == 0 && $(stat -c %a "$owner_file") == 600 ]]
+  [[ $(find "$lock_path" -mindepth 1 -maxdepth 1 | wc -l) == 1 ]]
+  grep -qx 'controller=root' "$owner_file"
+  grep -qx 'operation=proxmox-bootstrap' "$owner_file"
+  [[ $(grep -c '^started=' "$owner_file") == 1 ]]
+  rm "$owner_file"
+  rmdir "$lock_path"
+  printf 'proxmox_bootstrap=matching-failed-lock-released-for-resume\n'
+fi
 run_playbook
 
 for token in \
