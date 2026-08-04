@@ -48,6 +48,7 @@
       {{ proxmox_host_repository.changed or
          proxmox_host_tailscale_key.changed or
          proxmox_host_tailscale_repository.changed }}
+  when: not ansible_check_mode
 
 - name: Keep required host services enabled and started
   ansible.builtin.systemd_service:
@@ -55,7 +56,15 @@
     enabled: true
     state: started
   loop: "{{ proxmox_services }}"
+  when: not ansible_check_mode
 
+- name: Report package and service convergence deferred by check mode
+  ansible.builtin.debug:
+    msg:
+      packages: "{{ proxmox_packages }}"
+      services: "{{ proxmox_services }}"
+  changed_when: true
+  when: ansible_check_mode
 - name: Inspect infrastructure SSH service users before convergence
   ansible.builtin.command:
     argv:
