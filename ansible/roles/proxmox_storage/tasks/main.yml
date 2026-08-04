@@ -157,22 +157,25 @@
     fail_msg: "ZFS health degraded or corrected checksum count increased; stop all applies."
   when: proxmox_storage_pool_runtime_available | bool
 
-- name: Read ZFS userspace and kernel module versions
-  ansible.builtin.shell: >-
-    set -o pipefail &&
-    printf '%s\n' "$(/usr/sbin/zfs version | /usr/bin/awk -F- '$1 == \"zfs\" && $2 != \"kmod\" {print $2 \"-\" $3}')" "$(/usr/sbin/modinfo -F version zfs)"
+- name: Verify ZFS userspace and kernel module versions align
+  ansible.builtin.shell: |
+    set -euo pipefail
+    userspace=$(/usr/sbin/zfs version | /usr/bin/awk -F- '$1 == "zfs" && $2 != "kmod" {print $2 "-" $3}')
+    module=$(/usr/sbin/modinfo -F version zfs)
+    [[ -n $userspace && $userspace == "$module" ]]
   args:
     executable: /bin/bash
-  register: proxmox_storage_zfs_versions
+  register: proxmox_storage_zfs_version_alignment
+  failed_when: false
   changed_when: false
   check_mode: false
+  no_log: true
   when: proxmox_storage_pool_runtime_available | bool
 
 - name: Block routine convergence while ZFS versions mismatch
   ansible.builtin.assert:
     that:
-      - proxmox_storage_zfs_versions.stdout_lines | length == 2
-      - proxmox_storage_zfs_versions.stdout_lines[0] == proxmox_storage_zfs_versions.stdout_lines[1]
+      - proxmox_storage_zfs_version_alignment.rc == 0
     fail_msg: "ZFS userspace/kernel mismatch requires a reviewed package and reboot migration."
   when:
     - proxmox_storage_pool_runtime_available | bool
@@ -186,9 +189,7 @@
   when:
     - ansible_check_mode
     - proxmox_storage_pool_runtime_available | bool
-    - >-
-      proxmox_storage_zfs_versions.stdout_lines | length != 2 or
-      proxmox_storage_zfs_versions.stdout_lines[0] != proxmox_storage_zfs_versions.stdout_lines[1]
+    - proxmox_storage_zfs_version_alignment.rc != 0
 
 - name: Inspect SMART and scrub review evidence
   ansible.builtin.stat:
