@@ -32,6 +32,6 @@ scripts/bootstrap-proxmox-host --mode apply \
   --hardware-env /root/home-lab-hardware.env
 ```
 
-The apply mode reruns check mode before mutation. The wrapper requires a clean checkout and root-owned protected inputs and installs the hash-locked Ansible controller only in `/run`. The play creates separated API tokens and leaves them only in root-readable files under `/root/.config/home-lab/`.
+The apply mode reruns check mode before mutation. The wrapper requires a clean checkout and root-owned protected inputs, installs the hash-locked Ansible controller in a temporary root-only executable cache, and removes it on exit. The play creates separated API tokens and leaves them only in root-readable files under `/root/.config/home-lab/`.
 
 After success, copy each token through a protected channel into its matching GitHub environment secret. Do not print it, paste it into shell history, or reuse the apply token for plans. Prove `tofu-plan` audit access and `tofu-apply` mutation access over Tailscale before allowing the later steady play to disable password authentication.

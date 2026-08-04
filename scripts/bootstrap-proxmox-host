@@ -36,7 +36,7 @@ done <"$hardware_env"
 : "${HOMELAB_ZIGBEE_USB_SERIAL:?missing protected Zigbee identity}"
 : "${HOMELAB_ZWAVE_USB_SERIAL:?missing protected Z-Wave identity}"
 
-venv=/run/home-lab-proxmox-bootstrap-venv
+venv=/root/.cache/home-lab-proxmox-bootstrap-venv
 rm -rf "$venv"
 cleanup() { rm -rf "$venv"; }
 trap cleanup EXIT INT TERM
