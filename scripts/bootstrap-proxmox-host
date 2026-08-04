@@ -25,6 +25,8 @@ for file in "$extra_vars" "$hardware_env"; do
   permissions=$(stat -c %a "$file")
   (( (8#$permissions & 8#077) == 0 ))
 done
+extra_vars=$(realpath "$extra_vars")
+hardware_env=$(realpath "$hardware_env")
 
 while IFS='=' read -r key value; do
   [[ $key =~ ^HOMELAB_(GAMES_DISK_BY_ID|ZFS_POOL_GUID|ZFS_MEMBER_[0-9]{2}_BY_ID|ZIGBEE_USB_SERIAL|ZWAVE_USB_SERIAL)$ ]]
@@ -47,11 +49,17 @@ python3 -m venv "$venv"
 
 playbook=(
   "$venv/bin/ansible-playbook"
-  -i ansible/inventory/proxmox-local.yml
-  ansible/playbooks/proxmox-bootstrap.yml
+  -i inventory/proxmox-local.yml
+  playbooks/proxmox-bootstrap.yml
   --extra-vars "@$extra_vars"
 )
-ANSIBLE_ROLES_PATH="$repo_root/ansible/roles" "${playbook[@]}" --check --diff
+run_playbook() {
+  (
+    cd "$repo_root/ansible"
+    ANSIBLE_ROLES_PATH="$repo_root/ansible/roles" "${playbook[@]}" "$@"
+  )
+}
+run_playbook --check --diff
 if [[ $mode == check ]]; then
   printf 'proxmox_bootstrap=check-only\n'
   exit 0
@@ -61,7 +69,7 @@ fi
 : "${PROXMOX_PLAN_SSH_PUBLIC_KEYS:?missing plan-account public key}"
 : "${PROXMOX_APPLY_SSH_PUBLIC_KEYS:?missing apply-account public key}"
 [[ $PROXMOX_PLAN_SSH_PUBLIC_KEYS != "$PROXMOX_APPLY_SSH_PUBLIC_KEYS" ]]
-ANSIBLE_ROLES_PATH="$repo_root/ansible/roles" "${playbook[@]}"
+run_playbook
 
 for token in \
   /root/.config/home-lab/proxmox-plan-token.env \
