@@ -1,0 +1,13 @@
+# Reviewed state and recovery foundation resources. Deletion remains forbidden.
+aws_s3_bucket.state
+aws_s3_bucket_versioning.state
+aws_s3_bucket_server_side_encryption_configuration.state
+aws_s3_bucket_ownership_controls.state
+aws_s3_bucket_public_access_block.state
+aws_s3_bucket.recovery
+aws_s3_bucket_versioning.recovery
+aws_s3_bucket_server_side_encryption_configuration.recovery
+aws_s3_bucket_ownership_controls.recovery
+aws_s3_bucket_public_access_block.recovery
+aws_s3_bucket_policy.state
+aws_s3_bucket_policy.recovery

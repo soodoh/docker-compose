@@ -1,0 +1,207 @@
+---
+version: 1
+system_name: home-lab
+recovery:
+  evidence_max_age_days: 90
+  critical_rpo_hours: 24
+  critical_rto_hours: 8
+  recovery_age_recipient: age1vvzm5pczjum52v5alall8euucjen9q4v9xa5g0xmswhna5vare9qwv9rq6
+  ci_age_recipient: null
+network:
+  cidr: 192.168.0.0/24
+  gateway: 192.168.0.1
+  dns:
+    - 1.1.1.1
+  bridge: vmbr0
+  bridge_port: eno1
+  proxmox:
+    hostname: proxmox
+    magicdns_name: proxmox
+    ipv4: 192.168.0.123/24
+    mac: E8:9C:25:46:62:3D
+  arch:
+    hostname: archlinux
+    magicdns_name: docker-host
+    ipv4: 192.168.0.100/24
+    mac: BC:24:11:89:19:5A
+proxmox:
+  node: proxmox
+  api_endpoint: https://proxmox:8006/api2/json
+  vm:
+    vmid: 100
+    name: arch
+    observed_protection: false
+    desired_protection: true
+    on_boot: true
+    started: true
+    cpu:
+      cores: 24
+      sockets: 1
+      type: host
+      kvm_arguments: "-cpu 'host,-hypervisor,kvm=off'"
+    memory_mb: 65536
+    machine: q35
+    smbios_uuid: 03061602-d590-4d23-be5c-97f9954b3053
+    root_disk:
+      datastore: local-lvm
+      interface: scsi0
+      size_gb: 400
+      iothread: true
+    games_disk:
+      interface: scsi1
+      by_id_secret_ref: HOMELAB_GAMES_DISK_BY_ID
+      filesystem_uuid: 31602ce7-0054-498a-9f24-f51ca491e7b3
+      backup: false
+      discard: "on"
+      iothread: true
+      ssd: true
+    pci:
+      coral:
+        bdf: "0000:0b:00.0"
+        vendor_device: 1ac1:089a
+        mapping: coral-tpu
+      gpu:
+        bdf: "0000:03:00.0"
+        vendor_device: 1002:744c
+        mapping: rx-7900-xtx
+        pcie: true
+        rom_file: vbios_7900xtx.bin
+        xvga: true
+      gpu_audio:
+        bdf: "0000:03:00.1"
+        vendor_device: 1002:ab30
+        mapping: rx-7900-xtx-audio
+        pcie: true
+      host_igpu:
+        bdf: "0000:0e:00.0"
+        vendor_device: 1002:164e
+        mapping: host-igpu
+        required_driver: amdgpu
+    usb:
+      zigbee:
+        host: "1-6"
+        vendor_device: 10c4:ea60
+        mapping: zigbee-cp210x
+        serial_secret_ref: HOMELAB_ZIGBEE_USB_SERIAL
+      zwave:
+        host: "1-7"
+        vendor_device: 10c4:ea60
+        mapping: zwave-cp210x
+        serial_secret_ref: HOMELAB_ZWAVE_USB_SERIAL
+      bluetooth:
+        host: 0bda:a729
+        vendor_device: 0bda:a729
+        mapping: realtek-bluetooth
+        usb3: true
+    cloud_image:
+      version: v20260801.566320
+      url: https://geo.mirror.pkgbuild.com/images/v20260801.566320/Arch-Linux-x86_64-cloudimg-20260801.566320.qcow2
+      sha256: 9ca8d4b0a60e53b8aa1ac2317166ecffc4e9eae8d0b28b7ca0e3d333578f9a07
+      signature_url: https://geo.mirror.pkgbuild.com/images/v20260801.566320/Arch-Linux-x86_64-cloudimg-20260801.566320.qcow2.sig
+  legacy_container:
+    vmid: 101
+    name: tailscale-gateway
+    mac: BC:24:11:FD:4C:5C
+    protected: true
+    recreate_after_decommission: false
+    root_datastore: local-lvm
+    root_size_gb: 4
+    memory_mb: 512
+    swap_mb: 256
+    cores: 1
+    on_boot: true
+    unprivileged: true
+storage:
+  zfs:
+    pool: storage
+    pool_guid_secret_ref: HOMELAB_ZFS_POOL_GUID
+    expected_health: ONLINE
+    corrected_checksum_baseline: 4
+    dataset: storage/docker
+    mountpoint: /storage/docker
+    members:
+      - secret_ref: HOMELAB_ZFS_MEMBER_01_BY_ID
+        mirror: 0
+      - secret_ref: HOMELAB_ZFS_MEMBER_02_BY_ID
+        mirror: 0
+      - secret_ref: HOMELAB_ZFS_MEMBER_03_BY_ID
+        mirror: 1
+      - secret_ref: HOMELAB_ZFS_MEMBER_04_BY_ID
+        mirror: 1
+      - secret_ref: HOMELAB_ZFS_MEMBER_05_BY_ID
+        mirror: 2
+      - secret_ref: HOMELAB_ZFS_MEMBER_06_BY_ID
+        mirror: 2
+      - secret_ref: HOMELAB_ZFS_MEMBER_07_BY_ID
+        mirror: 3
+      - secret_ref: HOMELAB_ZFS_MEMBER_08_BY_ID
+        mirror: 3
+      - secret_ref: HOMELAB_ZFS_MEMBER_09_BY_ID
+        mirror: 4
+      - secret_ref: HOMELAB_ZFS_MEMBER_10_BY_ID
+        mirror: 4
+      - secret_ref: HOMELAB_ZFS_MEMBER_11_BY_ID
+        mirror: 5
+      - secret_ref: HOMELAB_ZFS_MEMBER_12_BY_ID
+        mirror: 5
+  nfs:
+    export: /storage/docker
+    client: 192.168.0.100/32
+    mountpoint: /mnt/storage
+    retain_no_root_squash: true
+arch:
+  repository_snapshot: "2026/08/01"
+  network_interface: ens18
+  user: docker
+  games_mountpoint: /mnt/games
+  packages:
+    kernel: 7.1.5.arch1-2
+    docker: "1:29.6.2-1"
+    docker_compose: 5.3.1-1
+    tailscale: 1.98.10-1
+  coral:
+    package_version: r236.5815ee3-3
+    source_commit: 5815ee3908a46a415aac616ac7b9aedcb98a504c
+    artifact_repository: ghcr.io/soodoh/home-lab/gasket-dkms-git
+    artifact_digest: null
+    package_sha256: null
+omada:
+  controller_version: 6.2.14.11
+  endpoint: https://Omada:8043
+  export_path: .local/omada/export.json
+  provider_qualified: false
+  required_consecutive_noop_plans: 3
+tailscale:
+  tags:
+    arch: tag:docker-host
+    proxmox: tag:proxmox
+    ci_plan: tag:ci-plan
+    ci_apply: tag:ci-apply
+  required_endpoints:
+    - docker-host:22
+    - proxmox:22
+    - proxmox:8006
+    - docker-host:8043
+github:
+  owner: soodoh
+  repository: home-lab
+  default_branch: main
+  environments:
+    plan: infrastructure-plan
+    apply: infrastructure-apply
+aws:
+  region: us-east-1
+  state_bucket: null
+  recovery_bucket: null
+  mutation_lease_table: home-lab-infrastructure-lease
+  kms_alias: alias/home-lab-opentofu
+backups:
+  critical_schedule: "0 6 * * *"
+  remote_retention_days: 14
+  local_retention_days: 14
+  excluded_classes:
+    - bulk-media
+    - steam-data
+    - roms
+    - bios-files
+    - regenerable-scraped-media

@@ -1,0 +1,10 @@
+---
+- name: Refresh package databases
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/pacman
+      - --sync
+      - --refresh
+      - --refresh
+      - --noconfirm
+  changed_when: true

@@ -20,7 +20,7 @@ case "$accept_subnet_routes" in
 esac
 
 sudo tailscale debug prefs | jq -e --argjson expected_routes "$accept_subnet_routes" '
-  .CorpDNS == false and
+  .CorpDNS == true and
   .RunSSH == false and
   .RouteAll == $expected_routes
 '
@@ -28,7 +28,8 @@ sudo tailscale debug prefs | jq -e --argjson expected_routes "$accept_subnet_rou
 route_v4_file=$(mktemp)
 route_v6_file=$(mktemp)
 keyscan_file=$(mktemp)
-trap 'rm -f "$route_v4_file" "$route_v6_file" "$keyscan_file"' EXIT
+known_hosts_file=$(mktemp)
+trap 'rm -f "$route_v4_file" "$route_v6_file" "$keyscan_file" "$known_hosts_file"' EXIT
 ip -j -4 route show table 52 >"$route_v4_file"
 ip -j -6 route show table 52 >"$route_v6_file"
 
@@ -110,5 +111,10 @@ if [[ $actual_fingerprint != "$expected_fingerprint" ]]; then
 fi
 
 install -d -m 0700 "$HOME/.ssh"
-install -m 0600 "$keyscan_file" "$HOME/.ssh/known_hosts"
-echo "Verified Docker SSH host key: $actual_fingerprint"
+if [[ -f $HOME/.ssh/known_hosts ]]; then
+  cat "$HOME/.ssh/known_hosts" "$keyscan_file" | sort -u >"$known_hosts_file"
+else
+  cp "$keyscan_file" "$known_hosts_file"
+fi
+install -m 0600 "$known_hosts_file" "$HOME/.ssh/known_hosts"
+echo "Verified target SSH host key: $actual_fingerprint"

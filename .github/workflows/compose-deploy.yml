@@ -99,7 +99,7 @@ jobs:
           oauth-client-id: ${{ vars.TS_OAUTH_CLIENT_ID }}
           audience: ${{ vars.TS_AUDIENCE }}
           tags: tag:ci-apply
-          target-ip: 100.111.210.72
+          target-ip: docker-host
           host-key-fingerprint: SHA256:2wHl3xsBkNYprqP99usjZdwj2Rytcc+MtJVErhowVYw
           accept-subnet-routes: "false"
 
@@ -162,9 +162,11 @@ jobs:
           plan_hash=$(grep -oE 'compose_deploy_plan_sha256=[0-9a-f]{64}' "$plan_log" \
             | cut -d= -f2 | sort -u)
           [[ $plan_hash =~ ^[0-9a-f]{64}$ ]]
-          echo "has_changes=$has_changes" >>"$GITHUB_OUTPUT"
-          echo "plan_hash=$plan_hash" >>"$GITHUB_OUTPUT"
-          echo "recap=$recap" >>"$GITHUB_OUTPUT"
+          {
+            echo "has_changes=$has_changes"
+            echo "plan_hash=$plan_hash"
+            echo "recap=$recap"
+          } >>"$GITHUB_OUTPUT"
 
       - name: Prove the secret-free deployment plan identity is reproducible
         working-directory: ansible
@@ -259,7 +261,7 @@ jobs:
           oauth-client-id: ${{ vars.TS_OAUTH_CLIENT_ID }}
           audience: ${{ vars.TS_AUDIENCE }}
           tags: tag:ci-apply
-          target-ip: 100.111.210.72
+          target-ip: docker-host
           host-key-fingerprint: SHA256:2wHl3xsBkNYprqP99usjZdwj2Rytcc+MtJVErhowVYw
           accept-subnet-routes: "false"
 

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if (($# < 1)); then
+  echo "usage: $0 <saved-plan> [policy arguments...]" >&2
+  exit 64
+fi
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+plan=$1
+shift
+json=$(mktemp)
+trap 'rm -f "$json"' EXIT
+umask 077
+
+tofu show -json "$plan" >"$json"
+python3 "$repo_root/infrastructure/policy/inspect-plan.py" "$json" "$@"

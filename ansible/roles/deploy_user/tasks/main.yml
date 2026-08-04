@@ -1,10 +1,10 @@
 ---
 - name: Keep the dedicated controller user present
   ansible.builtin.user:
-    name: "{{ controller_user_name }}"
-    comment: "{{ controller_user_comment }}"
-    home: "{{ controller_user_home }}"
-    shell: "{{ controller_user_shell }}"
+    name: "{{ deploy_user_account_name }}"
+    comment: "{{ deploy_user_account_comment }}"
+    home: "{{ deploy_user_account_home }}"
+    shell: "{{ deploy_user_account_shell }}"
     create_home: true
     state: present
   become: "{{ not ansible_check_mode }}"
@@ -14,7 +14,7 @@
     argv:
       - /usr/bin/passwd
       - --status
-      - "{{ controller_user_name }}"
+      - "{{ deploy_user_account_name }}"
   become: true
   register: deploy_user_password_before
   changed_when: false
@@ -25,7 +25,7 @@
     argv:
       - /usr/bin/usermod
       - --lock
-      - "{{ controller_user_name }}"
+      - "{{ deploy_user_account_name }}"
   become: true
   changed_when: true
   when:
@@ -37,7 +37,7 @@
     argv:
       - /usr/bin/passwd
       - --status
-      - "{{ controller_user_name }}"
+      - "{{ deploy_user_account_name }}"
   become: true
   register: deploy_user_password_result
   changed_when: false
@@ -53,14 +53,14 @@
 - name: Report the planned controller sudo policy in check mode
   ansible.builtin.debug:
     msg: >-
-      A normal approved bootstrap will install {{ controller_user_sudoers_path }} with mode 0440 and visudo
+      A normal approved bootstrap will install {{ deploy_user_account_sudoers_path }} with mode 0440 and visudo
       validation. The user remains outside every supplementary group, including docker.
   when: ansible_check_mode
 
 - name: Install the controller-user sudo policy only during an approved normal bootstrap
   ansible.builtin.copy:
-    content: "{{ controller_user_sudoers_content }}"
-    dest: "{{ controller_user_sudoers_path }}"
+    content: "{{ deploy_user_account_sudoers_content }}"
+    dest: "{{ deploy_user_account_sudoers_path }}"
     owner: root
     group: root
     mode: "0440"
@@ -75,7 +75,7 @@
       - /usr/bin/id
       - --name
       - --groups
-      - "{{ controller_user_name }}"
+      - "{{ deploy_user_account_name }}"
   register: deploy_user_groups_before
   changed_when: false
   check_mode: false
@@ -86,12 +86,12 @@
     argv:
       - /usr/bin/usermod
       - --groups=
-      - "{{ controller_user_name }}"
+      - "{{ deploy_user_account_name }}"
   become: true
   changed_when: true
   when:
     - not ansible_check_mode
-    - deploy_user_groups_before.stdout.split() | difference([controller_user_name]) | length > 0
+    - deploy_user_groups_before.stdout.split() | difference([deploy_user_account_name]) | length > 0
 
 - name: Inspect controller-user group membership after convergence
   ansible.builtin.command:
@@ -99,7 +99,7 @@
       - /usr/bin/id
       - --name
       - --groups
-      - "{{ controller_user_name }}"
+      - "{{ deploy_user_account_name }}"
   register: deploy_user_groups_result
   changed_when: false
   check_mode: false
@@ -108,6 +108,6 @@
 - name: Assert the controller user has no supplementary groups
   ansible.builtin.assert:
     that:
-      - deploy_user_groups_result.stdout.split() | sort == [controller_user_name]
+      - deploy_user_groups_result.stdout.split() | sort == [deploy_user_account_name]
     fail_msg: "The controller user must have only its private primary group."
   when: not ansible_check_mode

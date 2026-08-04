@@ -1,0 +1,253 @@
+---
+
+- name: Initialize protected storage identity collection
+  ansible.builtin.set_fact:
+    proxmox_storage_zfs_member_paths: []
+  no_log: true
+- name: Read each expected storage member identity from the protected environment
+  ansible.builtin.set_fact:
+    proxmox_storage_zfs_member_paths: "{{ (proxmox_storage_zfs_member_paths | default([])) + [lookup('ansible.builtin.env', item.secret_ref)] }}"
+  loop: "{{ storage.zfs.members }}"
+  no_log: true
+
+- name: Require all stable storage identities
+  ansible.builtin.assert:
+    that:
+      - proxmox_storage_zfs_member_paths | length == 12
+      - proxmox_storage_zfs_member_paths | reject('match', '^/dev/disk/by-id/[A-Za-z0-9._:+-]+$') | list | length == 0
+    fail_msg: "All twelve SOPS-protected ZFS by-id identities are required."
+  no_log: true
+
+- name: Inspect whether the exact ZFS pool is imported
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/zpool
+      - list
+      - -H
+      - -o
+      - name
+      - "{{ storage.zfs.pool }}"
+  register: proxmox_storage_zpool_list
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+- name: Require explicit recovery import authorization
+  ansible.builtin.assert:
+    that:
+      - proxmox_storage_recovery_mode | bool
+      - proxmox_storage_recovery_import_confirmed | bool
+      - recovery_console_confirmed | default(false) | bool
+    fail_msg: "A missing pool can only be imported in explicit console-backed recovery mode."
+  when: proxmox_storage_zpool_list.rc != 0
+
+- name: Verify every expected pool member exists before recovery import
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: true
+    get_checksum: false
+    get_mime: false
+  loop: "{{ proxmox_storage_zfs_member_paths }}"
+  register: proxmox_storage_zfs_members
+  no_log: true
+  when: proxmox_storage_zpool_list.rc != 0
+
+- name: Stop if any expected member is absent
+  ansible.builtin.assert:
+    that:
+      - proxmox_storage_zfs_members.results | map(attribute='stat.exists') | min
+    fail_msg: "Expected ZFS member set is incomplete; refusing import."
+  no_log: true
+  when: proxmox_storage_zpool_list.rc != 0
+
+- name: Import only the exact known pool GUID in recovery mode
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/zpool
+      - import
+      - -d
+      - /dev/disk/by-id
+      - "{{ proxmox_storage_pool_guid }}"
+  changed_when: true
+  when: proxmox_storage_zpool_list.rc != 0
+
+- name: Record whether runtime pool checks are available
+  ansible.builtin.set_fact:
+    proxmox_storage_pool_runtime_available: >-
+      {{ not ansible_check_mode or proxmox_storage_zpool_list.rc == 0 }}
+
+- name: Read pool health
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/zpool
+      - list
+      - -H
+      - -o
+      - health
+      - "{{ storage.zfs.pool }}"
+  register: proxmox_storage_zpool_health
+  changed_when: false
+  check_mode: false
+  when: proxmox_storage_pool_runtime_available | bool
+
+- name: Read the imported ZFS pool GUID
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/zpool
+      - get
+      - -H
+      - -o
+      - value
+      - guid
+      - "{{ storage.zfs.pool }}"
+  register: proxmox_storage_zpool_guid
+  changed_when: false
+  no_log: true
+  check_mode: false
+  when: proxmox_storage_pool_runtime_available | bool
+
+- name: Read the exact imported ZFS leaf identities
+  ansible.builtin.shell: >-
+    set -o pipefail &&
+    /usr/sbin/zpool status -P {{ storage.zfs.pool }} |
+    /usr/bin/awk '/\/dev\/disk\/by-id\// {print $1}' |
+    /usr/bin/sort -u
+  args:
+    executable: /bin/bash
+  register: proxmox_storage_zpool_members
+  changed_when: false
+  no_log: true
+  check_mode: false
+  when: proxmox_storage_pool_runtime_available | bool
+
+- name: Require the imported pool to use exactly the protected members
+  ansible.builtin.assert:
+    that:
+      - proxmox_storage_zpool_members.stdout_lines | sort == proxmox_storage_zfs_member_paths | sort
+    fail_msg: "Imported ZFS leaf membership differs from the protected contract."
+  no_log: true
+  when: proxmox_storage_pool_runtime_available | bool
+
+- name: Require the imported pool GUID
+  ansible.builtin.assert:
+    that:
+      - proxmox_storage_zpool_guid.stdout == proxmox_storage_pool_guid
+    fail_msg: "Imported ZFS pool GUID differs from the protected contract."
+  no_log: true
+  when: proxmox_storage_pool_runtime_available | bool
+
+- name: Calculate the current corrected checksum count
+  ansible.builtin.shell: >-
+    set -o pipefail &&
+    /usr/sbin/zpool status -P {{ storage.zfs.pool }} |
+    /usr/bin/awk '/\/dev\/disk\/by-id\// {sum += $5} END {print sum + 0}'
+  args:
+    executable: /bin/bash
+  register: proxmox_storage_zpool_checksum_count
+  changed_when: false
+  no_log: true
+  check_mode: false
+  when: proxmox_storage_pool_runtime_available | bool
+
+- name: Block degraded health or increased checksum errors
+  ansible.builtin.assert:
+    that:
+      - proxmox_storage_zpool_health.stdout == storage.zfs.expected_health
+      - proxmox_storage_zpool_checksum_count.stdout | int <= storage.zfs.corrected_checksum_baseline
+    fail_msg: "ZFS health degraded or corrected checksum count increased; stop all applies."
+  when: proxmox_storage_pool_runtime_available | bool
+
+- name: Read ZFS userspace and kernel module versions
+  ansible.builtin.shell: >-
+    set -o pipefail &&
+    printf '%s\n' "$(/usr/sbin/zfs version | /usr/bin/awk -F- '/^zfs-/{print $2}')" "$(/usr/sbin/modinfo -F version zfs)"
+  args:
+    executable: /bin/bash
+  register: proxmox_storage_zfs_versions
+  changed_when: false
+  check_mode: false
+  when: proxmox_storage_pool_runtime_available | bool
+
+- name: Block routine convergence while ZFS versions mismatch
+  ansible.builtin.assert:
+    that:
+      - proxmox_storage_zfs_versions.stdout_lines | unique | length == 1
+    fail_msg: "ZFS userspace/kernel mismatch requires a reviewed package and reboot migration."
+  when:
+    - proxmox_storage_pool_runtime_available | bool
+    - not (proxmox_storage_version_migration_reviewed | default(false) | bool)
+
+- name: Inspect SMART and scrub review evidence
+  ansible.builtin.stat:
+    path: "{{ proxmox_storage_review_evidence_path }}"
+    get_checksum: true
+  register: proxmox_storage_evidence
+  when: proxmox_storage_migration_confirmed | bool
+
+- name: Require reviewed evidence before changing ZFS or NFS exposure
+  ansible.builtin.assert:
+    that:
+      - proxmox_storage_evidence.stat.isreg | default(false)
+    fail_msg: "Record reviewed SMART and scrub evidence before storage/NFS migration."
+  when: proxmox_storage_migration_confirmed | bool
+
+- name: Read the ZFS-generated share property
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/zfs
+      - get
+      - -H
+      - -o
+      - value
+      - sharenfs
+      - "{{ storage.zfs.dataset }}"
+  register: proxmox_storage_zfs_sharenfs
+  changed_when: false
+  check_mode: false
+  when: proxmox_storage_pool_runtime_available | bool
+
+- name: Disable the ZFS-generated world export
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/zfs
+      - set
+      - sharenfs=off
+      - "{{ storage.zfs.dataset }}"
+  changed_when: true
+  when:
+    - proxmox_storage_migration_confirmed | bool
+    - proxmox_storage_zfs_sharenfs.stdout != 'off'
+    - proxmox_storage_pool_runtime_available | bool
+  notify: Reload NFS exports
+
+- name: Export the Docker dataset only to the Arch host
+  ansible.builtin.template:
+    src: home-lab.exports.j2
+    dest: /etc/exports.d/home-lab.exports
+    owner: root
+    group: root
+    mode: "0644"
+  when: proxmox_storage_migration_confirmed | bool
+  notify: Reload NFS exports
+
+- name: Verify dataset mountpoint identity
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/findmnt
+      - --noheadings
+      - --output
+      - SOURCE,FSTYPE
+      - --target
+      - "{{ storage.zfs.mountpoint }}"
+  register: proxmox_storage_mount
+  changed_when: false
+  check_mode: false
+  when: proxmox_storage_pool_runtime_available | bool
+
+- name: Assert the expected ZFS dataset is mounted
+  ansible.builtin.assert:
+    that:
+      - storage.zfs.dataset in proxmox_storage_mount.stdout
+      - "'zfs' in proxmox_storage_mount.stdout"
+    fail_msg: "The expected storage/docker dataset is not mounted."
+  when: proxmox_storage_pool_runtime_available | bool

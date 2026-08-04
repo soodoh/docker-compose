@@ -1,0 +1,19 @@
+---
+- name: Remove every unreviewed ACL from the privilege-separated token
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/pveum
+      - acl
+      - delete
+      - "{{ item.path }}"
+      - --tokens
+      - "{{ proxmox_host_api_account.user }}!{{ proxmox_host_api_account.token_name }}"
+      - --roles
+      - "{{ item.roleid }}"
+  loop: "{{ proxmox_host_token_acls.stdout | from_json }}"
+  loop_control:
+    label: "{{ item.path }}:{{ item.roleid }}"
+  when:
+    - item.ugid == proxmox_host_api_account.user ~ '!' ~ proxmox_host_api_account.token_name
+    - item.path != '/' or item.roleid != proxmox_host_api_account.role
+  changed_when: true

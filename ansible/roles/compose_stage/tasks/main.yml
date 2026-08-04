@@ -62,21 +62,23 @@
         group: root
         mode: "{{ item.mode }}"
       become: true
-      loop:
-        - path: "{{ compose_deployment_root }}"
-          mode: "0755"
-        - path: "{{ compose_current_dir }}"
-          mode: "0755"
-        - path: "{{ compose_staging_root }}"
-          mode: "0755"
-        - path: "{{ compose_previous_dir }}"
-          mode: "0755"
-        - path: /etc/docker-compose
-          mode: "0700"
-        - path: "{{ compose_staged_env_root }}"
-          mode: "0700"
-        - path: /var/lib/docker-compose
-          mode: "0700"
+      loop: >-
+        {{
+          [
+            {'path': compose_deployment_root, 'mode': '0755'},
+            {'path': compose_staging_root, 'mode': '0755'},
+            {'path': '/etc/docker-compose', 'mode': '0700'},
+            {'path': compose_staged_env_root, 'mode': '0700'},
+            {'path': '/var/lib/docker-compose', 'mode': '0700'}
+          ]
+          + (
+            [] if (compose_stage_fresh_recovery | default(false) | bool)
+            else [
+              {'path': compose_current_dir, 'mode': '0755'},
+              {'path': compose_previous_dir, 'mode': '0755'}
+            ]
+          )
+        }}
 
     - name: Create an incoming root-owned artifact directory
       ansible.builtin.tempfile:
@@ -127,6 +129,7 @@
           - "{{ compose_stage_incoming.path }}"
           - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
       become: true
+      changed_when: true
       when: not compose_stage_existing_paths.results[0].stat.exists
 
     - name: Recompute the published host artifact hash
@@ -173,6 +176,7 @@
         SOPS_AGE_KEY_FILE: "{{ compose_age_identity_path }}"
       become: true
       no_log: true
+      changed_when: true
 
     - name: Restore the exact non-secret dotenv layout
       ansible.builtin.command:
@@ -184,6 +188,7 @@
           - "{{ compose_stage_decrypt_workspace.path }}/production.env"
       become: true
       no_log: true
+      changed_when: true
 
     - name: Atomically install the root-only candidate environment
       ansible.builtin.copy:

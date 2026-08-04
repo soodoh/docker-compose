@@ -10,8 +10,8 @@
       ansible.builtin.import_role:
         name: apply_lock
       vars:
-        iac_apply_lock_action: acquire
-        iac_apply_operation: compose-rollback
+        apply_lock_action: acquire
+        apply_lock_operation: compose-rollback
   roles:
     - role: compose_rollback
   post_tasks:
@@ -23,5 +23,5 @@
       ansible.builtin.import_role:
         name: apply_lock
       vars:
-        iac_apply_lock_action: release
-        iac_apply_operation: compose-rollback
+        apply_lock_action: release
+        apply_lock_operation: compose-rollback

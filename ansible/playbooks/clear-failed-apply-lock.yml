@@ -20,12 +20,12 @@
       become: true
       register: iac_failed_lock_paths
       loop:
-        - "{{ iac_apply_lock_path }}"
-        - "{{ iac_apply_lock_path }}/owner"
+        - "{{ apply_lock_path }}"
+        - "{{ apply_lock_path }}/owner"
 
     - name: Inspect failed production lock contents
       ansible.builtin.find:
-        paths: "{{ iac_apply_lock_path }}"
+        paths: "{{ apply_lock_path }}"
         hidden: true
         recurse: false
         file_type: any
@@ -44,7 +44,7 @@
     - name: Report the failed-lock clearance plan
       ansible.builtin.debug:
         msg:
-          lock_path: "{{ iac_apply_lock_path }}"
+          lock_path: "{{ apply_lock_path }}"
           owner_record: absent
           entry_count: 0
       changed_when: true
@@ -55,6 +55,7 @@
         argv:
           - /usr/bin/rmdir
           - --
-          - "{{ iac_apply_lock_path }}"
+          - "{{ apply_lock_path }}"
       become: true
+      changed_when: true
       when: not ansible_check_mode

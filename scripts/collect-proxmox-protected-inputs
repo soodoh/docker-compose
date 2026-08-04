@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+[[ $EUID -eq 0 ]]
+output=${1:-/root/home-lab-hardware.env}
+[[ ! -e $output ]]
+for command in qm zpool udevadm; do
+  command -v "$command" >/dev/null || { echo "missing command: $command" >&2; exit 69; }
+done
+
+temporary=$(mktemp "${output}.tmp.XXXXXX")
+cleanup() { rm -f "$temporary"; }
+trap cleanup EXIT INT TERM
+games_by_id=$(qm config 100 | awk -F '[:,]' '$1 == "scsi1" {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit}')
+[[ $games_by_id == /dev/disk/by-id/* ]]
+printf 'HOMELAB_GAMES_DISK_BY_ID=%s\n' "$games_by_id" >>"$temporary"
+printf 'HOMELAB_ZFS_POOL_GUID=%s\n' "$(zpool get -H -o value guid storage)" >>"$temporary"
+mapfile -t members < <(zpool status -P storage | awk '$1 ~ "^/dev/disk/by-id/" {print $1}')
+((${#members[@]} == 12))
+for index in "${!members[@]}"; do
+  printf 'HOMELAB_ZFS_MEMBER_%02d_BY_ID=%s\n' "$((index + 1))" "${members[$index]}" >>"$temporary"
+done
+for mapping in 'HOMELAB_ZIGBEE_USB_SERIAL:1-6' 'HOMELAB_ZWAVE_USB_SERIAL:1-7'; do
+  key=${mapping%%:*}
+  device=${mapping#*:}
+  serial=$(udevadm info --query=property --path="/sys/bus/usb/devices/$device" \
+    | awk -F= '$1 == "ID_SERIAL_SHORT" {print substr($0, index($0,"=")+1); exit}')
+  [[ -n $serial && $serial != *[[:space:]]* ]]
+  printf '%s=%s\n' "$key" "$serial" >>"$temporary"
+done
+chmod 0600 "$temporary"
+mv "$temporary" "$output"
+trap - EXIT INT TERM
+printf 'proxmox_protected_inputs=collected keys=16 output=%s\n' "$output"

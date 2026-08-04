@@ -45,6 +45,51 @@
       - compose_rollback_paths.results[3].stat.mode == '0600'
     fail_msg: "Current or previous rollback input is missing, writable, or incorrectly owned."
 
+- name: Verify both rollback image sets remain locally and remotely available
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python
+      - "{{ compose_current_dir }}/scripts/compose-image-lock.py"
+      - verify
+      - --current
+      - "{{ maintenance_compose_current_image_lock_path }}"
+      - --previous
+      - "{{ maintenance_compose_previous_image_lock_path }}"
+      - --check-registry
+  become: true
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Derive services whose immutable image IDs differ across rollback locks
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python
+      - "{{ compose_current_dir }}/scripts/compose-image-lock.py"
+      - diff
+      - --current
+      - "{{ maintenance_compose_current_image_lock_path }}"
+      - --previous
+      - "{{ maintenance_compose_previous_image_lock_path }}"
+  become: true
+  register: compose_rollback_locked_image_diff
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Bind mutable rollback references to the exact previous image IDs
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python
+      - "{{ compose_current_dir }}/scripts/compose-image-lock.py"
+      - activate
+      - --lock
+      - "{{ maintenance_compose_previous_image_lock_path }}"
+  become: true
+  changed_when: true
+  no_log: true
+  when: not ansible_check_mode
+
 - name: Recompute current and previous artifact identities
   ansible.builtin.command:
     argv:
@@ -74,6 +119,20 @@
   loop:
     - "{{ compose_runtime_env_path }}"
     - "{{ compose_previous_env_path }}"
+  no_log: true
+
+- name: Compute current and previous image-lock identities
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/sha256sum
+      - "{{ item }}"
+  become: true
+  register: compose_rollback_image_lock_hashes
+  changed_when: false
+  check_mode: false
+  loop:
+    - "{{ maintenance_compose_current_image_lock_path }}"
+    - "{{ maintenance_compose_previous_image_lock_path }}"
   no_log: true
 
 - name: Require exact artifacts and an unchanged rollback environment
@@ -156,9 +215,20 @@
   check_mode: false
   no_log: true
 
-- name: Parse the secret-free rollback plan
+- name: Parse and bind the secret-free rollback plan to immutable image IDs
   ansible.builtin.set_fact:
     compose_rollback_plan: "{{ compose_rollback_plan_file.content | b64decode | from_json }}"
+    compose_rollback_recreate_services: >-
+      {{
+        ((compose_rollback_plan_file.content | b64decode | from_json).recreate_services
+        + (compose_rollback_locked_image_diff.stdout | from_json)) | unique | sort
+      }}
+    compose_rollback_effective_action_count: >-
+      {{
+        (compose_rollback_plan_file.content | b64decode | from_json).action_count
+        + ((compose_rollback_locked_image_diff.stdout | from_json) |
+           difference((compose_rollback_plan_file.content | b64decode | from_json).recreate_services) | length)
+      }}
   no_log: true
 
 - name: Remove the root-only rollback plan
@@ -176,17 +246,21 @@
       current_hash: "{{ compose_artifact_hash }}"
       target_hash: "{{ compose_rollback_target_hash }}"
       environment_sha256: "{{ compose_rollback_environment_hashes.results[0].stdout.split() | first }}"
-      recreate_services: "{{ compose_rollback_plan.recreate_services | sort }}"
+      current_image_lock_sha256: "{{ compose_rollback_image_lock_hashes.results[0].stdout.split() | first }}"
+      previous_image_lock_sha256: "{{ compose_rollback_image_lock_hashes.results[1].stdout.split() | first }}"
+      recreate_services: "{{ compose_rollback_recreate_services }}"
       forbidden_actions: "{{ compose_rollback_plan.forbidden_actions }}"
-      action_count: "{{ compose_rollback_plan.action_count }}"
+      action_count: "{{ compose_rollback_effective_action_count }}"
     compose_rollback_plan_hash: >-
       {{ ({
         'current_hash': compose_artifact_hash,
         'target_hash': compose_rollback_target_hash,
         'environment_sha256': compose_rollback_environment_hashes.results[0].stdout.split() | first,
-        'recreate_services': compose_rollback_plan.recreate_services | sort,
+        'current_image_lock_sha256': compose_rollback_image_lock_hashes.results[0].stdout.split() | first,
+        'previous_image_lock_sha256': compose_rollback_image_lock_hashes.results[1].stdout.split() | first,
+        'recreate_services': compose_rollback_recreate_services,
         'forbidden_actions': compose_rollback_plan.forbidden_actions,
-        'action_count': compose_rollback_plan.action_count
+        'action_count': compose_rollback_effective_action_count
       } | to_json) | hash('sha256') }}
   no_log: true
 
@@ -195,7 +269,7 @@
     msg:
       current_hash: "{{ compose_artifact_hash }}"
       target_hash: "{{ compose_rollback_target_hash }}"
-      recreate_services: "{{ compose_rollback_plan.recreate_services | sort }}"
+      recreate_services: "{{ compose_rollback_recreate_services }}"
       forbidden_action_count: "{{ compose_rollback_plan.forbidden_actions | length }}"
       environment_unchanged: true
 
@@ -216,7 +290,7 @@
     msg:
       current_artifact_hash: "{{ compose_artifact_hash }}"
       target_artifact_hash: "{{ compose_rollback_target_hash }}"
-      recreation_services: "{{ compose_rollback_plan.recreate_services | sort }}"
+      recreation_services: "{{ compose_rollback_recreate_services }}"
   changed_when: true
   when: ansible_check_mode
 
@@ -269,12 +343,13 @@
           {{ ['/usr/bin/docker', 'compose', '--project-name', compose_project_name,
               '--project-directory', compose_current_dir, '--env-file', compose_runtime_env_path,
               '--file', '/run/docker-compose-rollback-target.json', 'up', '--detach', '--no-build',
-              '--pull', 'never', '--no-deps'] + (compose_rollback_plan.recreate_services | sort) }}
+              '--pull', 'never', '--no-deps', '--force-recreate'] + compose_rollback_recreate_services }}
       become: true
       environment:
         HOME: "{{ compose_home_dir }}"
       no_log: true
-      when: compose_rollback_plan.recreate_services | length > 0
+      when: compose_rollback_recreate_services | length > 0
+      changed_when: true
 
     - name: Require target-model convergence before artifact activation
       ansible.builtin.script:
@@ -324,6 +399,20 @@
           - "{{ compose_previous_dir }}"
       become: true
       no_log: true
+      changed_when: true
+
+    - name: Atomically exchange current and previous image locks
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/mv
+          - --exchange
+          - --no-target-directory
+          - --
+          - "{{ maintenance_compose_current_image_lock_path }}"
+          - "{{ maintenance_compose_previous_image_lock_path }}"
+      become: true
+      no_log: true
+      changed_when: true
 
     - name: Recompute activated current and retained previous artifact identities
       ansible.builtin.command:

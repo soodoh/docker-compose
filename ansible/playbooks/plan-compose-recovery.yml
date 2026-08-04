@@ -1,0 +1,9 @@
+---
+- name: Derive the secret-free first Compose recovery plan
+  hosts: docker_host
+  gather_facts: false
+  any_errors_fatal: true
+  vars_files:
+    - "{{ playbook_dir }}/../group_vars/docker_host.yml"
+  roles:
+    - role: compose_recovery_preflight

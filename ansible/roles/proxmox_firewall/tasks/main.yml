@@ -1,0 +1,47 @@
+---
+- name: Require firewall canary confirmations
+  ansible.builtin.assert:
+    that:
+      - recovery_console_confirmed | default(false) | bool
+      - lan_rollback_confirmed | default(false) | bool
+      - tailscale_connectivity_confirmed | default(false) | bool
+    fail_msg: "Default-deny firewall activation requires console, LAN, and tailnet canaries."
+  when: proxmox_firewall_apply_confirmed | bool
+
+- name: Install the reviewed Proxmox firewall policy
+  ansible.builtin.template:
+    src: cluster.fw.j2
+    dest: /etc/pve/firewall/cluster.fw
+    owner: root
+    group: www-data
+    mode: "0640"
+    backup: true
+  when: proxmox_firewall_apply_confirmed | bool
+
+- name: Enable the PVE firewall only after policy installation
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/pvesh
+      - set
+      - /cluster/firewall/options
+      - --enable
+      - "1"
+  changed_when: false
+  when: proxmox_firewall_apply_confirmed | bool
+
+- name: Read the PVE firewall state
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/pvesh
+      - get
+      - /cluster/firewall/options
+      - --output-format
+      - json
+  register: proxmox_firewall_state
+  changed_when: false
+
+- name: Require enabled firewall after approved migration
+  ansible.builtin.assert:
+    that:
+      - (proxmox_firewall_state.stdout | from_json).enable | default(0) | int == 1
+  when: proxmox_firewall_apply_confirmed | bool

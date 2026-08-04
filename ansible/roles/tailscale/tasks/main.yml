@@ -113,17 +113,30 @@
   no_log: true
   when: not ansible_check_mode
 
-- name: Enable Tailscale SSH without modifying OpenSSH
+- name: Converge complete Tailscale preferences
   ansible.builtin.command:
     argv:
       - /usr/bin/tailscale
       - set
+      - "--hostname={{ tailscale_hostname }}"
+      - "--advertise-tags={{ tailscale_advertise_tags }}"
+      - "--advertise-routes={{ tailscale_advertise_routes | join(',') }}"
+      - "--accept-dns={{ tailscale_accept_dns | ternary('true', 'false') }}"
+      - "--accept-routes={{ tailscale_accept_routes | ternary('true', 'false') }}"
+      - --netfilter-mode=on
       - --ssh=true
   become: true
   changed_when: true
   when:
     - not ansible_check_mode
-    - not ((tailscale_preferences_before.stdout | from_json).RunSSH | default(false) | ansible.builtin.bool)
+    - >-
+      not ((tailscale_preferences_before.stdout | from_json).RunSSH | default(false) | bool) or
+      ((tailscale_preferences_before.stdout | from_json).CorpDNS | default(false) | bool) != (tailscale_accept_dns | bool) or
+      ((tailscale_preferences_before.stdout | from_json).RouteAll | default(false) | bool) != (tailscale_accept_routes | bool) or
+      ((tailscale_preferences_before.stdout | from_json).Hostname | default('')) != tailscale_hostname or
+      (((tailscale_preferences_before.stdout | from_json).AdvertiseRoutes | default([], true)) | sort) != (tailscale_advertise_routes | sort) or
+      (((tailscale_preferences_before.stdout | from_json).AdvertiseTags | default([], true)) | sort) != ([tailscale_advertise_tags] | sort) or
+      ((tailscale_preferences_before.stdout | from_json).NetfilterMode | default(0) | int) != 2
 
 - name: Verify Tailscale reaches the running backend state
   ansible.builtin.command:

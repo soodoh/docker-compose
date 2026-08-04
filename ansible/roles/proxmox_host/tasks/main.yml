@@ -1,0 +1,137 @@
+---
+- name: Assert the Proxmox platform
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Debian'
+      - ansible_facts.virtualization_role != 'guest'
+    fail_msg: "This role may run only on the Proxmox host."
+
+- name: Install the PVE no-subscription repository definition
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/pve-no-subscription.sources
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: http://download.proxmox.com/debian/pve
+      Suites: trixie
+      Components: pve-no-subscription
+      Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+  register: proxmox_host_repository
+
+- name: Install the pinned Tailscale repository signing key
+  ansible.builtin.get_url:
+    url: https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    owner: root
+    group: root
+    mode: "0644"
+    checksum: sha256:3e03dacf222698c60b8e2f990b809ca1b3e104de127767864284e6c228f1fb39
+  register: proxmox_host_tailscale_key
+
+- name: Install the pinned Tailscale repository definition
+  ansible.builtin.get_url:
+    url: https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list
+    dest: /etc/apt/sources.list.d/tailscale.list
+    owner: root
+    group: root
+    mode: "0644"
+    checksum: sha256:5a1b21b30892bf22fb5d7c4f52fefe9b65efda2100e82abba2e0849da2a2264b
+  register: proxmox_host_tailscale_repository
+
+- name: Install required host packages without upgrading the distribution
+  ansible.builtin.apt:
+    name: "{{ proxmox_packages }}"
+    state: present
+    update_cache: >-
+      {{ proxmox_host_repository.changed or
+         proxmox_host_tailscale_key.changed or
+         proxmox_host_tailscale_repository.changed }}
+
+- name: Keep required host services enabled and started
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: "{{ proxmox_services }}"
+
+- name: Inspect infrastructure SSH service users before convergence
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/getent
+      - passwd
+      - "{{ item }}"
+  register: proxmox_host_ssh_user_inspection
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  loop:
+    - tofu-plan
+    - tofu-apply
+
+- name: Retain existing infrastructure SSH user identities
+  ansible.builtin.set_fact:
+    proxmox_host_existing_ssh_users: >-
+      {{ proxmox_host_ssh_user_inspection.results |
+         selectattr('rc', 'equalto', 0) | map(attribute='item') | list }}
+- name: Create locked infrastructure SSH service users
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    shell: /bin/bash
+    create_home: true
+    password_lock: true
+    groups: "{{ item.groups | default(omit) }}"
+    state: present
+  loop:
+    - name: tofu-plan
+    - name: tofu-apply
+      groups: sudo
+
+- name: Create service-user SSH directories
+  ansible.builtin.file:
+    path: "/home/{{ item.name }}/.ssh"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0700"
+  loop:
+    - name: tofu-plan
+    - name: tofu-apply
+  when: not ansible_check_mode or item.name in proxmox_host_existing_ssh_users
+
+- name: Install account-specific bootstrap-authorized public keys
+  ansible.builtin.copy:
+    dest: "/home/{{ item.name }}/.ssh/authorized_keys"
+    content: "{{ item.keys | reject('equalto', '') | join('\n') }}\n"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0600"
+  loop:
+    - name: tofu-plan
+      keys: "{{ proxmox_plan_ssh_public_keys }}"
+    - name: tofu-apply
+      keys: "{{ proxmox_apply_ssh_public_keys }}"
+  when:
+    - item.keys | reject('equalto', '') | list | length > 0
+    - not ansible_check_mode or item.name in proxmox_host_existing_ssh_users
+  no_log: true
+
+- name: Install the audited apply-account sudo policy
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/tofu-apply
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+    content: |
+      tofu-apply ALL=(root) NOPASSWD: ALL
+  when: not ansible_check_mode or 'tofu-apply' in proxmox_host_existing_ssh_users
+
+- name: Inspect the API control plane in check mode
+  ansible.builtin.include_tasks: api-check.yml
+  when: ansible_check_mode
+
+- name: Reconcile the API control plane outside check mode
+  ansible.builtin.include_tasks: api.yml
+  when: not ansible_check_mode

@@ -78,7 +78,7 @@ jobs:
           oauth-client-id: ${{ vars.TS_OAUTH_CLIENT_ID }}
           audience: ${{ vars.TS_AUDIENCE }}
           tags: tag:ci-plan
-          target-ip: 100.111.210.72
+          target-ip: docker-host
           host-key-fingerprint: SHA256:2wHl3xsBkNYprqP99usjZdwj2Rytcc+MtJVErhowVYw
           accept-subnet-routes: "false"
 
@@ -117,9 +117,11 @@ jobs:
             has_changes=true
           fi
 
-          echo "changed=$changed" >>"$GITHUB_OUTPUT"
-          echo "has_changes=$has_changes" >>"$GITHUB_OUTPUT"
-          echo "plan_hash=$plan_hash" >>"$GITHUB_OUTPUT"
+          {
+            echo "changed=$changed"
+            echo "has_changes=$has_changes"
+            echo "plan_hash=$plan_hash"
+          } >>"$GITHUB_OUTPUT"
 
           {
             echo "### Ansible plan"
@@ -170,7 +172,7 @@ jobs:
           oauth-client-id: ${{ vars.TS_OAUTH_CLIENT_ID }}
           audience: ${{ vars.TS_AUDIENCE }}
           tags: tag:ci-apply
-          target-ip: 100.111.210.72
+          target-ip: docker-host
           host-key-fingerprint: SHA256:2wHl3xsBkNYprqP99usjZdwj2Rytcc+MtJVErhowVYw
           accept-subnet-routes: "false"
 

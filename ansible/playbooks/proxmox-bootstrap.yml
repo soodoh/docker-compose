@@ -1,0 +1,57 @@
+---
+- name: Bootstrap Proxmox locally after the manual installation boundary
+  hosts: proxmox_hosts
+  gather_facts: true
+  any_errors_fatal: true
+  vars_files:
+    - "{{ playbook_dir }}/../../infrastructure/contract/home-lab.yml"
+  pre_tasks:
+    - name: Require execution on the exact local bare-metal Proxmox host
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'Debian'
+          - ansible_facts.virtualization_role != 'guest'
+          - ansible_facts.hostname == proxmox.node
+          - ansible_connection == 'local'
+        fail_msg: "Run the local recovery inventory only on the intended Proxmox host."
+    - name: Verify the Proxmox installation before any host mutation
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/pveversion
+      changed_when: false
+      check_mode: false
+    - name: Require local-console or trusted-LAN bootstrap confirmation
+      ansible.builtin.assert:
+        that:
+          - recovery_console_confirmed | default(false) | bool
+          - lan_rollback_confirmed | default(false) | bool
+          - ansible_check_mode or (proxmox_bootstrap_apply_confirmed | default(false) | bool)
+        fail_msg: "Fresh Proxmox bootstrap requires confirmed console/LAN rollback and explicit apply approval."
+
+    - name: Acquire the shared host-side mutation lock
+      ansible.builtin.import_role:
+        name: apply_lock
+      vars:
+        apply_lock_action: acquire
+        apply_lock_operation: proxmox-bootstrap
+  roles:
+    - role: proxmox_host
+    - role: proxmox_network
+    - role: proxmox_passthrough
+    - role: tailscale
+      vars:
+        tailscale_package: tailscale
+        tailscale_service: tailscaled.service
+        tailscale_hostname: "{{ proxmox_tailscale_hostname }}"
+        tailscale_advertise_tags: "{{ proxmox_tailscale_tag }}"
+        tailscale_advertise_routes: []
+        tailscale_accept_dns: false
+        tailscale_accept_routes: false
+        tailscale_auth_key: "{{ proxmox_tailscale_auth_key }}"
+    - role: proxmox_storage
+  post_tasks:
+    - name: Release the shared host-side mutation lock after success
+      ansible.builtin.import_role:
+        name: apply_lock
+      vars:
+        apply_lock_action: release

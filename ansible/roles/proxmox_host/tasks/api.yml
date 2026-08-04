@@ -1,0 +1,182 @@
+---
+- name: Inspect Proxmox API users
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/pveum
+      - user
+      - list
+      - --output-format
+      - json
+  register: proxmox_host_api_users
+  changed_when: false
+
+- name: Create missing separated Proxmox API users
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/pveum
+      - user
+      - add
+      - "{{ item.user }}"
+  when: >-
+    item.user not in (proxmox_host_api_users.stdout | from_json |
+    map(attribute='userid') | list)
+  changed_when: true
+  loop: "{{ proxmox_api_accounts }}"
+  loop_control:
+    label: "{{ item.user }}"
+
+- name: Inspect Proxmox API roles
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/pveum
+      - role
+      - list
+      - --output-format
+      - json
+  register: proxmox_host_api_roles
+  changed_when: false
+
+- name: Create missing separated Proxmox API roles
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/pveum
+      - role
+      - add
+      - "{{ item.role }}"
+      - --privs
+      - "{{ item.privileges | join(' ') }}"
+  when: item.role not in (proxmox_host_api_roles.stdout | from_json | map(attribute='roleid') | list)
+  changed_when: true
+  loop: "{{ proxmox_api_accounts }}"
+  loop_control:
+    label: "{{ item.role }}"
+
+- name: Re-read Proxmox API roles
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/pveum
+      - role
+      - list
+      - --output-format
+      - json
+  register: proxmox_host_api_roles_after
+  changed_when: false
+
+- name: Converge drift in separated Proxmox API roles
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/pveum
+      - role
+      - modify
+      - "{{ item.role }}"
+      - --privs
+      - "{{ item.privileges | join(' ') }}"
+  vars:
+    proxmox_host_api_role_current: >-
+      {{ (proxmox_host_api_roles_after.stdout | from_json |
+          selectattr('roleid', 'equalto', item.role) | first).privs }}
+  when: >-
+    (proxmox_host_api_role_current | regex_replace(',', ' ') | split | sort) !=
+    (item.privileges | sort)
+  changed_when: true
+  loop: "{{ proxmox_api_accounts }}"
+  loop_control:
+    label: "{{ item.role }}"
+
+
+- name: Create missing separated Proxmox API tokens
+  ansible.builtin.include_tasks: api-token.yml
+  loop: "{{ proxmox_api_accounts }}"
+  loop_control:
+    loop_var: proxmox_host_api_account
+    label: "{{ proxmox_host_api_account.user }}!{{ proxmox_host_api_account.token_name }}"
+
+- name: Re-read ACLs after token creation
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/pveum
+      - acl
+      - list
+      - --output-format
+      - json
+  register: proxmox_host_token_acls
+  changed_when: false
+
+- name: Remove unreviewed privilege-separated token ACLs
+  ansible.builtin.include_tasks: api-acl.yml
+  loop: "{{ proxmox_api_accounts }}"
+  loop_control:
+    loop_var: proxmox_host_api_account
+    label: "{{ proxmox_host_api_account.user }}!{{ proxmox_host_api_account.token_name }}"
+
+- name: Grant each privilege-separated token only its reviewed role
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/pveum
+      - acl
+      - modify
+      - /
+      - --tokens
+      - "{{ item.user }}!{{ item.token_name }}"
+      - --roles
+      - "{{ item.role }}"
+  when: >-
+    proxmox_host_token_acls.stdout | from_json |
+    selectattr('path', 'equalto', '/') |
+    selectattr('ugid', 'equalto', item.user ~ '!' ~ item.token_name) |
+    selectattr('roleid', 'equalto', item.role) |
+    list | length == 0
+  changed_when: true
+  loop: "{{ proxmox_api_accounts }}"
+  loop_control:
+    label: "{{ item.user }}!{{ item.token_name }}"
+
+- name: Re-read final privilege-separated token ACLs
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/pveum
+      - acl
+      - list
+      - --output-format
+      - json
+  register: proxmox_host_final_token_acls
+  changed_when: false
+
+- name: Require exactly one reviewed ACL per privilege-separated token
+  ansible.builtin.assert:
+    that:
+      - >-
+        proxmox_host_final_token_acls.stdout | from_json |
+        selectattr('ugid', 'equalto', item.user ~ '!' ~ item.token_name) |
+        list | length == 1
+      - >-
+        proxmox_host_final_token_acls.stdout | from_json |
+        selectattr('path', 'equalto', '/') |
+        selectattr('ugid', 'equalto', item.user ~ '!' ~ item.token_name) |
+        selectattr('roleid', 'equalto', item.role) |
+        list | length == 1
+    fail_msg: "A privilege-separated Proxmox token has an unreviewed ACL."
+  loop: "{{ proxmox_api_accounts }}"
+  loop_control:
+    label: "{{ item.user }}!{{ item.token_name }}"
+
+- name: Verify escrow files exist for every active API token
+  ansible.builtin.stat:
+    path: "{{ item.token_path }}"
+    get_checksum: false
+  register: proxmox_host_token_escrow_files
+  loop: "{{ proxmox_api_accounts }}"
+  loop_control:
+    label: "{{ item.token_path }}"
+  no_log: true
+
+- name: Require manual rotation when one-time token escrow is unavailable
+  ansible.builtin.assert:
+    that:
+      - item.stat.isreg | default(false)
+      - item.stat.mode == '0600'
+    fail_msg: "An active Proxmox API token lacks its root-only escrow file; rotate it deliberately."
+  loop: "{{ proxmox_host_token_escrow_files.results }}"
+  loop_control:
+    label: "{{ item.item.user }}"
+  no_log: true

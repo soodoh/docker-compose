@@ -3,12 +3,12 @@
   ansible.builtin.include_role:
     name: deploy_user
   vars:
-    controller_user_name: "{{ plan_user_name }}"
-    controller_user_comment: Ansible automatic plan user
-    controller_user_home: "{{ plan_user_home }}"
-    controller_user_shell: "{{ plan_user_shell }}"
-    controller_user_sudoers_path: "{{ plan_user_sudoers_path }}"
-    controller_user_sudoers_content: "{{ plan_user_sudoers_content }}"
+    deploy_user_account_name: "{{ plan_user_name }}"
+    deploy_user_account_comment: Ansible automatic plan user
+    deploy_user_account_home: "{{ plan_user_home }}"
+    deploy_user_account_shell: "{{ plan_user_shell }}"
+    deploy_user_account_sudoers_path: "{{ plan_user_sudoers_path }}"
+    deploy_user_account_sudoers_content: "{{ plan_user_sudoers_content }}"
 
 - name: Report the fixed read-only helper in check mode
   ansible.builtin.debug:
@@ -39,7 +39,7 @@
       - --
       - "{{ plan_user_docker_version_helper }}"
   become: true
-  register: plan_user_helper_result
+  register: plan_controller_helper_result
   changed_when: false
   when: not ansible_check_mode
 
@@ -54,7 +54,7 @@
       - --
       - /usr/bin/true
   become: true
-  register: plan_user_broad_sudo_result
+  register: plan_controller_broad_sudo_result
   changed_when: false
   failed_when: false
   when: not ansible_check_mode
@@ -62,8 +62,8 @@
 - name: Assert the automatic-plan privilege boundary
   ansible.builtin.assert:
     that:
-      - plan_user_helper_result.stdout == audit_expected_docker_client_version ~ '|' ~ audit_expected_docker_server_version
-      - plan_user_broad_sudo_result.rc != 0
+      - plan_controller_helper_result.stdout == audit_expected_docker_client_version ~ '|' ~ audit_expected_docker_server_version
+      - plan_controller_broad_sudo_result.rc != 0
     fail_msg: >-
       The automatic-plan account must run the fixed read-only helper and must not have general passwordless sudo.
   when: not ansible_check_mode

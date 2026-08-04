@@ -8,28 +8,150 @@
       - linux-headers
   register: maintenance_kernel_packages
   changed_when: false
-  check_mode: false
 
-- name: Assert the deferred kernel and reboot state remains unchanged
+- name: Assert the pinned kernel and running-kernel state
   ansible.builtin.assert:
     that:
       - ansible_facts.kernel == audit_expected_running_kernel
       - "'linux ' ~ audit_expected_packages.linux in maintenance_kernel_packages.stdout_lines"
       - "'linux-headers ' ~ audit_expected_packages['linux-headers'] in maintenance_kernel_packages.stdout_lines"
-    fail_msg: "Kernel package or running-kernel state changed; reboot remains separate approved maintenance."
+    fail_msg: "Kernel package or running-kernel state changed; reboot remains separately reviewed."
 
-- name: Inspect root cron metadata without reading its contents
+- name: Inspect current and previous image locks
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    get_checksum: false
+  loop:
+    - "{{ maintenance_compose_current_image_lock_path }}"
+    - "{{ maintenance_compose_previous_image_lock_path }}"
+  register: maintenance_image_locks
+  when: maintenance_manage_root_cron | bool
+
+- name: Require an explicit one-time image-lock bootstrap
+  ansible.builtin.assert:
+    that:
+      - >-
+        (maintenance_image_locks.results | map(attribute='stat.exists') | min) or
+        (maintenance_image_lock_bootstrap_confirmed | bool)
+    fail_msg: "Current/previous image locks are missing; review and confirm one-time bootstrap."
+  when: maintenance_manage_root_cron | bool
+
+- name: Bootstrap only missing image locks from the current running set
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python
+      - "{{ compose_current_dir }}/scripts/compose-image-lock.py"
+      - capture
+      - --project
+      - "{{ compose_project_name }}"
+      - --output
+      - "{{ item }}"
+  loop:
+    - "{{ maintenance_compose_current_image_lock_path }}"
+    - "{{ maintenance_compose_previous_image_lock_path }}"
+  loop_control:
+    index_var: maintenance_image_lock_index
+  changed_when: true
+  when:
+    - maintenance_manage_root_cron | bool
+    - maintenance_image_lock_bootstrap_confirmed | bool
+    - not ansible_check_mode
+    - not maintenance_image_locks.results[maintenance_image_lock_index].stat.exists
+
+- name: Report one-time image-lock bootstrap during check mode
+  ansible.builtin.debug:
+    msg: Missing image locks will be captured from the reviewed current running set.
+  changed_when: true
+  when:
+    - maintenance_manage_root_cron | bool
+    - maintenance_image_lock_bootstrap_confirmed | bool
+    - ansible_check_mode
+    - not (maintenance_image_locks.results | map(attribute='stat.exists') | min)
+
+- name: Verify rollback image locks before enabling prune
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python
+      - "{{ compose_current_dir }}/scripts/compose-image-lock.py"
+      - verify
+      - --current
+      - "{{ maintenance_compose_current_image_lock_path }}"
+      - --previous
+      - "{{ maintenance_compose_previous_image_lock_path }}"
+      - --check-registry
+  changed_when: false
+  when:
+    - maintenance_manage_root_cron | bool
+    - >-
+      (maintenance_image_locks.results | map(attribute='stat.exists') | min) or
+      (maintenance_image_lock_bootstrap_confirmed | bool and not ansible_check_mode)
+
+- name: Install rollback-safe prune helper
+  ansible.builtin.copy:
+    dest: /usr/local/sbin/home-lab-safe-image-prune
+    owner: root
+    group: root
+    mode: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      success=false
+      /usr/bin/mkdir --mode=0700 -- {{ apply_lock_path }}
+      /usr/bin/printf '%s\n' 'operation=rollback-safe-image-prune' >{{ apply_lock_path }}/owner
+      /usr/bin/chmod 0600 {{ apply_lock_path }}/owner
+      cleanup() {
+        if [[ $success == true ]]; then
+          /usr/bin/rm -f -- {{ apply_lock_path }}/owner
+          /usr/bin/rmdir -- {{ apply_lock_path }}
+        else
+          /usr/bin/printf '%s\n' 'image prune failed; production lock retained' >&2
+        fi
+      }
+      trap cleanup EXIT
+      /usr/bin/docker system df
+      /usr/bin/python {{ compose_current_dir }}/scripts/compose-image-lock.py prune \
+        --current {{ maintenance_compose_current_image_lock_path }} \
+        --previous {{ maintenance_compose_previous_image_lock_path }} \
+        --check-registry \
+        --until 168h
+      /usr/bin/docker system df
+      success=true
+  when: maintenance_manage_root_cron | bool
+
+- name: Inspect legacy root cron before migration
   ansible.builtin.stat:
     path: "{{ audit_root_cron_path }}"
-    get_checksum: false
-    get_mime: false
+  register: maintenance_legacy_root_cron
+  when: maintenance_manage_root_cron | bool
+
+- name: Remove legacy unrestricted Docker prune entries
+  ansible.builtin.lineinfile:
+    path: "{{ audit_root_cron_path }}"
+    regexp: '/usr/bin/docker (system|image|container) prune'
+    state: absent
+  when:
+    - maintenance_manage_root_cron | bool
+    - maintenance_legacy_root_cron.stat.exists | default(false)
+
+- name: Manage rollback-safe weekly image cleanup without replacing root cron
+  ansible.builtin.cron:
+    name: home-lab rollback-safe image cleanup
+    user: root
+    minute: "0"
+    hour: "4"
+    weekday: "0"
+    job: /usr/local/sbin/home-lab-safe-image-prune >> /var/log/docker-prune.log 2>&1
+    state: present
+  when: maintenance_manage_root_cron | bool
+
+- name: Inspect root cron metadata
+  ansible.builtin.stat:
+    path: "{{ audit_root_cron_path }}"
   register: maintenance_root_cron_stat
 
-- name: Assert root cron remains present and deliberately unmanaged
+- name: Assert root cron protection
   ansible.builtin.assert:
     that:
       - maintenance_root_cron_stat.stat.exists
       - maintenance_root_cron_stat.stat.mode == '0600'
-      - not maintenance_manage_root_cron
-    fail_msg: >-
-      Root cron must remain unmanaged until its exact privileged contents are separately inspected and approved.
+    fail_msg: "Root cron is missing or incorrectly protected."

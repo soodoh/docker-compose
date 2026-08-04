@@ -1,0 +1,67 @@
+---
+- name: Inspect the active Proxmox management address
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/ip
+      - -4
+      - -brief
+      - address
+      - show
+      - "{{ network.bridge }}"
+  register: proxmox_network_management_address
+  changed_when: false
+
+- name: Require the expected management address before network reconciliation
+  ansible.builtin.assert:
+    that:
+      - network.proxmox.ipv4 in proxmox_network_management_address.stdout
+    fail_msg: "Unexpected management network; retain console access and stop."
+
+- name: Require explicit network migration gates
+  ansible.builtin.assert:
+    that:
+      - recovery_console_confirmed | default(false) | bool
+      - lan_rollback_confirmed | default(false) | bool
+    fail_msg: "Network writes require confirmed console and LAN rollback paths."
+  when: proxmox_network_apply_confirmed | bool
+
+- name: Converge the permanent Proxmox network
+  ansible.builtin.template:
+    src: interfaces.j2
+    dest: /etc/network/interfaces
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  register: proxmox_network_config
+  when: proxmox_network_apply_confirmed | bool
+
+- name: Validate and reload changed network configuration
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/ifreload
+      - -a
+  changed_when: true
+  when:
+    - proxmox_network_apply_confirmed | bool
+    - proxmox_network_config.changed
+
+- name: Verify management address after network convergence
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/ip
+      - -4
+      - address
+      - show
+      - dev
+      - "{{ network.bridge }}"
+  register: proxmox_network_management_address_after
+  changed_when: false
+  when: proxmox_network_apply_confirmed | bool
+
+- name: Assert network canary succeeded
+  ansible.builtin.assert:
+    that:
+      - network.proxmox.ipv4.split('/')[0] in proxmox_network_management_address_after.stdout
+    fail_msg: "Management address verification failed; use console rollback."
+  when: proxmox_network_apply_confirmed | bool

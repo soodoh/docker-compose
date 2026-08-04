@@ -1,0 +1,57 @@
+---
+- name: Require explicit VFIO and initramfs mutation approval
+  ansible.builtin.assert:
+    that:
+      - ansible_check_mode or (proxmox_passthrough_apply_confirmed | default(false) | bool)
+    fail_msg: "VFIO, bootloader, and initramfs changes require explicit approval and a separately approved reboot."
+- name: Enable IOMMU passthrough without globally blacklisting amdgpu
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet amd_iommu=on iommu=pt"'
+    backup: true
+  notify: Update Proxmox kernel command line
+
+- name: Keep required VFIO modules in early boot configuration
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/home-lab-vfio.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      vfio
+      vfio_iommu_type1
+      vfio_pci
+  notify: Rebuild Proxmox initramfs
+
+- name: Remove the stale vfio_virqfd module entry
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    regexp: '^vfio_virqfd$'
+    state: absent
+  loop:
+    - /etc/modules
+    - /etc/modules-load.d/modules.conf
+  notify: Rebuild Proxmox initramfs
+
+- name: Bind only the discrete GPU functions to vfio-pci
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/home-lab-vfio.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      options vfio-pci ids={{ proxmox.vm.pci.gpu.vendor_device }},{{ proxmox.vm.pci.gpu_audio.vendor_device }},{{ proxmox.vm.pci.coral.vendor_device }}
+      softdep amdgpu pre: vfio-pci
+      softdep snd_hda_intel pre: vfio-pci
+  notify: Rebuild Proxmox initramfs
+
+- name: Verify the host iGPU remains bound to amdgpu
+  ansible.builtin.shell: >-
+    set -o pipefail &&
+    /usr/bin/lspci -Dnnk -s {{ proxmox.vm.pci.host_igpu.bdf }} |
+    /usr/bin/grep -F 'Kernel driver in use: {{ proxmox.vm.pci.host_igpu.required_driver }}'
+  args:
+    executable: /bin/bash
+  changed_when: false
+  check_mode: false

@@ -28,7 +28,7 @@ def main() -> None:
     parser.add_argument("ciphertext", type=Path)
     parser.add_argument("manifest", type=Path)
     parser.add_argument("layout", type=Path)
-    parser.add_argument("expected_recipient")
+    parser.add_argument("expected_recipients", nargs="+")
     args = parser.parse_args()
 
     expected_keys = read_manifest(args.manifest)
@@ -69,24 +69,30 @@ def main() -> None:
     if observed_keys != expected_keys:
         raise SystemExit("ciphertext variable-name set differs from the manifest")
 
+    expected_recipients = args.expected_recipients
+    if len(expected_recipients) != len(set(expected_recipients)):
+        raise SystemExit("expected SOPS recipients contain duplicates")
     required_metadata = {
-        "sops_age__list_0__map_enc",
-        "sops_age__list_0__map_recipient",
         "sops_lastmodified",
         "sops_mac",
         "sops_unencrypted_suffix",
         "sops_version",
     }
+    for index in range(len(expected_recipients)):
+        required_metadata.add(f"sops_age__list_{index}__map_enc")
+        required_metadata.add(f"sops_age__list_{index}__map_recipient")
     if set(metadata) != required_metadata:
         raise SystemExit("SOPS metadata keys are missing or unexpected")
-    if metadata["sops_age__list_0__map_recipient"] != args.expected_recipient:
-        raise SystemExit("SOPS age recipient differs from the expected recipient")
-    if not metadata["sops_age__list_0__map_enc"].startswith(
-        "-----BEGIN AGE ENCRYPTED FILE-----\\n"
-    ) or not metadata["sops_age__list_0__map_enc"].endswith(
-        "-----END AGE ENCRYPTED FILE-----\\n"
-    ):
-        raise SystemExit("SOPS encrypted age data-key metadata is invalid")
+    observed_recipients = []
+    for index in range(len(expected_recipients)):
+        observed_recipients.append(metadata[f"sops_age__list_{index}__map_recipient"])
+        encrypted_key = metadata[f"sops_age__list_{index}__map_enc"]
+        if not encrypted_key.startswith(
+            "-----BEGIN AGE ENCRYPTED FILE-----\\n"
+        ) or not encrypted_key.endswith("-----END AGE ENCRYPTED FILE-----\\n"):
+            raise SystemExit("SOPS encrypted age data-key metadata is invalid")
+    if set(observed_recipients) != set(expected_recipients):
+        raise SystemExit("SOPS age recipients differ from the expected recipients")
     if ENCRYPTED_VALUE_PATTERN.fullmatch(metadata["sops_mac"]) is None:
         raise SystemExit("SOPS MAC metadata is missing or invalid")
     if metadata["sops_unencrypted_suffix"] != "_unencrypted":
@@ -112,7 +118,7 @@ def main() -> None:
 
     print(
         f"sops_ciphertext_structure=pass variables={len(observed_keys)} "
-        f"recipients=1 blank_lines={len(blank_lines)}"
+        f"recipients={len(expected_recipients)} blank_lines={len(blank_lines)}"
     )
 
 

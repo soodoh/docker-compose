@@ -1,0 +1,33 @@
+---
+- name: Pin Arch repositories to the immutable recovery snapshot
+  ansible.builtin.copy:
+    dest: /etc/pacman.d/mirrorlist
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible for deterministic recovery.
+      Server = https://archive.archlinux.org/repos/{{ arch.repository_snapshot }}/$repo/os/$arch
+  register: arch_packages_mirrorlist
+  notify: Refresh package databases
+
+- name: Refresh package databases before package convergence
+  ansible.builtin.meta: flush_handlers
+
+- name: Install Arch hardware and runtime prerequisites
+  ansible.builtin.package:
+    name:
+      - bluez
+      - cosign
+      - curl
+      - dkms
+      - gnupg
+      - jq
+      - linux-headers
+      - nfs-utils
+      - openssh
+      - qemu-guest-agent
+      - smartmontools
+      - sudo
+      - usbutils
+    state: present

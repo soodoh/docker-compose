@@ -1,0 +1,226 @@
+---
+- name: Validate fresh Compose recovery contract
+  ansible.builtin.assert:
+    that:
+      - compose_artifact_hash is match('^[0-9a-f]{64}$')
+      - compose_recovery_confirmed | default(false) | bool
+      - recovery_target_approved_empty | default(false) | bool
+      - recovery_target | default('') is match('^/srv/home-lab-recovery/[A-Za-z0-9._-]+$')
+    fail_msg: "Fresh Compose recovery requires the exact artifact and explicit empty-target approval."
+
+- name: Re-derive the approved recovery plan immediately before mutation
+  ansible.builtin.include_role:
+    name: compose_recovery_preflight
+
+- name: Require the exact repeated recovery plan identity
+  ansible.builtin.assert:
+    that:
+      - compose_recovery_expected_plan_sha256 | default('') is match('^[0-9a-f]{64}$')
+      - compose_recovery_preflight_plan_sha256 == compose_recovery_expected_plan_sha256
+    fail_msg: "The recovery preflight changed after review; refusing first deployment."
+
+- name: Inspect staged and fresh runtime paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    get_checksum: false
+  loop:
+    - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+    - "{{ compose_staged_env_path }}"
+    - "{{ compose_current_dir }}"
+    - "{{ compose_runtime_env_path }}"
+  register: compose_recovery_paths
+
+- name: Require staged inputs and an absent active deployment
+  ansible.builtin.assert:
+    that:
+      - compose_recovery_paths.results[0].stat.isdir | default(false)
+      - compose_recovery_paths.results[1].stat.isreg | default(false)
+      - not (compose_recovery_paths.results[2].stat.exists | default(false))
+      - not (compose_recovery_paths.results[3].stat.exists | default(false))
+    fail_msg: "Recovery deploy runs only once against an absent active Compose deployment."
+
+- name: Verify the staged artifact identity
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python
+      - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/scripts/compose-artifact.py"
+      - --root
+      - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+      - --no-git
+      - hash
+  register: compose_recovery_hash
+  changed_when: false
+
+- name: Require the exact staged artifact hash
+  ansible.builtin.assert:
+    that:
+      - compose_recovery_hash.stdout == compose_artifact_hash
+
+- name: Require no pre-existing Compose project volumes
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/docker
+      - volume
+      - ls
+      - --quiet
+      - --filter
+      - "label=com.docker.compose.project={{ compose_project_name }}"
+  register: compose_recovery_existing_volumes
+  changed_when: false
+
+- name: Assert the Docker data target is fresh
+  ansible.builtin.assert:
+    that:
+      - compose_recovery_existing_volumes.stdout_lines | length == 0
+    fail_msg: "Fresh recovery refuses to overwrite pre-existing Compose volumes."
+
+- name: Pull every declared recovery image without builds
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/docker
+      - compose
+      - --project-name
+      - "{{ compose_project_name }}"
+      - --project-directory
+      - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+      - --env-file
+      - "{{ compose_staged_env_path }}"
+      - --file
+      - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/docker-compose.yml"
+      - pull
+      - --policy
+      - always
+      - --ignore-buildable
+  environment:
+    HOME: "{{ compose_home_dir }}"
+  changed_when: true
+  no_log: true
+
+- name: Create protected deployment root
+  ansible.builtin.file:
+    path: "{{ compose_deployment_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Publish the exact recovery artifact
+  ansible.builtin.copy:
+    src: "{{ compose_staging_root }}/{{ compose_artifact_hash }}/"
+    dest: "{{ compose_current_dir }}/"
+    remote_src: true
+    owner: root
+    group: root
+    mode: preserve
+    directory_mode: "0755"
+
+- name: Create protected runtime model directory
+  ansible.builtin.file:
+    path: "{{ compose_runtime_inventory_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Publish the staged runtime model
+  ansible.builtin.copy:
+    src: "{{ compose_staged_inventory_path }}"
+    dest: "{{ compose_runtime_inventory_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Activate the exact recovered environment
+  ansible.builtin.copy:
+    src: "{{ compose_staged_env_path }}"
+    dest: "{{ compose_runtime_env_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Create only declared fresh volumes and required subpaths
+  ansible.builtin.script:
+    cmd: >-
+      {{ role_path }}/../../../scripts/prepare-recovery-volumes.py
+      --project {{ compose_project_name | quote }}
+      --project-directory {{ compose_current_dir | quote }}
+      --env-file {{ compose_runtime_env_path | quote }}
+      --compose-file {{ (compose_current_dir ~ '/docker-compose.yml') | quote }}
+      --output /run/home-lab-recovery-volumes.json
+    executable: /usr/bin/python
+  changed_when: true
+  no_log: true
+- name: Create stopped recovery containers and their fresh volumes
+  ansible.builtin.command:
+    argv: "{{ compose_runtime_cli + ['create', '--no-build', '--pull', 'never'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
+  changed_when: true
+  no_log: true
+
+- name: Activate verified backup data into only fresh volume and bind targets
+  ansible.builtin.script:
+    cmd: >-
+      {{ role_path }}/../../../scripts/activate-recovered-data.py
+      --staging-root {{ recovery_target | quote }}
+      --env-file {{ compose_runtime_env_path | quote }}
+      --volume-inventory /run/home-lab-recovery-volumes.json
+      --project {{ compose_project_name | quote }}
+      {{ '--retain-existing-binds' if (recovery_retain_existing_bind_data | default(false) | bool) else '' }}
+    executable: /usr/bin/python
+  changed_when: true
+  no_log: true
+
+- name: Remove the consumed recovery volume inventory
+  ansible.builtin.file:
+    path: /run/home-lab-recovery-volumes.json
+    state: absent
+  changed_when: false
+  no_log: true
+
+- name: Reconcile tracked host files after recovered data activation
+  ansible.builtin.include_role:
+    name: host_files
+
+- name: Create all recovered services without builds or implicit pulls
+  ansible.builtin.command:
+    argv: "{{ compose_runtime_cli + ['up', '--detach', '--no-build', '--pull', 'never'] }}"
+  environment:
+    HOME: "{{ compose_home_dir }}"
+  changed_when: true
+  no_log: true
+
+- name: Create protected image-lock directory
+  ansible.builtin.file:
+    path: "{{ maintenance_compose_current_image_lock_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Capture the recovered image set
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python
+      - "{{ compose_current_dir }}/scripts/compose-image-lock.py"
+      - capture
+      - --project
+      - "{{ compose_project_name }}"
+      - --output
+      - "{{ maintenance_compose_current_image_lock_path }}"
+  changed_when: true
+  no_log: true
+
+- name: Seed the previous lock from the qualified recovery baseline
+  ansible.builtin.copy:
+    src: "{{ maintenance_compose_current_image_lock_path }}"
+    dest: "{{ maintenance_compose_previous_image_lock_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true

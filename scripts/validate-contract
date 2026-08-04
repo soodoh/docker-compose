@@ -1,0 +1,53 @@
+#!/usr/bin/env node
+"use strict";
+
+const fs = require("node:fs");
+const path = require("node:path");
+const yaml = require("js-yaml");
+const Ajv2020 = require("ajv/dist/2020");
+
+const root = path.resolve(__dirname, "..");
+const contractPath = path.join(root, "infrastructure/contract/home-lab.yml");
+const schemaPath = path.join(root, "infrastructure/contract/schema.json");
+const operational = process.argv.includes("--operational");
+
+const contract = yaml.load(fs.readFileSync(contractPath, "utf8"));
+const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
+const ajv = new Ajv2020({ allErrors: true, strict: true });
+const validate = ajv.compile(schema);
+
+if (!validate(contract)) {
+  for (const error of validate.errors || []) {
+    console.error(`${error.instancePath || "/"}: ${error.message}`);
+  }
+  process.exit(1);
+}
+
+const failures = [];
+const refs = contract.storage.zfs.members.map((member) => member.secret_ref);
+if (new Set(refs).size !== refs.length) failures.push("ZFS member secret references must be unique");
+for (let mirror = 0; mirror < 6; mirror += 1) {
+  if (contract.storage.zfs.members.filter((member) => member.mirror === mirror).length !== 2) {
+    failures.push(`ZFS mirror ${mirror} must contain exactly two members`);
+  }
+}
+if (contract.network.proxmox.ipv4 === contract.network.arch.ipv4) failures.push("host addresses must differ");
+if (contract.network.proxmox.mac === contract.network.arch.mac) failures.push("host MAC addresses must differ");
+
+if (operational) {
+  const required = [
+    [contract.recovery.ci_age_recipient, "recovery.ci_age_recipient"],
+    [contract.aws.state_bucket, "aws.state_bucket"],
+    [contract.aws.recovery_bucket, "aws.recovery_bucket"],
+    [contract.arch.coral.artifact_digest, "arch.coral.artifact_digest"],
+    [contract.arch.coral.package_sha256, "arch.coral.package_sha256"],
+  ];
+  for (const [value, name] of required) if (!value) failures.push(`${name} is required for operational recovery`);
+  if (!contract.omada.provider_qualified) failures.push("omada.provider_qualified must be true after live qualification");
+}
+
+if (failures.length) {
+  for (const failure of failures) console.error(`contract: ${failure}`);
+  process.exit(1);
+}
+console.log(`contract valid${operational ? " and operationally complete" : ""}`);
