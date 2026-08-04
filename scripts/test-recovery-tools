@@ -88,7 +88,7 @@ PY
 valid_output=$(python3 "$repo_root/scripts/restore-critical-archive.py" \
   --archive "$work/valid.tar.gz" --target "$work/valid-target")
 grep -q '^critical_restore=verified ' <<<"$valid_output"
-mode=$(stat -f '%Mp%Lp' "$work/valid-target/backup/.env" 2>/dev/null || stat -c '%a' "$work/valid-target/backup/.env")
+mode=$(stat -c '%a' "$work/valid-target/backup/.env" 2>/dev/null || stat -f '%Mp%Lp' "$work/valid-target/backup/.env")
 [[ ${mode#0} == 600 ]]
 
 symlink_output=$(python3 "$repo_root/scripts/restore-critical-archive.py" \
