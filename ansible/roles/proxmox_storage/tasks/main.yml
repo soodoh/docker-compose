@@ -160,7 +160,7 @@
 - name: Read ZFS userspace and kernel module versions
   ansible.builtin.shell: >-
     set -o pipefail &&
-    printf '%s\n' "$(/usr/sbin/zfs version | /usr/bin/awk -F- '$1 == \"zfs\" {print $2}')" "$(/usr/sbin/modinfo -F version zfs)"
+    printf '%s\n' "$(/usr/sbin/zfs version | /usr/bin/awk -F- '$1 == \"zfs\" && $2 != \"kmod\" {print $2 \"-\" $3}')" "$(/usr/sbin/modinfo -F version zfs)"
   args:
     executable: /bin/bash
   register: proxmox_storage_zfs_versions

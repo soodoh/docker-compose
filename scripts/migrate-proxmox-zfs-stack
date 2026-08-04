@@ -56,7 +56,7 @@ if [[ $mode == --apply ]]; then
 fi
 
 [[ $(uname -r) == "$kernel_release" ]]
-userspace_version=$(zfs version | awk -F- '$1 == "zfs" {print $2 "-" $3}')
+userspace_version=$(zfs version | awk -F- '$1 == "zfs" && $2 != "kmod" {print $2 "-" $3}')
 module_version=$(modinfo -F version zfs)
 [[ $userspace_version == "$zfs_package_version" ]]
 [[ $module_version == "$zfs_package_version" ]]
