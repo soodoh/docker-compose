@@ -46,4 +46,14 @@ scripts/bootstrap-proxmox-host --mode apply \
 
 The apply mode reruns check mode before mutation. The wrapper requires a clean checkout and root-owned protected inputs, installs the hash-locked Ansible controller in a temporary root-only executable cache, and removes it on exit. The play creates separated API tokens and leaves them only in root-readable files under `/root/.config/home-lab/`.
 
+A failed apply intentionally retains `/var/lib/iac-ansible-production.lock`. Inspect its root-owned owner record before retrying. The wrapper will clear only a structurally valid lock whose owner records `operation=proxmox-bootstrap`, and only when the operator sets `PROXMOX_BOOTSTRAP_RESUME_CONFIRMED=resume-matching-failed-proxmox-bootstrap`. Never remove an unknown or mismatched lock manually.
+
 After success, copy each token through a protected channel into its matching GitHub environment secret. Do not print it, paste it into shell history, or reuse the apply token for plans. Prove `tofu-plan` audit access and `tofu-apply` mutation access over Tailscale before allowing the later steady play to disable password authentication.
+
+## Qualification record
+
+The guarded bootstrap completed on the reviewed feature branch after the pinned Proxmox kernel/ZFS migration and a console-backed reboot. The apply created the separated SSH users and root-only API-token escrow, enrolled the host with `tag:proxmox`, preserved no-DNS/no-route Tailscale preferences, and installed the reviewed VFIO boot configuration. A second reboot verified the active IOMMU/VFIO modules, aligned ZFS userspace and kernel-module versions, an `ONLINE` pool, VM 100 running, and protected CT 101 running.
+
+Both escrowed tokens authenticated to the local Proxmox API, both account-specific SSH keys authenticated only as their intended service users, the production lock was absent, and the final bootstrap check reported `ok=57 changed=0 unreachable=0 failed=0 skipped=37`. Network, firewall, storage/NFS migration, and CT decommission gates remained false.
+
+Tailscale enrollment and the expected device tag are proven, but peer visibility from the existing Docker tailnet node remains absent under the current ACL grants. Do not treat direct Proxmox Tailscale SSH as a recovery path or enable the later password-authentication restriction until a separately reviewed tailnet grant makes that path visible and the SSH proof succeeds.
