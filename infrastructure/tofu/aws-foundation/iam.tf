@@ -7,8 +7,9 @@ locals {
     "home-lab/tailscale/tofu.tfstate",
     "home-lab/github/tofu.tfstate",
   ]
-  state_arns = [for key in local.state_keys : "${aws_s3_bucket.state.arn}/${key}"]
-  lock_arns  = [for key in local.state_keys : "${aws_s3_bucket.state.arn}/${key}.tflock"]
+  state_arns            = [for key in local.state_keys : "${aws_s3_bucket.state.arn}/${key}"]
+  lock_arns             = [for key in local.state_keys : "${aws_s3_bucket.state.arn}/${key}.tflock"]
+  github_subject_prefix = "repo:${var.github_owner}@${var.github_owner_id}/${var.github_repository}@${var.github_repository_id}"
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -31,7 +32,7 @@ data "aws_iam_policy_document" "github_plan_trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_owner}/${var.github_repository}:environment:${var.github_plan_environment}"]
+      values   = ["${local.github_subject_prefix}:environment:${var.github_plan_environment}"]
     }
   }
 }
@@ -51,7 +52,7 @@ data "aws_iam_policy_document" "github_apply_trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_owner}/${var.github_repository}:environment:${var.github_apply_environment}"]
+      values   = ["${local.github_subject_prefix}:environment:${var.github_apply_environment}"]
     }
   }
 }

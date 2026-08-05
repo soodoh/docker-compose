@@ -9,6 +9,8 @@ The AWS foundation root is intentionally local-state first because it creates th
 The foundation and existing off-site bucket intentionally use separate reviewed regions. `TF_VAR_recovery_bucket_region` selects the aliased recovery provider, and the recovery bucket uses a region-local rotating KMS key; never attempt to encrypt it with the state region's KMS key.
 
 If the account already has the GitHub Actions OIDC provider, independently verify its URL and set `AWS_FOUNDATION_GITHUB_OIDC_ADOPTION_CONFIRMED=import-existing-github-oidc-provider`; the bootstrap imports and reconciles it instead of attempting a duplicate.
+
+Resolve the stable numeric GitHub owner and repository IDs and provide `TF_VAR_github_owner_id` and `TF_VAR_github_repository_id`. This repository's GitHub OIDC customization emits canonical subjects containing those IDs; name-only trust conditions will be rejected by AWS even when the environment name matches.
 4. Set the exact `AWS_FOUNDATION_BOOTSTRAP_CONFIRMED=create-and-migrate-reviewed-aws-foundation` gate.
 5. Run `scripts/bootstrap-aws-state`. It creates a private ignored copy with a local backend, permits only allowlisted creates plus the explicit recovery-bucket imports/updates, applies the saved plan serially, and migrates that state to the encrypted S3 backend.
 
