@@ -14,9 +14,11 @@
 - name: Refresh package databases before package convergence
   ansible.builtin.meta: flush_handlers
 
-- name: Install Arch hardware and runtime prerequisites
-  ansible.builtin.package:
-    name:
+- name: Keep Arch hardware and runtime prerequisites present without upgrades
+  ansible.builtin.include_role:
+    name: pacman_packages
+  vars:
+    pacman_packages_requested:
       - bluez
       - cosign
       - curl
@@ -30,4 +32,3 @@
       - smartmontools
       - sudo
       - usbutils
-    state: present

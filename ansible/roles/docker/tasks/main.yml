@@ -1,9 +1,9 @@
 ---
 - name: Keep Docker packages present without pulling images or upgrading packages
-  ansible.builtin.package:
-    name: "{{ docker_packages }}"
-    state: present
-  become: "{{ not ansible_check_mode }}"
+  ansible.builtin.include_role:
+    name: pacman_packages
+  vars:
+    pacman_packages_requested: "{{ docker_packages }}"
 
 - name: Keep Docker enabled and started without restarting it
   ansible.builtin.systemd_service:

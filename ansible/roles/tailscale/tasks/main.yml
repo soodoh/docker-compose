@@ -3,12 +3,22 @@
   ansible.builtin.package_facts:
     manager: auto
 
-- name: Keep the Tailscale package present without upgrading installed packages
+- name: Keep the Tailscale package present through native pacman
+  ansible.builtin.include_role:
+    name: pacman_packages
+  vars:
+    pacman_packages_requested:
+      - "{{ tailscale_package }}"
+  when: ansible_pkg_mgr == 'pacman'
+
+- name: Keep the Tailscale package present through the detected non-pacman manager
   ansible.builtin.package:
     name: "{{ tailscale_package }}"
     state: present
   become: "{{ not ansible_check_mode }}"
-  when: not ansible_check_mode or tailscale_package in ansible_facts.packages
+  when:
+    - ansible_pkg_mgr != 'pacman'
+    - not ansible_check_mode or tailscale_package in ansible_facts.packages
 
 - name: Keep tailscaled enabled and started without restarting it
   ansible.builtin.systemd_service:
