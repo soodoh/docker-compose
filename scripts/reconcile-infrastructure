@@ -651,6 +651,9 @@ apply_root() {
 
 ansible_extra_args=()
 if [[ -n ${RECONCILE_ANSIBLE_EXTRA_VARS_FILE:-} ]]; then
+  if [[ $RECONCILE_ANSIBLE_EXTRA_VARS_FILE != /* ]]; then
+    RECONCILE_ANSIBLE_EXTRA_VARS_FILE="$repo_root/$RECONCILE_ANSIBLE_EXTRA_VARS_FILE"
+  fi
   [[ -f $RECONCILE_ANSIBLE_EXTRA_VARS_FILE ]] || {
     echo "RECONCILE_ANSIBLE_EXTRA_VARS_FILE does not exist" >&2
     exit 66
