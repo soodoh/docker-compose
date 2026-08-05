@@ -129,6 +129,26 @@ if [[ $phase == adoption ]]; then
 else
   export TF_VAR_adoption_mode=false
 fi
+omada_qualification_operation=${OMADA_QUALIFICATION_OPERATION:-none}
+case "$omada_qualification_operation" in
+  none)
+    export TF_VAR_qualification_mode=false
+    export TF_VAR_enable_qualification=false
+    ;;
+  create)
+    export TF_VAR_qualification_mode=true
+    export TF_VAR_enable_qualification=true
+    ;;
+  remove)
+    export TF_VAR_qualification_mode=true
+    export TF_VAR_enable_qualification=false
+    ;;
+  *) usage ;;
+esac
+if [[ $omada_qualification_operation != none && $phase != steady ]]; then
+  echo "Omada qualification requires steady phase." >&2
+  exit 64
+fi
 if [[ $requested_action == recover ]]; then
   [[ $recovery_backup_id =~ ^daily-remote-backup-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}\.tar\.gz\.gpg$ ]] || usage
 elif [[ -n $recovery_backup_id ]]; then
@@ -146,6 +166,10 @@ if [[ $ct_decommission == true && $ct_unprotect == true ]]; then
 fi
 if [[ $network_migration == true && ($phase != steady || $ct_operation == true) ]]; then
   echo "Network migration requires steady phase and cannot be combined with CT operations." >&2
+  exit 64
+fi
+if [[ $omada_qualification_operation != none && ($network_migration == true || $ct_operation == true) ]]; then
+  echo "Omada qualification cannot be combined with another special operation." >&2
   exit 64
 fi
 case "$plan_dir" in
@@ -398,6 +422,9 @@ policy_args() {
   fi
   if [[ $ct_operation == true && $root == proxmox-legacy ]]; then
     mode=ct-decommission
+  fi
+  if [[ $root == omada && $omada_qualification_operation != none ]]; then
+    mode=qualification
   fi
   printf '%s\0' --mode "$mode"
   if [[ -f infrastructure/policy/allow/$root.txt ]]; then

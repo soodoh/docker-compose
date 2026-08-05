@@ -18,7 +18,7 @@ provider "omada" {
 
 check "adoption_gate" {
   assert {
-    condition     = !var.omada_enable_management || var.adoption_mode || (var.adoption_complete && local.contract.omada.provider_qualified)
+    condition     = !var.omada_enable_management || var.adoption_mode || var.qualification_mode || (var.adoption_complete && local.contract.omada.provider_qualified)
     error_message = "Omada management is blocked until import and live provider qualification are complete."
   }
 }

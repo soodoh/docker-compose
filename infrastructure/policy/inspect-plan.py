@@ -43,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("plan_json", type=Path)
     parser.add_argument(
         "--mode",
-        choices=("normal", "adopt", "adopt-or-noop", "recovery", "ct-decommission", "network-migration"),
+        choices=("normal", "adopt", "adopt-or-noop", "recovery", "ct-decommission", "network-migration", "qualification"),
         default="normal",
     )
     parser.add_argument("--allow-change-file", type=Path)
@@ -124,6 +124,16 @@ def main() -> int:
         if args.mode in {"adopt", "adopt-or-noop"}:
             if not importing or any(action in actions for action in ("create", "update", "delete")):
                 failures.append(f"{address}: adoption permits import-only actions")
+            continue
+
+        if args.mode == "qualification":
+            before = change.get("before")
+            after = change.get("after")
+            expected_name = "tofu-provider-qualification"
+            valid_create = actions == ["create"] and before is None and (after or {}).get("name") == expected_name
+            valid_delete = actions == ["delete"] and (before or {}).get("name") == expected_name and after is None
+            if address != "omada_dhcp_reservation.qualification[0]" or not (valid_create or valid_delete):
+                failures.append(f"{address}: qualification permits only creation or removal of the disposable Omada reservation")
             continue
 
         if args.mode == "recovery":

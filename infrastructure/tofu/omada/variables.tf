@@ -24,6 +24,11 @@ variable "enable_qualification" {
   default = false
 }
 
+variable "qualification_mode" {
+  type    = bool
+  default = false
+}
+
 check "adoption_mode_boundary" {
   assert {
     condition     = !(var.adoption_mode && var.adoption_complete)
@@ -31,17 +36,27 @@ check "adoption_mode_boundary" {
   }
 }
 
+check "qualification_mode_boundary" {
+  assert {
+    condition     = !(var.adoption_mode && var.qualification_mode)
+    error_message = "Omada qualification must run outside adoption mode."
+  }
+}
+
 variable "qualification_network_id" {
-  type    = string
-  default = ""
+  type      = string
+  default   = ""
+  sensitive = true
 }
 
 variable "qualification_mac" {
-  type    = string
-  default = ""
+  type      = string
+  default   = ""
+  sensitive = true
 }
 
 variable "qualification_ip" {
-  type    = string
-  default = ""
+  type      = string
+  default   = ""
+  sensitive = true
 }

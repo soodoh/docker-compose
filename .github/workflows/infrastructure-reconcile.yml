@@ -37,6 +37,15 @@ on:
         required: false
         default: false
         type: boolean
+      omada_qualification:
+        description: Run only the disposable Omada provider qualification operation
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - create
+          - remove
 
 permissions:
   contents: read
@@ -297,6 +306,10 @@ jobs:
           TF_VAR_adoption_complete: ${{ vars.OMADA_ADOPTION_COMPLETE }}
           OMADA_EXPORT_JSON: ${{ secrets.OMADA_EXPORT_JSON }}
           OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
+          OMADA_QUALIFICATION_OPERATION: ${{ inputs.omada_qualification || 'none' }}
+          TF_VAR_qualification_network_id: ${{ secrets.OMADA_QUALIFICATION_NETWORK_ID }}
+          TF_VAR_qualification_mac: ${{ secrets.OMADA_QUALIFICATION_MAC }}
+          TF_VAR_qualification_ip: ${{ secrets.OMADA_QUALIFICATION_IP }}
           SSL_CERT_FILE: ${{ github.workspace }}/.local/provider-ca/bundle.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
           TF_VAR_github_owner_id: ${{ vars.TAILSCALE_SUBJECT_OWNER_ID }}
@@ -466,6 +479,10 @@ jobs:
           TF_VAR_adoption_complete: ${{ vars.OMADA_ADOPTION_COMPLETE }}
           OMADA_EXPORT_JSON: ${{ secrets.OMADA_EXPORT_JSON }}
           OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
+          OMADA_QUALIFICATION_OPERATION: ${{ inputs.omada_qualification || 'none' }}
+          TF_VAR_qualification_network_id: ${{ secrets.OMADA_QUALIFICATION_NETWORK_ID }}
+          TF_VAR_qualification_mac: ${{ secrets.OMADA_QUALIFICATION_MAC }}
+          TF_VAR_qualification_ip: ${{ secrets.OMADA_QUALIFICATION_IP }}
           SSL_CERT_FILE: ${{ github.workspace }}/.local/provider-ca/bundle.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
           TF_VAR_github_owner_id: ${{ vars.TAILSCALE_SUBJECT_OWNER_ID }}
