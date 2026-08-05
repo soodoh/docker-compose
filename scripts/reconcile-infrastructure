@@ -130,19 +130,15 @@ else
   export TF_VAR_adoption_mode=false
 fi
 omada_qualification_operation=${OMADA_QUALIFICATION_OPERATION:-none}
+omada_qualification_mode=false
+omada_qualification_enabled=false
 case "$omada_qualification_operation" in
-  none)
-    export TF_VAR_qualification_mode=false
-    export TF_VAR_enable_qualification=false
-    ;;
+  none) ;;
   create)
-    export TF_VAR_qualification_mode=true
-    export TF_VAR_enable_qualification=true
+    omada_qualification_mode=true
+    omada_qualification_enabled=true
     ;;
-  remove)
-    export TF_VAR_qualification_mode=true
-    export TF_VAR_enable_qualification=false
-    ;;
+  remove) omada_qualification_mode=true ;;
   *) usage ;;
 esac
 if [[ $omada_qualification_operation != none && $phase != steady ]]; then
@@ -451,6 +447,8 @@ root_plan_args() {
   fi
   if [[ $root == omada && ${TF_VAR_omada_enable_management:-false} == true ]]; then
     printf '%s\0' -var="omada_export_path=$repo_root/.local/omada/export.json"
+    printf '%s\0' -var="qualification_mode=$omada_qualification_mode"
+    printf '%s\0' -var="enable_qualification=$omada_qualification_enabled"
   fi
 }
 
