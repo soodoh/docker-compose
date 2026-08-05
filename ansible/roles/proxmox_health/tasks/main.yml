@@ -44,7 +44,7 @@
   ansible.builtin.assert:
     that:
       - (proxmox_health_tailscale_status.stdout | from_json).BackendState == 'Running'
-      - not (proxmox_health_require_vm | bool) or 'status: running' in proxmox_health_vm.stdout
+      - "not (proxmox_health_require_vm | bool) or 'status: running' in proxmox_health_vm.stdout"
       - proxmox_health_storage_commands.results | map(attribute='rc') | max == 0
     fail_msg: "Proxmox API, Tailscale, VM startup, ZFS, or NFS health failed."
   no_log: true
