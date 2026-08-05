@@ -12,6 +12,8 @@ The OpenTofu Tailscale root then owns:
 - separate GitHub OIDC identities that may create ephemeral `tag:ci-plan` and `tag:ci-apply` enrollment keys; and
 - separate GitHub OIDC provider identities for read-only plans and protected applies.
 
+Tailscale canonicalizes GitHub trust subjects with stable numeric owner and repository IDs. The bootstrap resolves those public IDs from GitHub, stages them as protected-environment variables, and uses the canonical subject form for all four identities to prevent perpetual provider diffs.
+
 The provider-plan identity has only `policy_file:read`, `devices:core:read`, `devices:posture_attributes:read`, and `federated_keys:read`. The provider-apply identity has the corresponding policy, posture-attribute, and federated-key write scopes while retaining read-only device-core access. It also has `auth_keys` delegation restricted to `tag:ci-plan` and `tag:ci-apply` so OpenTofu can manage the two enrollment identities; it cannot mutate device lifecycle, routes, DNS, or users.
 
 ## Adoption sequence

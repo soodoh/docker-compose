@@ -198,6 +198,8 @@ jobs:
           OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
           SSL_CERT_FILE: ${{ github.workspace }}/.local/omada/controller-ca.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
+          TF_VAR_github_owner_id: ${{ vars.TAILSCALE_SUBJECT_OWNER_ID }}
+          TF_VAR_github_repository_id: ${{ vars.TAILSCALE_SUBJECT_REPOSITORY_ID }}
           TF_VAR_github_enable_management: ${{ vars.INFRASTRUCTURE_GITHUB_MANAGEMENT_ENABLED }}
           TF_VAR_tailscale_environment_variables_adopt_existing: false
           TF_VAR_apply_reviewer_user_ids: ${{ vars.INFRASTRUCTURE_APPLY_REVIEWER_USER_IDS }}
@@ -295,6 +297,8 @@ jobs:
           OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
           SSL_CERT_FILE: ${{ github.workspace }}/.local/omada/controller-ca.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
+          TF_VAR_github_owner_id: ${{ vars.TAILSCALE_SUBJECT_OWNER_ID }}
+          TF_VAR_github_repository_id: ${{ vars.TAILSCALE_SUBJECT_REPOSITORY_ID }}
           TF_VAR_github_enable_management: ${{ vars.INFRASTRUCTURE_GITHUB_MANAGEMENT_ENABLED }}
           TF_VAR_tailscale_environment_variables_adopt_existing: ${{ inputs.phase == 'adoption' }}
           TF_VAR_apply_reviewer_user_ids: ${{ vars.INFRASTRUCTURE_APPLY_REVIEWER_USER_IDS }}
@@ -458,6 +462,8 @@ jobs:
           TF_VAR_omada_export_path: .local/omada/export.json
           SSL_CERT_FILE: ${{ github.workspace }}/.local/omada/controller-ca.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
+          TF_VAR_github_owner_id: ${{ vars.TAILSCALE_SUBJECT_OWNER_ID }}
+          TF_VAR_github_repository_id: ${{ vars.TAILSCALE_SUBJECT_REPOSITORY_ID }}
           TF_VAR_github_enable_management: ${{ vars.INFRASTRUCTURE_GITHUB_MANAGEMENT_ENABLED }}
           TF_VAR_tailscale_environment_variables_adopt_existing: ${{ inputs.phase == 'adoption' }}
           TF_VAR_apply_reviewer_user_ids: ${{ vars.INFRASTRUCTURE_APPLY_REVIEWER_USER_IDS }}

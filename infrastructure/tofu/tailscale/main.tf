@@ -16,9 +16,32 @@ variable "ci_apply_identity_import_id" {
   description = "Existing CI apply enrollment identity ID used only during adoption."
 }
 
+variable "github_owner_id" {
+  type        = string
+  default     = ""
+  description = "Stable numeric GitHub owner ID used by Tailscale trust subjects."
+
+  validation {
+    condition     = !var.tailscale_enable_management || can(regex("^[0-9]+$", var.github_owner_id))
+    error_message = "github_owner_id must be a numeric GitHub owner ID when Tailscale management is enabled."
+  }
+}
+
+variable "github_repository_id" {
+  type        = string
+  default     = ""
+  description = "Stable numeric GitHub repository ID used by Tailscale trust subjects."
+
+  validation {
+    condition     = !var.tailscale_enable_management || can(regex("^[0-9]+$", var.github_repository_id))
+    error_message = "github_repository_id must be a numeric GitHub repository ID when Tailscale management is enabled."
+  }
+}
+
 locals {
-  contract = yamldecode(file("${path.module}/../../contract/home-lab.yml"))
-  tags     = local.contract.tailscale.tags
+  contract              = yamldecode(file("${path.module}/../../contract/home-lab.yml"))
+  tags                  = local.contract.tailscale.tags
+  github_subject_prefix = "repo:${local.contract.github.owner}@${var.github_owner_id}/${local.contract.github.repository}@${var.github_repository_id}"
 
   policy = {
     tagOwners = {
@@ -209,9 +232,9 @@ resource "terraform_data" "tailscale_policy" {
 resource "tailscale_federated_identity" "ci_plan" {
   count = var.tailscale_enable_management ? 1 : 0
 
-  description = "home-lab GitHub plan runner enrollment"
+  description = null
   issuer      = "https://token.actions.githubusercontent.com"
-  subject     = "repo:${local.contract.github.owner}/${local.contract.github.repository}:environment:${local.contract.github.environments.plan}"
+  subject     = "${local.github_subject_prefix}:environment:${local.contract.github.environments.plan}"
   scopes      = ["auth_keys"]
   tags        = [local.tags.ci_plan]
 
@@ -223,9 +246,9 @@ resource "tailscale_federated_identity" "ci_plan" {
 resource "tailscale_federated_identity" "ci_apply" {
   count = var.tailscale_enable_management ? 1 : 0
 
-  description = "home-lab GitHub apply runner enrollment"
+  description = "infrastructure-apply"
   issuer      = "https://token.actions.githubusercontent.com"
-  subject     = "repo:${local.contract.github.owner}/${local.contract.github.repository}:environment:${local.contract.github.environments.apply}"
+  subject     = "${local.github_subject_prefix}:environment:${local.contract.github.environments.apply}"
   scopes      = ["auth_keys"]
   tags        = [local.tags.ci_apply]
 
@@ -252,7 +275,7 @@ resource "tailscale_federated_identity" "provider_plan" {
 
   description = "home-lab GitHub OpenTofu Tailscale plan provider"
   issuer      = "https://token.actions.githubusercontent.com"
-  subject     = "repo:${local.contract.github.owner}/${local.contract.github.repository}:environment:${local.contract.github.environments.plan}"
+  subject     = "${local.github_subject_prefix}:environment:${local.contract.github.environments.plan}"
   scopes = [
     "devices:core:read",
     "devices:posture_attributes:read",
@@ -270,7 +293,7 @@ resource "tailscale_federated_identity" "provider_apply" {
 
   description = "home-lab GitHub OpenTofu Tailscale apply provider"
   issuer      = "https://token.actions.githubusercontent.com"
-  subject     = "repo:${local.contract.github.owner}/${local.contract.github.repository}:environment:${local.contract.github.environments.apply}"
+  subject     = "${local.github_subject_prefix}:environment:${local.contract.github.environments.apply}"
   scopes = [
     "auth_keys",
     "devices:core:read",

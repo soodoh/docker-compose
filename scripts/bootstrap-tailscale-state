@@ -59,6 +59,12 @@ process.stdout.write(String(value));
 NODE
 }
 
+github_owner=$(contract_value github.owner)
+github_repository=$(contract_value github.repository)
+export TF_VAR_github_owner_id=${TF_VAR_github_owner_id:-$(gh api "users/$github_owner" --jq .id)}
+export TF_VAR_github_repository_id=${TF_VAR_github_repository_id:-$(gh api "repos/$github_owner/$github_repository" --jq .id)}
+[[ $TF_VAR_github_owner_id =~ ^[0-9]+$ && $TF_VAR_github_repository_id =~ ^[0-9]+$ ]]
+
 sha256_file() {
   if command -v sha256sum >/dev/null; then
     sha256sum "$1" | awk '{print $1}'
@@ -186,7 +192,7 @@ tofu -chdir="$root" init -input=false -reconfigure \
 rc=0
 tofu -chdir="$root" plan -input=false -lock-timeout=5m -parallelism=1 \
   -detailed-exitcode -out="$PWD/$workspace/tailscale.tfplan" || rc=$?
-[[ $rc == 2 ]]
+[[ $rc == 2 || ( $resume == true && $rc == 0 ) ]]
 tofu -chdir="$root" show -json "$PWD/$workspace/tailscale.tfplan" >"$workspace/tailscale-plan.json"
 
 jq -e --argjson resume "$resume" '
@@ -202,7 +208,6 @@ jq -e --argjson resume "$resume" '
     select((.change.actions != ["no-op"]) or (.change.importing != null))
   ] as $changes |
   if $resume then
-    ($changes | length > 0) and
     (([$changes[].address] - $expected) | length == 0) and
     ($changes | all(.change.importing == null and .change.actions == ["update"]))
   else
@@ -228,10 +233,11 @@ if os.environ["SECRET_VALUE"].encode() in Path(os.environ["PLAN_FILE"]).read_byt
 PY
 rm -f "$workspace/tailscale-plan.json"
 
-apply_planned_policy "$PWD/$workspace/tailscale.tfplan" "$planned_policy_sha" "$planned_policy_etag"
-
-tofu -chdir="$root" apply -input=false -lock-timeout=5m -parallelism=1 \
-  "$PWD/$workspace/tailscale.tfplan"
+if [[ $rc == 2 ]]; then
+  apply_planned_policy "$PWD/$workspace/tailscale.tfplan" "$planned_policy_sha" "$planned_policy_etag"
+  tofu -chdir="$root" apply -input=false -lock-timeout=5m -parallelism=1 \
+    "$PWD/$workspace/tailscale.tfplan"
+fi
 
 rc=0
 tofu -chdir="$root" plan -input=false -lock-timeout=5m -parallelism=1 -detailed-exitcode || rc=$?
@@ -269,5 +275,9 @@ gh variable set TS_OAUTH_CLIENT_ID --env infrastructure-apply --body "$apply_cli
 gh variable set TS_AUDIENCE --env infrastructure-apply --body "$apply_audience"
 gh variable set TS_PROVIDER_APPLY_CLIENT_ID --env infrastructure-apply --body "$provider_apply_client_id"
 gh variable set TS_PROVIDER_APPLY_AUDIENCE --env infrastructure-apply --body "$provider_apply_audience"
+for environment in infrastructure-plan infrastructure-apply; do
+  gh variable set TAILSCALE_SUBJECT_OWNER_ID --env "$environment" --body "$TF_VAR_github_owner_id"
+  gh variable set TAILSCALE_SUBJECT_REPOSITORY_ID --env "$environment" --body "$TF_VAR_github_repository_id"
+done
 
 echo "tailscale_bootstrap=applied_noop_and_environment_variables_staged retained_evidence=$workspace"
