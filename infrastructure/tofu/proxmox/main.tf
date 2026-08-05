@@ -1,6 +1,7 @@
 locals {
   vm                = local.contract.proxmox.vm
   node              = local.contract.proxmox.node
+  adoption          = var.phase == "adoption"
   steady            = var.phase == "steady"
   recovery          = var.phase == "recovery"
   mapping_migration = (local.steady || local.recovery) && var.use_hardware_mappings
@@ -33,15 +34,18 @@ resource "proxmox_virtual_environment_vm" "arch" {
 
   reboot_after_update                  = true
   stop_on_destroy                      = false
-  purge_on_destroy                     = false
-  delete_unreferenced_disks_on_destroy = false
+  purge_on_destroy                     = local.adoption
+  delete_unreferenced_disks_on_destroy = local.adoption
 
-  agent {
-    enabled = local.steady || local.recovery
-    trim    = false
+  dynamic "agent" {
+    for_each = local.adoption ? [] : [1]
+    content {
+      enabled = true
+      trim    = false
 
-    wait_for_ip {
-      disabled = true
+      wait_for_ip {
+        disabled = true
+      }
     }
   }
 
@@ -78,7 +82,7 @@ resource "proxmox_virtual_environment_vm" "arch" {
     cache             = "none"
     discard           = local.vm.games_disk.discard
     iothread          = local.vm.games_disk.iothread
-    replicate         = false
+    replicate         = local.adoption
     ssd               = local.vm.games_disk.ssd
   }
 
@@ -93,6 +97,7 @@ resource "proxmox_virtual_environment_vm" "arch" {
     device  = "hostpci0"
     id      = local.mapping_migration ? null : local.vm.pci.coral.bdf
     mapping = local.mapping_migration ? local.vm.pci.coral.mapping : null
+    rombar  = true
   }
 
   hostpci {
@@ -102,6 +107,7 @@ resource "proxmox_virtual_environment_vm" "arch" {
     pcie     = local.vm.pci.gpu.pcie
     rom_file = local.vm.pci.gpu.rom_file
     xvga     = local.vm.pci.gpu.xvga
+    rombar   = true
   }
 
   hostpci {
@@ -109,6 +115,7 @@ resource "proxmox_virtual_environment_vm" "arch" {
     id      = local.mapping_migration ? null : local.vm.pci.gpu_audio.bdf
     mapping = local.mapping_migration ? local.vm.pci.gpu_audio.mapping : null
     pcie    = local.vm.pci.gpu_audio.pcie
+    rombar  = true
   }
 
   usb {
@@ -131,8 +138,11 @@ resource "proxmox_virtual_environment_vm" "arch" {
     device = "socket"
   }
 
-  smbios {
-    uuid = local.vm.smbios_uuid
+  dynamic "smbios" {
+    for_each = local.adoption ? [] : [1]
+    content {
+      uuid = local.vm.smbios_uuid
+    }
   }
 
   operating_system {
@@ -183,6 +193,7 @@ resource "proxmox_virtual_environment_vm" "arch" {
 
   lifecycle {
     prevent_destroy = true
+    ignore_changes  = [disk[1].file_format]
 
     precondition {
       condition     = !var.use_hardware_mappings || var.phase != "adoption"
