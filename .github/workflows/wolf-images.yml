@@ -2,6 +2,9 @@
 name: Publish immutable Wolf child images
 
 on:
+  pull_request:
+    paths:
+      - .github/workflows/wolf-images.yml
   workflow_dispatch:
 
 permissions:
@@ -15,6 +18,7 @@ concurrency:
 
 jobs:
   publish:
+    if: github.event_name == 'workflow_dispatch'
     name: Publish reviewed Wolf images
     runs-on: ubuntu-24.04
     timeout-minutes: 30
