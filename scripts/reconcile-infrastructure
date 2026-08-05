@@ -680,24 +680,30 @@ NODE
 fi
 
 ansible_checked_apply() {
-  local inventory=$1 playbook=$2 label=$3
-  shift 3
-  local first second
+  local inventory=$1 playbook=$2 label=$3 host=$4
+  shift 4
+  local first second postcheck planned_changes
   first=$(mktemp)
   second=$(mktemp)
-  ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" | tee "$first"
-  ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" | tee "$second"
+  ansible-inventory -i "$inventory" --list | jq -e --arg host "$host" '._meta.hostvars | has($host)' >/dev/null
+  ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" 2>&1 | tee "$first"
+  ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" 2>&1 | tee "$second"
   if [[ $(sha256_file "$first") != "$(sha256_file "$second")" ]]; then
     rm -f "$first" "$second"
     echo "$label Ansible plan was not reproducible; refusing apply." >&2
     exit 1
   fi
+  planned_changes=$(python3 "$repo_root/.github/scripts/parse-ansible-recap.py" "$first" "$host" \
+    | jq -er 'select(.unreachable == 0 and .failed == 0) | .changed')
   rm -f "$first" "$second"
+  if [[ $planned_changes == 0 ]]; then
+    echo "$label Ansible plan is already a no-op; skipping normal apply."
+    return
+  fi
   ansible-playbook -i "$inventory" "$playbook" "${ansible_extra_args[@]}" "$@"
-  local postcheck
   postcheck=$(mktemp)
-  ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" | tee "$postcheck"
-  python3 "$repo_root/.github/scripts/parse-ansible-recap.py" "$postcheck" "$(ansible-inventory -i "$inventory" --list | jq -r '._meta.hostvars | keys[0]')" \
+  ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" 2>&1 | tee "$postcheck"
+  python3 "$repo_root/.github/scripts/parse-ansible-recap.py" "$postcheck" "$host" \
     | jq -e '.changed == 0 and .unreachable == 0 and .failed == 0' >/dev/null
   rm -f "$postcheck"
 }
@@ -718,7 +724,7 @@ ansible_require_noop() {
 apply_arch_steady() {
   local tag
   for tag in base arch_network tailscale ssh storage docker sops_age hardware coral host_files compose; do
-    ansible_checked_apply "$arch_inventory" playbooks/site.yml "Arch/$tag" \
+    ansible_checked_apply "$arch_inventory" playbooks/site.yml "Arch/$tag" docker-host-production \
       --tags "$tag" -e iac_apply_confirmed=true -e "iac_apply_tag=$tag"
   done
 }
@@ -877,15 +883,15 @@ case "$action" in
       apply_root tailscale
       pushd ansible >/dev/null
       ansible -i "$proxmox_inventory" proxmox_hosts -m ansible.builtin.ping
-      ansible_checked_apply "$proxmox_inventory" playbooks/proxmox-site.yml Proxmox \
+      ansible_checked_apply "$proxmox_inventory" playbooks/proxmox-site.yml Proxmox proxmox \
         -e proxmox_ssh_access_proven=true \
         -e proxmox_health_require_vm=false
       popd >/dev/null
       apply_root proxmox
       pushd ansible >/dev/null
-      ansible_checked_apply "$arch_bootstrap_inventory" playbooks/arch-bootstrap.yml Arch-bootstrap
+      ansible_checked_apply "$arch_bootstrap_inventory" playbooks/arch-bootstrap.yml Arch-bootstrap docker-host-recovery
       ansible -i "$arch_inventory" docker_host -m ansible.builtin.ping
-      ansible_checked_apply "$arch_inventory" playbooks/site.yml Arch/ssh \
+      ansible_checked_apply "$arch_inventory" playbooks/site.yml Arch/ssh docker-host-production \
         --tags ssh -e iac_apply_confirmed=true -e iac_apply_tag=ssh \
         -e arch_ssh_access_proven=true
       popd >/dev/null
@@ -893,7 +899,7 @@ case "$action" in
       if [[ $ct_operation == false ]]; then apply_root proxmox-legacy; fi
       apply_root proxmox
       pushd ansible >/dev/null
-      ansible_checked_apply "$proxmox_inventory" playbooks/proxmox-site.yml Proxmox -e proxmox_ssh_access_proven=true
+      ansible_checked_apply "$proxmox_inventory" playbooks/proxmox-site.yml Proxmox proxmox -e proxmox_ssh_access_proven=true
       apply_arch_steady
       popd >/dev/null
     fi
@@ -905,10 +911,10 @@ case "$action" in
     if [[ $phase == recovery ]]; then compose_recovery_apply; else compose_apply; fi
     pushd ansible >/dev/null
     if [[ $phase == recovery ]]; then
-      ansible_checked_apply "$arch_inventory" playbooks/site.yml Arch/coral \
+      ansible_checked_apply "$arch_inventory" playbooks/site.yml Arch/coral docker-host-production \
         --tags coral -e iac_apply_confirmed=true -e iac_apply_tag=coral
     fi
-    ansible_checked_apply "$arch_inventory" playbooks/site.yml Arch/maintenance \
+    ansible_checked_apply "$arch_inventory" playbooks/site.yml Arch/maintenance docker-host-production \
       --tags maintenance -e iac_apply_confirmed=true -e iac_apply_tag=maintenance
     popd >/dev/null
     verify_all
