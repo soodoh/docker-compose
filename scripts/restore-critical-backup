@@ -74,6 +74,7 @@ stage=key-import
 gpg --batch --quiet --import "$RECOVERY_GPG_KEY_FILE" >/dev/null 2>&1
 stage=download
 curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+  --retry 8 --retry-all-errors --retry-delay 10 --continue-at - \
   "$RECOVERY_BACKUP_URL" --output "$workspace/$backup_id"
 stage=checksum
 printf '%s  %s\n' "$RECOVERY_BACKUP_SHA256" "$workspace/$backup_id" \
