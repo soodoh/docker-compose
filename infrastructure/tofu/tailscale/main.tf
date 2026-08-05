@@ -232,11 +232,10 @@ resource "terraform_data" "tailscale_policy" {
 resource "tailscale_federated_identity" "ci_plan" {
   count = var.tailscale_enable_management ? 1 : 0
 
-  description = null
-  issuer      = "https://token.actions.githubusercontent.com"
-  subject     = "${local.github_subject_prefix}:environment:${local.contract.github.environments.plan}"
-  scopes      = ["auth_keys"]
-  tags        = [local.tags.ci_plan]
+  issuer  = "https://token.actions.githubusercontent.com"
+  subject = "${local.github_subject_prefix}:environment:${local.contract.github.environments.plan}"
+  scopes  = ["auth_keys"]
+  tags    = [local.tags.ci_plan]
 
   lifecycle {
     prevent_destroy = true
