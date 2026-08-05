@@ -67,6 +67,7 @@ proxmox_api_additional_roles:
   - role: HomeLabTofuPlanDiskInspect
     privileges:
       - VM.Config.Disk
+      - VM.Audit
 proxmox_tailscale_hostname: proxmox
 proxmox_tailscale_tag: tag:proxmox
 proxmox_tailscale_auth_key: "{{ lookup('ansible.builtin.env', 'TAILSCALE_AUTH_KEY') }}"
