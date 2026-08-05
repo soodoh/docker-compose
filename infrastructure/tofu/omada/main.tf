@@ -10,6 +10,8 @@ locals {
 }
 
 provider "omada" {
+  username        = var.omada_enable_management ? null : "disabled"
+  password        = var.omada_enable_management ? null : "disabled"
   skip_tls_verify = false
 }
 
