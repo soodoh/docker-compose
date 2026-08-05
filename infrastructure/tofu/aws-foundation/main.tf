@@ -30,6 +30,54 @@ data "aws_caller_identity" "current" {}
 
 data "aws_partition" "current" {}
 
+data "aws_iam_policy_document" "recovery_kms" {
+  statement {
+    sid    = "EnableIAMUserPermissions"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "AllowBackupPrincipalThroughS3"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = [var.backup_principal_arn]
+    }
+
+    actions = [
+      "kms:Decrypt",
+      "kms:DescribeKey",
+      "kms:Encrypt",
+      "kms:GenerateDataKey*",
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["s3.${var.recovery_bucket_region}.${data.aws_partition.current.dns_suffix}"]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "kms:EncryptionContext:aws:s3:arn"
+      values = [
+        aws_s3_bucket.recovery.arn,
+        "${aws_s3_bucket.recovery.arn}/*",
+      ]
+    }
+  }
+}
+
 resource "aws_kms_key" "opentofu" {
   description             = "Home lab OpenTofu state and recovery bundle"
   enable_key_rotation     = true
@@ -46,6 +94,7 @@ resource "aws_kms_key" "recovery" {
   description             = "Home lab off-site recovery bundles"
   enable_key_rotation     = true
   deletion_window_in_days = 30
+  policy                  = data.aws_iam_policy_document.recovery_kms.json
 
   lifecycle {
     prevent_destroy = true

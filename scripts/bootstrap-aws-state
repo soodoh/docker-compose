@@ -9,6 +9,7 @@ umask 077
 : "${TF_VAR_state_bucket_name:?TF_VAR_state_bucket_name is required}"
 [[ $TF_BACKEND_BUCKET == "$TF_VAR_state_bucket_name" ]]
 : "${TF_VAR_recovery_bucket_name:?TF_VAR_recovery_bucket_name is required}"
+: "${TF_VAR_backup_principal_arn:?TF_VAR_backup_principal_arn is required}"
 : "${TF_VAR_github_owner:?TF_VAR_github_owner is required}"
 : "${TF_VAR_github_repository:?TF_VAR_github_repository is required}"
 adopt_recovery=false
