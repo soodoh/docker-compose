@@ -682,20 +682,24 @@ fi
 ansible_checked_apply() {
   local inventory=$1 playbook=$2 label=$3 host=$4
   shift 4
-  local first second postcheck planned_changes
+  local first second first_normalized second_normalized postcheck planned_changes
   first=$(mktemp)
   second=$(mktemp)
+  first_normalized=$(mktemp)
+  second_normalized=$(mktemp)
   ansible-inventory -i "$inventory" --list | jq -e --arg host "$host" '._meta.hostvars | has($host)' >/dev/null
   ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" 2>&1 | tee "$first"
   ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" 2>&1 | tee "$second"
-  if [[ $(sha256_file "$first") != "$(sha256_file "$second")" ]]; then
-    rm -f "$first" "$second"
+  python3 "$repo_root/.github/scripts/normalize-ansible-plan.py" "$first" >"$first_normalized"
+  python3 "$repo_root/.github/scripts/normalize-ansible-plan.py" "$second" >"$second_normalized"
+  if [[ $(sha256_file "$first_normalized") != "$(sha256_file "$second_normalized")" ]]; then
+    rm -f "$first" "$second" "$first_normalized" "$second_normalized"
     echo "$label Ansible plan was not reproducible; refusing apply." >&2
     exit 1
   fi
   planned_changes=$(python3 "$repo_root/.github/scripts/parse-ansible-recap.py" "$first" "$host" \
     | jq -er 'select(.unreachable == 0 and .failed == 0) | .changed')
-  rm -f "$first" "$second"
+  rm -f "$first" "$second" "$first_normalized" "$second_normalized"
   if [[ $planned_changes == 0 ]]; then
     echo "$label Ansible plan is already a no-op; skipping normal apply."
     return
