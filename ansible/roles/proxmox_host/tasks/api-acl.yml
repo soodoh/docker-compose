@@ -15,5 +15,7 @@
     label: "{{ item.path }}:{{ item.roleid }}"
   when:
     - item.ugid == proxmox_host_api_account.user ~ '!' ~ proxmox_host_api_account.token_name
-    - item.path != '/' or item.roleid != proxmox_host_api_account.role
+    - >-
+      {'path': item.path, 'role': item.roleid} not in
+      ([{'path': '/', 'role': proxmox_host_api_account.role}] + proxmox_host_api_account.additional_acls)
   changed_when: true

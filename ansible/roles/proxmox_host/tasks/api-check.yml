@@ -66,6 +66,23 @@
     label: "{{ item.token_path }}"
   no_log: true
 
+- name: Report drift in VM-scoped inspection roles
+  ansible.builtin.debug:
+    msg: "A VM-scoped Proxmox inspection role requires reconciliation."
+  vars:
+    proxmox_host_check_role_record: >-
+      {{ proxmox_host_check_roles.stdout | from_json |
+         selectattr('roleid', 'equalto', item.role) | first | default({}) }}
+    proxmox_host_check_role_privileges: >-
+      {{ (proxmox_host_check_role_record.privs | default('')) |
+         regex_replace(',', ' ') | split | sort }}
+  changed_when: >-
+    item.role not in (proxmox_host_check_roles.stdout | from_json | map(attribute='roleid') | list) or
+    proxmox_host_check_role_privileges != (item.privileges | sort)
+  loop: "{{ proxmox_api_additional_roles }}"
+  loop_control:
+    label: "{{ item.role }}"
+
 - name: Report exact separated API-control-plane drift
   ansible.builtin.debug:
     msg: "The separated Proxmox API account requires reconciliation."
@@ -101,9 +118,22 @@
       selectattr('roleid', 'equalto', item.role) | list | length == 0) or
     (proxmox_host_check_acl_records |
       selectattr('ugid', 'equalto', item.user ~ '!' ~ item.token_name) |
-      list | length != 1) or
+      list | length != 1 + (item.additional_acls | length)) or
     not (proxmox_host_check_escrow_result.stat.isreg | default(false)) or
     (proxmox_host_check_escrow_result.stat.mode | default('')) != '0600'
   loop: "{{ proxmox_api_accounts }}"
   loop_control:
     label: "{{ item.user }}!{{ item.token_name }}"
+
+- name: Report drift in VM-scoped token ACLs
+  ansible.builtin.debug:
+    msg: "A VM-scoped Proxmox token ACL requires reconciliation."
+  changed_when: >-
+    proxmox_host_check_acls.stdout | from_json |
+    selectattr('path', 'equalto', item.1.path) |
+    selectattr('ugid', 'equalto', item.0.user ~ '!' ~ item.0.token_name) |
+    selectattr('roleid', 'equalto', item.1.role) |
+    list | length != 1
+  loop: "{{ proxmox_api_accounts | subelements('additional_acls') }}"
+  loop_control:
+    label: "{{ item.0.user }}!{{ item.0.token_name }}:{{ item.1.path }}"

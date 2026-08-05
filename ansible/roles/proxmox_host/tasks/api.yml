@@ -47,7 +47,7 @@
       - "{{ item.privileges | join(' ') }}"
   when: item.role not in (proxmox_host_api_roles.stdout | from_json | map(attribute='roleid') | list)
   changed_when: true
-  loop: "{{ proxmox_api_accounts }}"
+  loop: "{{ proxmox_api_accounts + proxmox_api_additional_roles }}"
   loop_control:
     label: "{{ item.role }}"
 
@@ -79,7 +79,7 @@
     (proxmox_host_api_role_current | regex_replace(',', ' ') | split | sort) !=
     (item.privileges | sort)
   changed_when: true
-  loop: "{{ proxmox_api_accounts }}"
+  loop: "{{ proxmox_api_accounts + proxmox_api_additional_roles }}"
   loop_control:
     label: "{{ item.role }}"
 
@@ -131,6 +131,28 @@
   loop_control:
     label: "{{ item.user }}!{{ item.token_name }}"
 
+- name: Grant reviewed VM-scoped inspection ACLs
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/pveum
+      - acl
+      - modify
+      - "{{ item.1.path }}"
+      - --tokens
+      - "{{ item.0.user }}!{{ item.0.token_name }}"
+      - --roles
+      - "{{ item.1.role }}"
+  when: >-
+    proxmox_host_token_acls.stdout | from_json |
+    selectattr('path', 'equalto', item.1.path) |
+    selectattr('ugid', 'equalto', item.0.user ~ '!' ~ item.0.token_name) |
+    selectattr('roleid', 'equalto', item.1.role) |
+    list | length == 0
+  changed_when: true
+  loop: "{{ proxmox_api_accounts | subelements('additional_acls') }}"
+  loop_control:
+    label: "{{ item.0.user }}!{{ item.0.token_name }}:{{ item.1.path }}"
+
 - name: Re-read final privilege-separated token ACLs
   ansible.builtin.command:
     argv:
@@ -142,13 +164,13 @@
   register: proxmox_host_final_token_acls
   changed_when: false
 
-- name: Require exactly one reviewed ACL per privilege-separated token
+- name: Require the exact reviewed ACL count per privilege-separated token
   ansible.builtin.assert:
     that:
       - >-
         proxmox_host_final_token_acls.stdout | from_json |
         selectattr('ugid', 'equalto', item.user ~ '!' ~ item.token_name) |
-        list | length == 1
+        list | length == 1 + (item.additional_acls | length)
       - >-
         proxmox_host_final_token_acls.stdout | from_json |
         selectattr('path', 'equalto', '/') |
@@ -159,6 +181,19 @@
   loop: "{{ proxmox_api_accounts }}"
   loop_control:
     label: "{{ item.user }}!{{ item.token_name }}"
+
+- name: Require every reviewed VM-scoped inspection ACL
+  ansible.builtin.assert:
+    that:
+      - >-
+        proxmox_host_final_token_acls.stdout | from_json |
+        selectattr('path', 'equalto', item.1.path) |
+        selectattr('ugid', 'equalto', item.0.user ~ '!' ~ item.0.token_name) |
+        selectattr('roleid', 'equalto', item.1.role) |
+        list | length == 1
+  loop: "{{ proxmox_api_accounts | subelements('additional_acls') }}"
+  loop_control:
+    label: "{{ item.0.user }}!{{ item.0.token_name }}:{{ item.1.path }}"
 
 - name: Verify escrow files exist for every active API token
   ansible.builtin.stat:

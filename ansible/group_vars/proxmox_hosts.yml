@@ -33,6 +33,9 @@ proxmox_api_accounts:
       - SDN.Audit
       - Sys.Audit
       - VM.Audit
+    additional_acls:
+      - path: /vms/100
+        role: HomeLabTofuPlanDiskInspect
   - user: root@pam
     token_name: tofu-apply
     token_path: /root/.config/home-lab/proxmox-apply-token.env
@@ -59,6 +62,11 @@ proxmox_api_accounts:
       - VM.Config.Options
       - VM.Migrate
       - VM.PowerMgmt
+    additional_acls: []
+proxmox_api_additional_roles:
+  - role: HomeLabTofuPlanDiskInspect
+    privileges:
+      - VM.Config.Disk
 proxmox_tailscale_hostname: proxmox
 proxmox_tailscale_tag: tag:proxmox
 proxmox_tailscale_auth_key: "{{ lookup('ansible.builtin.env', 'TAILSCALE_AUTH_KEY') }}"
