@@ -163,8 +163,8 @@ arch:
     package_version: r236.5815ee3-3
     source_commit: 5815ee3908a46a415aac616ac7b9aedcb98a504c
     artifact_repository: ghcr.io/soodoh/home-lab/gasket-dkms-git
-    artifact_digest: null
-    package_sha256: null
+    artifact_digest: sha256:bee681944b4c4ccbe8cbd5f90b418591e289d4fc026dc11aedcfa39ec5e543cb
+    package_sha256: a08bf28a90071cf3d18b219ed54856681937d792787fd0c5ef77f52106e6a71e
 omada:
   controller_version: 6.2.14.11
   endpoint: https://Omada:8043

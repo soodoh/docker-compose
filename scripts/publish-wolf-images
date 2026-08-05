@@ -32,28 +32,39 @@ jq -e '
   )
 ' "$manifest" >/dev/null
 
-printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin >/dev/null
 workspace=$(mktemp -d)
+export DOCKER_CONFIG="$workspace/docker-config"
+mkdir -m 0700 "$DOCKER_CONFIG"
+docker_command=(docker)
+if [[ ${WOLF_DOCKER_USE_SUDO:-false} == true ]]; then
+  command -v sudo >/dev/null || { rm -rf "$workspace"; echo "missing command: sudo" >&2; exit 69; }
+  docker_path=$(command -v docker)
+  docker_command=(sudo -n env "DOCKER_CONFIG=$DOCKER_CONFIG" "$docker_path")
+fi
 cleanup() {
-  while IFS= read -r reference; do
-    [[ -z $reference ]] || docker image rm "$reference" >/dev/null 2>&1 || true
-  done <"$workspace/tags"
+  if [[ -f $workspace/tags ]]; then
+    while IFS= read -r reference; do
+      [[ -z $reference ]] || "${docker_command[@]}" image rm "$reference" >/dev/null 2>&1 || true
+    done <"$workspace/tags"
+  fi
   rm -rf "$workspace"
 }
 trap cleanup EXIT INT TERM
 : >"$workspace/tags"
 : >"$workspace/records.ndjson"
+printf '%s' "$GHCR_TOKEN" | "${docker_command[@]}" login ghcr.io --username "$GHCR_USERNAME" --password-stdin >/dev/null
+unset GHCR_TOKEN
 
 while IFS=$'\t' read -r name source repository tag; do
-  docker image inspect "$source" >/dev/null
+  "${docker_command[@]}" image inspect "$source" >/dev/null
   reference="$repository:$tag"
   printf '%s\n' "$reference" >>"$workspace/tags"
-  docker image tag "$source" "$reference"
-  docker image push "$reference" >/dev/null
-  digest=$(docker image inspect "$reference" \
+  "${docker_command[@]}" image tag "$source" "$reference"
+  "${docker_command[@]}" image push "$reference" >/dev/null
+  digest=$("${docker_command[@]}" image inspect "$reference" \
     | jq -er --arg repository "$repository" \
       '.[0].RepoDigests | map(select(startswith($repository + "@sha256:"))) | first')
-  docker manifest inspect "$digest" >/dev/null
+  "${docker_command[@]}" manifest inspect "$digest" >/dev/null
   jq -cn --arg name "$name" --arg source_image_id "$source" --arg digest "$digest" \
     '{name: $name, source_image_id: $source_image_id, digest: $digest}' \
     >>"$workspace/records.ndjson"
