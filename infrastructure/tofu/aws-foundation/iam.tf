@@ -92,14 +92,22 @@ data "aws_iam_policy_document" "state_plan" {
 
   statement {
     actions = [
+      "s3:GetAccelerateConfiguration",
+      "s3:GetBucketAcl",
+      "s3:GetBucketCORS",
       "s3:GetBucketLocation",
+      "s3:GetBucketLogging",
+      "s3:GetBucketObjectLockConfiguration",
       "s3:GetBucketOwnershipControls",
       "s3:GetBucketPolicy",
       "s3:GetBucketPublicAccessBlock",
+      "s3:GetBucketRequestPayment",
       "s3:GetBucketTagging",
       "s3:GetBucketVersioning",
+      "s3:GetBucketWebsite",
       "s3:GetEncryptionConfiguration",
       "s3:GetLifecycleConfiguration",
+      "s3:GetReplicationConfiguration",
       "s3:ListBucket",
     ]
     resources = [aws_s3_bucket.state.arn, aws_s3_bucket.recovery.arn]
@@ -109,10 +117,13 @@ data "aws_iam_policy_document" "state_plan" {
       "kms:DescribeKey",
       "kms:GetKeyPolicy",
       "kms:GetKeyRotationStatus",
-      "kms:ListAliases",
       "kms:ListResourceTags",
     ]
     resources = [aws_kms_key.opentofu.arn, aws_kms_key.recovery.arn]
+  }
+  statement {
+    actions   = ["kms:ListAliases"]
+    resources = ["*"]
   }
   statement {
     actions   = ["iam:Get*", "iam:List*"]
@@ -164,14 +175,22 @@ data "aws_iam_policy_document" "state_apply" {
 
   statement {
     actions = [
+      "s3:GetAccelerateConfiguration",
+      "s3:GetBucketAcl",
+      "s3:GetBucketCORS",
       "s3:GetBucketLocation",
+      "s3:GetBucketLogging",
+      "s3:GetBucketObjectLockConfiguration",
       "s3:GetBucketOwnershipControls",
       "s3:GetBucketPolicy",
       "s3:GetBucketPublicAccessBlock",
+      "s3:GetBucketRequestPayment",
       "s3:GetBucketTagging",
       "s3:GetBucketVersioning",
+      "s3:GetBucketWebsite",
       "s3:GetEncryptionConfiguration",
       "s3:GetLifecycleConfiguration",
+      "s3:GetReplicationConfiguration",
       "s3:ListBucket",
       "s3:PutBucketOwnershipControls",
       "s3:PutBucketPolicy",
