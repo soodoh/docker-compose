@@ -67,6 +67,7 @@ if [[ -n ${RECOVERY_GPG_PASSPHRASE_FILE:-} ]]; then
   decrypt_args+=(--pinentry-mode loopback --passphrase-file "$RECOVERY_GPG_PASSPHRASE_FILE")
 fi
 gpg "${decrypt_args[@]}" "$workspace/$backup_id"
+rm -f -- "$workspace/$backup_id"
 /usr/local/libexec/home-lab-restore-critical-archive.py \
   --archive "$workspace/critical.tar.gz" \
   --target "$RECOVERY_TARGET"
