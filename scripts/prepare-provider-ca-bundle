@@ -16,11 +16,18 @@ openssl verify -CAfile .local/provider-ca/proxmox.pem .local/provider-ca/proxmox
 : >.local/provider-ca/bundle.pem
 if [[ -f /etc/ssl/certs/ca-certificates.crt ]]; then
   cat /etc/ssl/certs/ca-certificates.crt >>.local/provider-ca/bundle.pem
+  printf '\n' >>.local/provider-ca/bundle.pem
 fi
 cat .local/provider-ca/proxmox.pem >>.local/provider-ca/bundle.pem
+printf '\n' >>.local/provider-ca/bundle.pem
 if [[ ${TF_VAR_omada_enable_management:-false} == true ]]; then
   printf '%s' "$OMADA_CA_PEM" >.local/provider-ca/omada.pem
   openssl verify -CAfile .local/provider-ca/omada.pem .local/provider-ca/omada.pem >/dev/null
   cat .local/provider-ca/omada.pem >>.local/provider-ca/bundle.pem
+  printf '\n' >>.local/provider-ca/bundle.pem
+fi
+openssl verify -CAfile .local/provider-ca/bundle.pem .local/provider-ca/proxmox.pem >/dev/null
+if [[ ${TF_VAR_omada_enable_management:-false} == true ]]; then
+  openssl verify -CAfile .local/provider-ca/bundle.pem .local/provider-ca/omada.pem >/dev/null
 fi
 chmod 0600 .local/provider-ca/*.pem
