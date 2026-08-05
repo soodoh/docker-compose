@@ -51,6 +51,15 @@
         tailscale_accept_routes: false
         tailscale_auth_key: "{{ proxmox_tailscale_auth_key }}"
     - role: proxmox_storage
+    - role: ssh
+      vars:
+        ssh_service_name: ssh.service
+        ssh_password_authentication: false
+        ssh_access_proven: true
+        ssh_allow_users:
+          - root
+          - tofu-plan
+          - tofu-apply
   post_tasks:
     - name: Release the shared host-side mutation lock after success
       ansible.builtin.import_role:
