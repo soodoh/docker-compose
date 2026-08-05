@@ -64,6 +64,7 @@
         RECOVERY_TARGET: "{{ recovery_target }}"
         RECOVERY_GPG_KEY_FILE: "{{ recovery_gpg_key_file }}"
         RECOVERY_GPG_PASSPHRASE_FILE: "{{ recovery_gpg_passphrase_file | default('') }}"
+        RECOVERY_STATUS_FILE: /run/home-lab-recovery-restore-status
 
   post_tasks:
     - name: Release the shared host-side mutation lock after success

@@ -46,18 +46,36 @@ if versions != [os.environ["RECOVERY_VERSION"]]:
     raise SystemExit("signed backup URL is not bound to the approved object version")
 PY
 
+status_file=${RECOVERY_STATUS_FILE:-}
+if [[ -n $status_file ]]; then
+  [[ $status_file =~ ^/run/home-lab-recovery-[a-z0-9-]+$ ]]
+fi
+stage=workspace
 workspace=$(mktemp -d)
 cleanup() {
+  local status=$?
   rm -rf "$workspace"
+  if [[ -n $status_file ]]; then
+    if ((status == 0)); then
+      printf 'recovery_restore=verified stage=complete\n' >"$status_file" || true
+    else
+      printf 'recovery_restore=failed stage=%s\n' "$stage" >"$status_file" || true
+    fi
+    chmod 0600 "$status_file" 2>/dev/null || true
+  fi
+  return "$status"
 }
 trap cleanup EXIT INT TERM
 chmod 0700 "$workspace"
 export GNUPGHOME="$workspace/gnupg"
 install -d -m 0700 "$GNUPGHOME"
 
+stage=key-import
 gpg --batch --quiet --import "$RECOVERY_GPG_KEY_FILE" >/dev/null 2>&1
+stage=download
 curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
   "$RECOVERY_BACKUP_URL" --output "$workspace/$backup_id"
+stage=checksum
 printf '%s  %s\n' "$RECOVERY_BACKUP_SHA256" "$workspace/$backup_id" \
   | sha256sum --check --status
 
@@ -66,8 +84,11 @@ if [[ -n ${RECOVERY_GPG_PASSPHRASE_FILE:-} ]]; then
   [[ -r $RECOVERY_GPG_PASSPHRASE_FILE ]]
   decrypt_args+=(--pinentry-mode loopback --passphrase-file "$RECOVERY_GPG_PASSPHRASE_FILE")
 fi
+stage=decrypt
 gpg "${decrypt_args[@]}" "$workspace/$backup_id"
 rm -f -- "$workspace/$backup_id"
+stage=extract
 /usr/local/libexec/home-lab-restore-critical-archive.py \
   --archive "$workspace/critical.tar.gz" \
   --target "$RECOVERY_TARGET"
+stage=complete
