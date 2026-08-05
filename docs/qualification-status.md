@@ -11,12 +11,18 @@
 - CI plan/apply credential separation and protected confirmation gates
 - static recovery fixtures and playbook syntax rehearsal
 
+## Live qualified
+
+- Omada strict-TLS export and import-only adoption of the existing LAN and 17 DHCP reservations
+- Omada disposable reservation create/read/delete behavior with separated plan/apply identities
+- three consecutive protected no-op Omada plans after cleanup
+
 ## Requires protected inputs
 
 Backend coordinates, provider credentials, SSH fingerprints/keys, hardware identities, Omada export, backup object/version/checksum, GPG material, SOPS recipients, Coral artifact hashes, and recovery evidence are intentionally absent from Git.
 
 ## Requires live qualification
 
-Disposable-VM Proxmox provider behavior, raw disks/passthrough/mappings, Omada import/no-op, ZFS import evidence, immutable Wolf image publication, Coral package publication/runtime, full restore, cold boot, service health, cleanup, recovery-time objective, and final no-op all remain operational proofs.
+Disposable-VM Proxmox provider behavior, raw disks/passthrough/mappings, ZFS import evidence, immutable Wolf image publication, Coral package publication/runtime, full restore, cold boot, service health, cleanup, recovery-time objective, and final no-op all remain operational proofs.
 
 Static validation must not be represented as production readiness. Update this document only with evidence from the protected qualification process; never paste secrets or protected identifiers.
