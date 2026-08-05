@@ -17,6 +17,11 @@ text = re.sub(
     text,
 )
 text = re.sub(
+    r'(?m)^\s*"(?:atime|ctime|inode|mtime|version)":\s*(?:"[^"]*"|[^,\n]+),?\s*\n',
+    "",
+    text,
+)
+text = re.sub(
     r"(?m)(?:/[^\s\"']+)?/\.ansible/tmp/ansible-tmp-[^/\s\"']+",
     "/.ansible/tmp/<normalized>",
     text,
