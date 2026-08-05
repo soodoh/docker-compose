@@ -94,4 +94,4 @@ jobs:
             --format '{{json .Manifest}}' | jq -r '.digest')
           [[ $digest =~ ^sha256:[0-9a-f]{64}$ ]]
           cosign sign --yes "$repository@$digest"
-          echo "Published immutable package digest: $digest" >>"$GITHUB_STEP_SUMMARY"
+          echo "Published immutable package digest: $digest" | tee -a "$GITHUB_STEP_SUMMARY"
