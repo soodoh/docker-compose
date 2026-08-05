@@ -6,7 +6,7 @@ recovery:
   critical_rpo_hours: 24
   critical_rto_hours: 8
   recovery_age_recipient: age1vvzm5pczjum52v5alall8euucjen9q4v9xa5g0xmswhna5vare9qwv9rq6
-  ci_age_recipient: null
+  ci_age_recipient: age17z5dvwfetww88x3juenueyughe7uh8njfls6fajk62s9aga8svssz7ah8y
 network:
   cidr: 192.168.0.0/24
   gateway: 192.168.0.1
