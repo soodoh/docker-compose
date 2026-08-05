@@ -422,6 +422,9 @@ root_plan_args() {
     printf '%s\0' -var="decommission_legacy_ct=$ct_decommission"
     printf '%s\0' -var="decommission_unprotect=$ct_unprotect"
   fi
+  if [[ $root == omada && ${TF_VAR_omada_enable_management:-false} == true ]]; then
+    printf '%s\0' -var="omada_export_path=$repo_root/.local/omada/export.json"
+  fi
 }
 
 plan_all() {
