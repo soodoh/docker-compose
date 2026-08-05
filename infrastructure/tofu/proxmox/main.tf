@@ -82,7 +82,7 @@ resource "proxmox_virtual_environment_vm" "arch" {
     cache             = "none"
     discard           = local.vm.games_disk.discard
     iothread          = local.vm.games_disk.iothread
-    replicate         = local.adoption
+    replicate         = true
     ssd               = local.vm.games_disk.ssd
   }
 
