@@ -9,7 +9,7 @@
   vars:
     pacman_packages_requested:
       - "{{ tailscale_package }}"
-  when: ansible_pkg_mgr == 'pacman'
+  when: ansible_facts.distribution == 'Archlinux'
 
 - name: Keep the Tailscale package present through the detected non-pacman manager
   ansible.builtin.package:
@@ -17,7 +17,7 @@
     state: present
   become: "{{ not ansible_check_mode }}"
   when:
-    - ansible_pkg_mgr != 'pacman'
+    - ansible_facts.distribution != 'Archlinux'
     - not ansible_check_mode or tailscale_package in ansible_facts.packages
 
 - name: Keep tailscaled enabled and started without restarting it
