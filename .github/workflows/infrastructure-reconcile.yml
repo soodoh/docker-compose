@@ -467,6 +467,8 @@ jobs:
           TF_VAR_omada_enable_management: ${{ vars.OMADA_MANAGEMENT_ENABLED }}
           TF_VAR_adoption_complete: ${{ vars.OMADA_ADOPTION_COMPLETE }}
           TF_VAR_omada_export_path: .local/omada/export.json
+          OMADA_EXPORT_JSON: ${{ secrets.OMADA_EXPORT_JSON }}
+          OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
           SSL_CERT_FILE: ${{ github.workspace }}/.local/provider-ca/bundle.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
           TF_VAR_github_owner_id: ${{ vars.TAILSCALE_SUBJECT_OWNER_ID }}
@@ -514,6 +516,7 @@ jobs:
           RECONCILE_ANSIBLE_EXTRA_VARS_FILE: .local/reconcile-extra-vars.json
         run: |
           set -euo pipefail
+          ./scripts/prepare-omada-plan-input
           ./scripts/prepare-provider-ca-bundle
           install -d -m 0700 .local
           jq -n \
