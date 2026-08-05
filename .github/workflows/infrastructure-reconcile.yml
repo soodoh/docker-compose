@@ -98,14 +98,14 @@ jobs:
           ./infrastructure/policy/test-policy.sh
           ./scripts/test-recovery-tools
           python -m py_compile scripts/*.py .github/scripts/*.py
-          shellcheck scripts/reconcile-infrastructure scripts/bootstrap-aws-state \
+          shellcheck scripts/reconcile-infrastructure scripts/bootstrap-aws-state scripts/bootstrap-tailscale-state \
             scripts/bootstrap-proxmox-host scripts/build-recovery-bundle \
             scripts/collect-proxmox-protected-inputs scripts/migrate-proxmox-zfs-stack \
             scripts/migrate-sops-recipients \
             scripts/prepare-omada-plan-input scripts/publish-wolf-images \
             scripts/rehearse-recovery scripts/restore-critical-backup \
             scripts/test-recovery-tools .github/scripts/prepare-ansible-controller.sh
-          bash -n scripts/reconcile-infrastructure scripts/bootstrap-aws-state \
+          bash -n scripts/reconcile-infrastructure scripts/bootstrap-aws-state scripts/bootstrap-tailscale-state \
             scripts/bootstrap-proxmox-host scripts/build-recovery-bundle \
             scripts/collect-proxmox-protected-inputs scripts/migrate-proxmox-zfs-stack \
             scripts/migrate-sops-recipients \
@@ -177,6 +177,7 @@ jobs:
           TF_BACKEND_BUCKET: ${{ vars.TF_BACKEND_BUCKET }}
           TF_VAR_aws_region: ${{ vars.AWS_REGION }}
           TF_VAR_state_bucket_name: ${{ vars.TF_BACKEND_BUCKET }}
+          TF_VAR_plan_artifact_age_recipient: ${{ vars.PLAN_ARTIFACT_AGE_RECIPIENT }}
           TF_VAR_recovery_bucket_name: ${{ vars.RECOVERY_BUCKET }}
           TF_VAR_github_owner: ${{ github.repository_owner }}
           TF_VAR_github_repository: ${{ github.event.repository.name }}
@@ -197,10 +198,9 @@ jobs:
           SSL_CERT_FILE: ${{ github.workspace }}/.local/omada/controller-ca.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
           TF_VAR_github_enable_management: ${{ vars.INFRASTRUCTURE_GITHUB_MANAGEMENT_ENABLED }}
+          TF_VAR_tailscale_environment_variables_adopt_existing: false
           TF_VAR_apply_reviewer_user_ids: ${{ vars.INFRASTRUCTURE_APPLY_REVIEWER_USER_IDS }}
           TF_VAR_apply_reviewer_team_ids: ${{ vars.INFRASTRUCTURE_APPLY_REVIEWER_TEAM_IDS }}
-          TF_VAR_tailscale_oauth_client_id: ${{ vars.TS_OAUTH_CLIENT_ID }}
-          TF_VAR_tailscale_audience: ${{ vars.TS_AUDIENCE }}
           TF_VAR_aws_plan_role_arn: ${{ vars.AWS_PLAN_ROLE_ARN }}
           TF_VAR_aws_apply_role_arn: ${{ vars.AWS_APPLY_ROLE_ARN }}
           TF_VAR_arch_ssh_host_key_fingerprint: ${{ vars.ARCH_SSH_HOST_KEY_FINGERPRINT }}
@@ -213,17 +213,17 @@ jobs:
           ./scripts/prepare-omada-plan-input
           ./scripts/reconcile-infrastructure plan --phase steady
 
-  reconcile:
-    name: Apply exact plans and prove no-op
+  dispatch-plan:
+    name: Plan dispatched infrastructure
     needs: validate
     if: >-
-      github.event_name != 'pull_request' &&
+      github.event_name == 'workflow_dispatch' &&
       vars.INFRASTRUCTURE_APPLY_ENABLED == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    environment: infrastructure-apply
+    timeout-minutes: 45
+    environment: infrastructure-plan
     steps:
-      - name: Check out the exact merged commit
+      - name: Check out the exact dispatched commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -241,10 +241,175 @@ jobs:
           tofu_version: 1.12.5
           tofu_wrapper: false
 
+      - name: Install age from the signed Ubuntu archive
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes age
       - name: Assume the restricted AWS plan role
         uses: aws-actions/configure-aws-credentials@451ce2a72e8d729a59ebeaacab82dbce58e7af4c # v6
         with:
           role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Prepare the restricted plan controller
+        uses: ./.github/actions/ansible-controller
+        with:
+          oauth-client-id: ${{ vars.TS_OAUTH_CLIENT_ID }}
+          audience: ${{ vars.TS_AUDIENCE }}
+          tags: tag:ci-plan
+          target-ip: docker-host
+          host-key-fingerprint: ${{ vars.ARCH_SSH_HOST_KEY_FINGERPRINT }}
+          accept-subnet-routes: "false"
+
+      - name: Pin the Proxmox MagicDNS SSH identity
+        run: >-
+          .github/scripts/prepare-ansible-controller.sh
+          proxmox
+          '${{ vars.PROXMOX_SSH_HOST_KEY_FINGERPRINT }}'
+          false
+
+      - name: Create policy-inspected saved plans with restricted credentials
+        env:
+          TF_BACKEND_BUCKET: ${{ vars.TF_BACKEND_BUCKET }}
+          TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+          TF_VAR_state_bucket_name: ${{ vars.TF_BACKEND_BUCKET }}
+          TF_VAR_plan_artifact_age_recipient: ${{ vars.PLAN_ARTIFACT_AGE_RECIPIENT }}
+          TF_VAR_recovery_bucket_name: ${{ vars.RECOVERY_BUCKET }}
+          TF_VAR_github_owner: ${{ github.repository_owner }}
+          TF_VAR_github_repository: ${{ github.event.repository.name }}
+          TF_VAR_proxmox_endpoint: ${{ vars.PROXMOX_API_ENDPOINT }}
+          PROXMOX_VE_API_TOKEN: ${{ secrets.PROXMOX_PLAN_API_TOKEN }}
+          TF_VAR_use_hardware_mappings: ${{ vars.PROXMOX_HARDWARE_MAPPINGS_ENABLED || 'false' }}
+          TF_VAR_manage_hardware_mappings: ${{ vars.PROXMOX_HARDWARE_MAPPINGS_ENABLED || 'false' }}
+          TF_VAR_games_disk_by_id: ${{ secrets.HOMELAB_GAMES_DISK_BY_ID }}
+          OMADA_URL: ${{ vars.OMADA_ENDPOINT }}
+          OMADA_USERNAME: ${{ secrets.OMADA_PLAN_USERNAME }}
+          OMADA_PASSWORD: ${{ secrets.OMADA_PLAN_PASSWORD }}
+          OMADA_SITE: ${{ vars.OMADA_SITE }}
+          TF_VAR_omada_enable_management: ${{ vars.OMADA_MANAGEMENT_ENABLED }}
+          TF_VAR_adoption_complete: ${{ vars.OMADA_ADOPTION_COMPLETE }}
+          TF_VAR_omada_export_path: .local/omada/export.json
+          OMADA_EXPORT_JSON: ${{ secrets.OMADA_EXPORT_JSON }}
+          OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
+          SSL_CERT_FILE: ${{ github.workspace }}/.local/omada/controller-ca.pem
+          TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
+          TF_VAR_github_enable_management: ${{ vars.INFRASTRUCTURE_GITHUB_MANAGEMENT_ENABLED }}
+          TF_VAR_tailscale_environment_variables_adopt_existing: ${{ inputs.phase == 'adoption' }}
+          TF_VAR_apply_reviewer_user_ids: ${{ vars.INFRASTRUCTURE_APPLY_REVIEWER_USER_IDS }}
+          TF_VAR_apply_reviewer_team_ids: ${{ vars.INFRASTRUCTURE_APPLY_REVIEWER_TEAM_IDS }}
+          TF_VAR_aws_plan_role_arn: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          TF_VAR_aws_apply_role_arn: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          TF_VAR_arch_ssh_host_key_fingerprint: ${{ vars.ARCH_SSH_HOST_KEY_FINGERPRINT }}
+          TF_VAR_proxmox_ssh_host_key_fingerprint: ${{ vars.PROXMOX_SSH_HOST_KEY_FINGERPRINT }}
+          GITHUB_TOKEN: ${{ secrets.INFRASTRUCTURE_GITHUB_PLAN_TOKEN }}
+          TAILSCALE_OAUTH_CLIENT_ID: ${{ vars.TS_PROVIDER_PLAN_CLIENT_ID }}
+          TAILSCALE_AUDIENCE: ${{ vars.TS_PROVIDER_PLAN_AUDIENCE }}
+        run: |
+          set -euo pipefail
+          ./scripts/prepare-omada-plan-input
+          migration_args=()
+          if [[ '${{ inputs.network_migration }}' == true ]]; then
+            migration_args+=(--network-migration)
+          fi
+          ./scripts/reconcile-infrastructure plan --phase '${{ inputs.phase }}' "${migration_args[@]}"
+
+      - name: Encrypt the exact saved-plan bundle
+        env:
+          PLAN_ARTIFACT_AGE_RECIPIENT: ${{ vars.PLAN_ARTIFACT_AGE_RECIPIENT }}
+        run: |
+          set -euo pipefail
+          [[ $PLAN_ARTIFACT_AGE_RECIPIENT =~ ^age1[0-9a-z]+$ ]]
+          tar -C .reconcile -cf .reconcile/infrastructure-plans.tar plans
+          age --encrypt --recipient "$PLAN_ARTIFACT_AGE_RECIPIENT" \
+            --output .reconcile/infrastructure-plans.tar.age \
+            .reconcile/infrastructure-plans.tar
+          rm -rf .reconcile/plans .reconcile/infrastructure-plans.tar
+
+      - name: Upload the encrypted saved-plan bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: infrastructure-plans-${{ github.run_id }}
+          path: .reconcile/infrastructure-plans.tar.age
+          if-no-files-found: error
+          retention-days: 1
+
+  reconcile:
+    name: Apply exact plans and prove no-op
+    needs:
+      - validate
+      - dispatch-plan
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      vars.INFRASTRUCTURE_APPLY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    environment: infrastructure-apply
+    steps:
+      - name: Check out the exact dispatched commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Install contract-validation dependencies
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.2.4
+      - run: bun install --frozen-lockfile
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2
+        with:
+          tofu_version: 1.12.5
+          tofu_wrapper: false
+
+      - name: Install age from the signed Ubuntu archive
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes age
+
+      - name: Download the encrypted saved-plan bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: infrastructure-plans-${{ github.run_id }}
+          path: .reconcile
+
+      - name: Decrypt and safely extract the saved-plan bundle
+        env:
+          PLAN_ARTIFACT_AGE_KEY: ${{ secrets.PLAN_ARTIFACT_AGE_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 0700 .local .reconcile
+          printf '%s\n' "$PLAN_ARTIFACT_AGE_KEY" >.local/plan-artifact-age.key
+          chmod 0600 .local/plan-artifact-age.key
+          age --decrypt --identity .local/plan-artifact-age.key \
+            --output .local/infrastructure-plans.tar \
+            .reconcile/infrastructure-plans.tar.age
+          python3 - <<'PY'
+          import tarfile
+          from pathlib import Path, PurePosixPath
+
+          archive = Path('.local/infrastructure-plans.tar')
+          destination = Path('.reconcile')
+          with tarfile.open(archive) as bundle:
+              members = bundle.getmembers()
+              if not members:
+                  raise SystemExit('saved-plan archive is empty')
+              for member in members:
+                  path = PurePosixPath(member.name)
+                  if path.is_absolute() or '..' in path.parts or not path.parts or path.parts[0] != 'plans':
+                      raise SystemExit('saved-plan archive contains an unsafe path')
+                  if not (member.isfile() or member.isdir()):
+                      raise SystemExit('saved-plan archive contains a non-regular entry')
+              bundle.extractall(destination, members=members, filter='data')
+          PY
+          rm -f .local/plan-artifact-age.key .local/infrastructure-plans.tar \
+            .reconcile/infrastructure-plans.tar.age
+
+      - name: Assume the restricted AWS apply role
+        uses: aws-actions/configure-aws-credentials@451ce2a72e8d729a59ebeaacab82dbce58e7af4c # v6
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Prepare the restricted apply controller
@@ -264,75 +429,20 @@ jobs:
           '${{ vars.PROXMOX_SSH_HOST_KEY_FINGERPRINT }}'
           false
 
-      - name: Create policy-inspected saved plans with restricted credentials
-        env:
-          TF_BACKEND_BUCKET: ${{ vars.TF_BACKEND_BUCKET }}
-          TF_VAR_aws_region: ${{ vars.AWS_REGION }}
-          TF_VAR_state_bucket_name: ${{ vars.TF_BACKEND_BUCKET }}
-          TF_VAR_recovery_bucket_name: ${{ vars.RECOVERY_BUCKET }}
-          TF_VAR_github_owner: ${{ github.repository_owner }}
-          TF_VAR_github_repository: ${{ github.event.repository.name }}
-          TF_VAR_proxmox_endpoint: ${{ vars.PROXMOX_API_ENDPOINT }}
-          PROXMOX_VE_API_TOKEN: ${{ secrets.PROXMOX_PLAN_API_TOKEN }}
-          TF_VAR_use_hardware_mappings: ${{ vars.PROXMOX_HARDWARE_MAPPINGS_ENABLED || 'false' }}
-          TF_VAR_manage_hardware_mappings: ${{ vars.PROXMOX_HARDWARE_MAPPINGS_ENABLED || 'false' }}
-          TF_VAR_games_disk_by_id: ${{ secrets.HOMELAB_GAMES_DISK_BY_ID }}
-          OMADA_URL: ${{ vars.OMADA_ENDPOINT }}
-          OMADA_USERNAME: ${{ secrets.OMADA_PLAN_USERNAME }}
-          OMADA_PASSWORD: ${{ secrets.OMADA_PLAN_PASSWORD }}
-          OMADA_SITE: ${{ vars.OMADA_SITE }}
-          TF_VAR_omada_enable_management: ${{ vars.OMADA_MANAGEMENT_ENABLED }}
-          TF_VAR_adoption_complete: ${{ vars.OMADA_ADOPTION_COMPLETE }}
-          TF_VAR_omada_export_path: .local/omada/export.json
-          OMADA_EXPORT_JSON: ${{ secrets.OMADA_EXPORT_JSON }}
-          OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
-          SSL_CERT_FILE: ${{ github.workspace }}/.local/omada/controller-ca.pem
-          TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
-          TF_VAR_github_enable_management: ${{ vars.INFRASTRUCTURE_GITHUB_MANAGEMENT_ENABLED }}
-          TF_VAR_apply_reviewer_user_ids: ${{ vars.INFRASTRUCTURE_APPLY_REVIEWER_USER_IDS }}
-          TF_VAR_apply_reviewer_team_ids: ${{ vars.INFRASTRUCTURE_APPLY_REVIEWER_TEAM_IDS }}
-          TF_VAR_tailscale_oauth_client_id: ${{ vars.TS_OAUTH_CLIENT_ID }}
-          TF_VAR_tailscale_audience: ${{ vars.TS_AUDIENCE }}
-          TF_VAR_aws_plan_role_arn: ${{ vars.AWS_PLAN_ROLE_ARN }}
-          TF_VAR_aws_apply_role_arn: ${{ vars.AWS_APPLY_ROLE_ARN }}
-          TF_VAR_arch_ssh_host_key_fingerprint: ${{ vars.ARCH_SSH_HOST_KEY_FINGERPRINT }}
-          TF_VAR_proxmox_ssh_host_key_fingerprint: ${{ vars.PROXMOX_SSH_HOST_KEY_FINGERPRINT }}
-          GITHUB_TOKEN: ${{ secrets.INFRASTRUCTURE_GITHUB_PLAN_TOKEN }}
-          TAILSCALE_OAUTH_CLIENT_ID: ${{ vars.TS_PROVIDER_PLAN_CLIENT_ID }}
-          TAILSCALE_AUDIENCE: ${{ vars.TS_PROVIDER_PLAN_AUDIENCE }}
-        run: |
-          set -euo pipefail
-          ./scripts/prepare-omada-plan-input
-          if [[ $GITHUB_EVENT_NAME == workflow_dispatch ]]; then
-            phase=${{ inputs.phase }}
-          else
-            phase=steady
-          fi
-          migration_args=()
-          if [[ $GITHUB_EVENT_NAME == workflow_dispatch && '${{ inputs.network_migration }}' == true ]]; then
-            migration_args+=(--network-migration)
-          fi
-          ./scripts/reconcile-infrastructure plan --phase "$phase" "${migration_args[@]}"
-
-      - name: Assume the restricted AWS apply role
-        uses: aws-actions/configure-aws-credentials@451ce2a72e8d729a59ebeaacab82dbce58e7af4c # v6
-        with:
-          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-
       - name: Apply the exact saved plans and audit
         env:
           TF_BACKEND_BUCKET: ${{ vars.TF_BACKEND_BUCKET }}
           TF_VAR_aws_region: ${{ vars.AWS_REGION }}
           TF_VAR_state_bucket_name: ${{ vars.TF_BACKEND_BUCKET }}
+          TF_VAR_plan_artifact_age_recipient: ${{ vars.PLAN_ARTIFACT_AGE_RECIPIENT }}
           TF_VAR_recovery_bucket_name: ${{ vars.RECOVERY_BUCKET }}
           TF_VAR_github_owner: ${{ github.repository_owner }}
           TF_VAR_github_repository: ${{ github.event.repository.name }}
           TF_VAR_proxmox_endpoint: ${{ vars.PROXMOX_API_ENDPOINT }}
           PROXMOX_VE_API_TOKEN: ${{ secrets.PROXMOX_PLAN_API_TOKEN }}
+          PROXMOX_APPLY_API_TOKEN: ${{ secrets.PROXMOX_APPLY_API_TOKEN }}
           TF_VAR_use_hardware_mappings: ${{ vars.PROXMOX_HARDWARE_MAPPINGS_ENABLED || 'false' }}
           TF_VAR_manage_hardware_mappings: ${{ vars.PROXMOX_HARDWARE_MAPPINGS_ENABLED || 'false' }}
-          PROXMOX_APPLY_API_TOKEN: ${{ secrets.PROXMOX_APPLY_API_TOKEN }}
           TF_VAR_games_disk_by_id: ${{ secrets.HOMELAB_GAMES_DISK_BY_ID }}
           OMADA_URL: ${{ vars.OMADA_ENDPOINT }}
           OMADA_USERNAME: ${{ secrets.OMADA_PLAN_USERNAME }}
@@ -346,18 +456,17 @@ jobs:
           SSL_CERT_FILE: ${{ github.workspace }}/.local/omada/controller-ca.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
           TF_VAR_github_enable_management: ${{ vars.INFRASTRUCTURE_GITHUB_MANAGEMENT_ENABLED }}
+          TF_VAR_tailscale_environment_variables_adopt_existing: ${{ inputs.phase == 'adoption' }}
           TF_VAR_apply_reviewer_user_ids: ${{ vars.INFRASTRUCTURE_APPLY_REVIEWER_USER_IDS }}
           TF_VAR_apply_reviewer_team_ids: ${{ vars.INFRASTRUCTURE_APPLY_REVIEWER_TEAM_IDS }}
-          TF_VAR_tailscale_oauth_client_id: ${{ vars.TS_OAUTH_CLIENT_ID }}
-          TF_VAR_tailscale_audience: ${{ vars.TS_AUDIENCE }}
           TF_VAR_aws_plan_role_arn: ${{ vars.AWS_PLAN_ROLE_ARN }}
           TF_VAR_aws_apply_role_arn: ${{ vars.AWS_APPLY_ROLE_ARN }}
           TF_VAR_arch_ssh_host_key_fingerprint: ${{ vars.ARCH_SSH_HOST_KEY_FINGERPRINT }}
           TF_VAR_proxmox_ssh_host_key_fingerprint: ${{ vars.PROXMOX_SSH_HOST_KEY_FINGERPRINT }}
           GITHUB_TOKEN: ${{ secrets.INFRASTRUCTURE_GITHUB_PLAN_TOKEN }}
           GITHUB_APPLY_TOKEN: ${{ secrets.INFRASTRUCTURE_GITHUB_APPLY_TOKEN }}
-          TAILSCALE_OAUTH_CLIENT_ID: ${{ vars.TS_PROVIDER_PLAN_CLIENT_ID }}
-          TAILSCALE_AUDIENCE: ${{ vars.TS_PROVIDER_PLAN_AUDIENCE }}
+          TAILSCALE_OAUTH_CLIENT_ID: ${{ vars.TS_PROVIDER_APPLY_CLIENT_ID }}
+          TAILSCALE_AUDIENCE: ${{ vars.TS_PROVIDER_APPLY_AUDIENCE }}
           TAILSCALE_APPLY_OAUTH_CLIENT_ID: ${{ vars.TS_PROVIDER_APPLY_CLIENT_ID }}
           TAILSCALE_APPLY_AUDIENCE: ${{ vars.TS_PROVIDER_APPLY_AUDIENCE }}
           HOMELAB_GAMES_DISK_BY_ID: ${{ secrets.HOMELAB_GAMES_DISK_BY_ID }}
@@ -410,15 +519,10 @@ jobs:
               arch_network_restart_confirmed: ($arch_network == "true")}' \
             >"$RECONCILE_ANSIBLE_EXTRA_VARS_FILE"
           chmod 0600 "$RECONCILE_ANSIBLE_EXTRA_VARS_FILE"
-          if [[ $GITHUB_EVENT_NAME == workflow_dispatch ]]; then
-            phase=${{ inputs.phase }}
-          else
-            phase=steady
-          fi
           migration_args=()
-          if [[ $GITHUB_EVENT_NAME == workflow_dispatch && '${{ inputs.network_migration }}' == true ]]; then
+          if [[ '${{ inputs.network_migration }}' == true ]]; then
             migration_args+=(--network-migration)
           fi
-          ./scripts/reconcile-infrastructure apply --phase "$phase" \
+          ./scripts/reconcile-infrastructure apply --phase '${{ inputs.phase }}' \
             --proxmox-inventory inventory/infrastructure.yml \
             --arch-inventory inventory/production.yml "${migration_args[@]}"

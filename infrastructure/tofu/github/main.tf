@@ -1,9 +1,22 @@
+data "terraform_remote_state" "tailscale" {
+  count   = var.github_enable_management ? 1 : 0
+  backend = "s3"
+
+  config = {
+    bucket       = var.state_bucket_name
+    key          = "home-lab/tailscale/tofu.tfstate"
+    region       = var.aws_region
+    encrypt      = true
+    use_lockfile = true
+  }
+}
+
 locals {
-  contract   = yamldecode(file("${path.module}/../../contract/home-lab.yml"))
-  repository = local.contract.github.repository
+  contract          = yamldecode(file("${path.module}/../../contract/home-lab.yml"))
+  repository        = local.contract.github.repository
+  tailscale_outputs = try(data.terraform_remote_state.tailscale[0].outputs, {})
+
   variables = {
-    TS_OAUTH_CLIENT_ID               = var.tailscale_oauth_client_id
-    TS_AUDIENCE                      = var.tailscale_audience
     AWS_REGION                       = var.aws_region
     AWS_PLAN_ROLE_ARN                = var.aws_plan_role_arn
     AWS_APPLY_ROLE_ARN               = var.aws_apply_role_arn
@@ -13,8 +26,23 @@ locals {
     PROXMOX_SSH_HOST                 = local.contract.network.proxmox.magicdns_name
     PROXMOX_SSH_HOST_KEY_FINGERPRINT = var.proxmox_ssh_host_key_fingerprint
     OMADA_ENDPOINT                   = local.contract.omada.endpoint
+    PLAN_ARTIFACT_AGE_RECIPIENT      = var.plan_artifact_age_recipient
     INFRASTRUCTURE_AUTO_PLAN_ENABLED = "true"
     INFRASTRUCTURE_APPLY_ENABLED     = "true"
+  }
+
+  tailscale_plan_variables = {
+    TS_OAUTH_CLIENT_ID         = try(local.tailscale_outputs.ci_plan_client_id, "")
+    TS_AUDIENCE                = try(local.tailscale_outputs.ci_plan_audience, "")
+    TS_PROVIDER_PLAN_CLIENT_ID = try(local.tailscale_outputs.provider_plan_client_id, "")
+    TS_PROVIDER_PLAN_AUDIENCE  = try(local.tailscale_outputs.provider_plan_audience, "")
+  }
+
+  tailscale_apply_variables = {
+    TS_OAUTH_CLIENT_ID          = try(local.tailscale_outputs.ci_apply_client_id, "")
+    TS_AUDIENCE                 = try(local.tailscale_outputs.ci_apply_audience, "")
+    TS_PROVIDER_APPLY_CLIENT_ID = try(local.tailscale_outputs.provider_apply_client_id, "")
+    TS_PROVIDER_APPLY_AUDIENCE  = try(local.tailscale_outputs.provider_apply_audience, "")
   }
 }
 
@@ -86,6 +114,52 @@ resource "github_actions_variable" "infrastructure" {
   repository    = local.repository
   variable_name = each.key
   value         = each.value
+}
+
+
+resource "github_actions_environment_variable" "tailscale_plan" {
+  for_each = var.github_enable_management ? local.tailscale_plan_variables : {}
+
+  repository    = local.repository
+  environment   = github_repository_environment.plan[0].environment
+  variable_name = each.key
+  value         = each.value
+
+  lifecycle {
+    precondition {
+      condition     = each.value != ""
+      error_message = "The managed Tailscale plan identities must exist before GitHub environment adoption."
+    }
+  }
+}
+
+resource "github_actions_environment_variable" "tailscale_apply" {
+  for_each = var.github_enable_management ? local.tailscale_apply_variables : {}
+
+  repository    = local.repository
+  environment   = github_repository_environment.apply[0].environment
+  variable_name = each.key
+  value         = each.value
+
+  lifecycle {
+    precondition {
+      condition     = each.value != ""
+      error_message = "The managed Tailscale apply identities must exist before GitHub environment adoption."
+    }
+  }
+}
+
+
+import {
+  for_each = var.github_enable_management && var.tailscale_environment_variables_adopt_existing ? local.tailscale_plan_variables : {}
+  to       = github_actions_environment_variable.tailscale_plan[each.key]
+  id       = "${local.repository}:${local.contract.github.environments.plan}:${each.key}"
+}
+
+import {
+  for_each = var.github_enable_management && var.tailscale_environment_variables_adopt_existing ? local.tailscale_apply_variables : {}
+  to       = github_actions_environment_variable.tailscale_apply[each.key]
+  id       = "${local.repository}:${local.contract.github.environments.apply}:${each.key}"
 }
 
 resource "github_repository_ruleset" "main" {

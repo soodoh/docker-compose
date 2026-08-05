@@ -175,6 +175,8 @@ tailscale:
   tags:
     arch: tag:docker-host
     proxmox: tag:proxmox
+    infra_router: tag:infra-router
+    ci_legacy: tag:ci
     ci_plan: tag:ci-plan
     ci_apply: tag:ci-apply
   required_endpoints:

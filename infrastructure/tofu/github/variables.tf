@@ -8,12 +8,25 @@ variable "github_owner" {
 }
 
 
-variable "tailscale_oauth_client_id" {
+variable "state_bucket_name" {
   type = string
 }
 
-variable "tailscale_audience" {
+
+variable "plan_artifact_age_recipient" {
   type = string
+
+  validation {
+    condition     = can(regex("^age1[0-9a-z]+$", var.plan_artifact_age_recipient))
+    error_message = "Use a valid age X25519 recipient for saved-plan artifact encryption."
+  }
+}
+
+
+variable "tailscale_environment_variables_adopt_existing" {
+  type        = bool
+  default     = false
+  description = "Import pre-staged Tailscale environment variables during the one-time GitHub adoption."
 }
 
 variable "aws_region" {

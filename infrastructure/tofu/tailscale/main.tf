@@ -3,27 +3,75 @@ variable "tailscale_enable_management" {
   default = false
 }
 
+
+variable "ci_plan_identity_import_id" {
+  type        = string
+  default     = ""
+  description = "Existing CI plan enrollment identity ID used only during adoption."
+}
+
+variable "ci_apply_identity_import_id" {
+  type        = string
+  default     = ""
+  description = "Existing CI apply enrollment identity ID used only during adoption."
+}
+
 locals {
   contract = yamldecode(file("${path.module}/../../contract/home-lab.yml"))
   tags     = local.contract.tailscale.tags
 
   policy = {
     tagOwners = {
-      (local.tags.arch)     = ["autogroup:admin"]
-      (local.tags.proxmox)  = ["autogroup:admin"]
-      (local.tags.ci_plan)  = ["autogroup:admin"]
-      (local.tags.ci_apply) = ["autogroup:admin"]
+      (local.tags.arch)         = ["autogroup:admin"]
+      (local.tags.proxmox)      = ["autogroup:admin"]
+      (local.tags.infra_router) = ["autogroup:admin"]
+      (local.tags.ci_legacy)    = ["autogroup:admin"]
+      (local.tags.ci_plan)      = ["autogroup:admin"]
+      (local.tags.ci_apply)     = ["autogroup:admin"]
     }
+
+    autoApprovers = {
+      routes = {
+        "192.168.0.100/32" = [local.tags.infra_router]
+        "192.168.0.123/32" = [local.tags.infra_router]
+      }
+    }
+
     grants = [
       {
-        src = [local.tags.ci_plan]
-        dst = [local.tags.proxmox]
+        src = ["autogroup:admin"]
+        dst = [local.tags.infra_router]
+        ip  = ["*"]
+      },
+      {
+        src = ["autogroup:admin", local.tags.ci_legacy]
+        dst = ["192.168.0.123"]
         ip  = ["tcp:8006"]
       },
       {
-        src = [local.tags.ci_plan]
+        src = ["autogroup:admin", local.tags.ci_legacy]
+        dst = ["192.168.0.100"]
+        ip  = ["tcp:22"]
+      },
+      {
+        src = ["autogroup:owner", "autogroup:admin", local.tags.ci_legacy, local.tags.ci_plan, local.tags.ci_apply]
         dst = [local.tags.arch]
-        ip  = ["tcp:22", "tcp:8043"]
+        ip  = ["tcp:22"]
+      },
+      {
+        src = ["autogroup:owner"]
+        dst = ["autogroup:self"]
+        ip  = ["tcp:22"]
+      },
+      {
+        src = ["autogroup:owner", "autogroup:admin", local.tags.arch]
+        dst = [local.tags.proxmox]
+        ip  = ["tcp:22", "tcp:8006"]
+      },
+      {
+        src = [local.tags.ci_plan]
+        dst = [local.tags.proxmox]
+        ip  = ["tcp:22", "tcp:8006"]
       },
       {
         src = [local.tags.ci_apply]
@@ -31,12 +79,25 @@ locals {
         ip  = ["tcp:22", "tcp:8006"]
       },
       {
-        src = [local.tags.ci_apply]
+        src = [local.tags.ci_plan, local.tags.ci_apply]
         dst = [local.tags.arch]
-        ip  = ["tcp:22", "tcp:8043"]
+        ip  = ["tcp:8043"]
       },
     ]
+
     ssh = [
+      {
+        action = "accept"
+        src    = ["autogroup:owner"]
+        dst    = [local.tags.arch]
+        users  = ["docker"]
+      },
+      {
+        action = "accept"
+        src    = ["autogroup:admin", local.tags.ci_legacy]
+        dst    = [local.tags.arch]
+        users  = ["ansible-deploy"]
+      },
       {
         action = "accept"
         src    = [local.tags.ci_plan]
@@ -47,7 +108,25 @@ locals {
         action = "accept"
         src    = [local.tags.ci_apply]
         dst    = [local.tags.arch]
-        users  = ["ansible-deploy"]
+        users  = ["ansible-plan", "ansible-deploy"]
+      },
+      {
+        action = "accept"
+        src    = ["autogroup:owner"]
+        dst    = ["autogroup:self"]
+        users  = ["pauldiloreto"]
+      },
+      {
+        action = "accept"
+        src    = ["autogroup:owner", "autogroup:admin", local.tags.arch]
+        dst    = [local.tags.proxmox]
+        users  = ["root"]
+      },
+      {
+        action = "accept"
+        src    = [local.tags.ci_plan]
+        dst    = [local.tags.proxmox]
+        users  = ["tofu-plan"]
       },
       {
         action = "accept"
@@ -56,31 +135,81 @@ locals {
         users  = ["tofu-apply"]
       },
     ]
+
+    tests = [
+      {
+        src   = local.tags.ci_plan
+        proto = "tcp"
+        accept = [
+          "${local.tags.arch}:22",
+          "${local.tags.arch}:8043",
+          "${local.tags.proxmox}:22",
+          "${local.tags.proxmox}:8006",
+        ]
+        deny = ["${local.tags.proxmox}:8007"]
+      },
+      {
+        src   = local.tags.ci_apply
+        proto = "tcp"
+        accept = [
+          "${local.tags.arch}:22",
+          "${local.tags.arch}:8043",
+          "${local.tags.proxmox}:22",
+          "${local.tags.proxmox}:8006",
+        ]
+        deny = ["${local.tags.proxmox}:8007"]
+      },
+      {
+        src   = local.tags.arch
+        proto = "tcp"
+        accept = [
+          "${local.tags.proxmox}:22",
+          "${local.tags.proxmox}:8006",
+        ]
+        deny = ["${local.tags.proxmox}:8007"]
+      },
+    ]
+
+    sshTests = [
+      {
+        src    = local.tags.ci_plan
+        dst    = [local.tags.proxmox]
+        accept = ["tofu-plan"]
+        deny   = ["root", "tofu-apply"]
+      },
+      {
+        src    = local.tags.ci_apply
+        dst    = [local.tags.proxmox]
+        accept = ["tofu-apply"]
+        deny   = ["root", "tofu-plan"]
+      },
+      {
+        src    = local.tags.arch
+        dst    = [local.tags.proxmox]
+        accept = ["root"]
+        deny   = ["tofu-plan", "tofu-apply"]
+      },
+    ]
   }
 }
 
-resource "tailscale_acl" "main" {
+resource "terraform_data" "tailscale_policy" {
   count = var.tailscale_enable_management ? 1 : 0
 
-  acl                        = jsonencode(local.policy)
-  overwrite_existing_content = false
-  reset_acl_on_destroy       = false
+  input = {
+    policy_json   = jsonencode(local.policy)
+    policy_sha256 = sha256(jsonencode(local.policy))
+  }
 
   lifecycle {
     prevent_destroy = true
   }
 }
 
-import {
-  for_each = var.tailscale_enable_management ? toset(["acl"]) : toset([])
-  to       = tailscale_acl.main[0]
-  id       = each.value
-}
-
 resource "tailscale_federated_identity" "ci_plan" {
   count = var.tailscale_enable_management ? 1 : 0
 
-  description = "home-lab GitHub plan runner"
+  description = "home-lab GitHub plan runner enrollment"
   issuer      = "https://token.actions.githubusercontent.com"
   subject     = "repo:${local.contract.github.owner}/${local.contract.github.repository}:environment:${local.contract.github.environments.plan}"
   scopes      = ["auth_keys"]
@@ -94,7 +223,7 @@ resource "tailscale_federated_identity" "ci_plan" {
 resource "tailscale_federated_identity" "ci_apply" {
   count = var.tailscale_enable_management ? 1 : 0
 
-  description = "home-lab GitHub apply runner"
+  description = "home-lab GitHub apply runner enrollment"
   issuer      = "https://token.actions.githubusercontent.com"
   subject     = "repo:${local.contract.github.owner}/${local.contract.github.repository}:environment:${local.contract.github.environments.apply}"
   scopes      = ["auth_keys"]
@@ -105,10 +234,83 @@ resource "tailscale_federated_identity" "ci_apply" {
   }
 }
 
+
+import {
+  for_each = var.tailscale_enable_management && var.ci_plan_identity_import_id != "" ? toset([var.ci_plan_identity_import_id]) : toset([])
+  to       = tailscale_federated_identity.ci_plan[0]
+  id       = each.value
+}
+
+import {
+  for_each = var.tailscale_enable_management && var.ci_apply_identity_import_id != "" ? toset([var.ci_apply_identity_import_id]) : toset([])
+  to       = tailscale_federated_identity.ci_apply[0]
+  id       = each.value
+}
+
+resource "tailscale_federated_identity" "provider_plan" {
+  count = var.tailscale_enable_management ? 1 : 0
+
+  description = "home-lab GitHub OpenTofu Tailscale plan provider"
+  issuer      = "https://token.actions.githubusercontent.com"
+  subject     = "repo:${local.contract.github.owner}/${local.contract.github.repository}:environment:${local.contract.github.environments.plan}"
+  scopes = [
+    "devices:core:read",
+    "devices:posture_attributes:read",
+    "federated_keys:read",
+    "policy_file:read",
+  ]
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "tailscale_federated_identity" "provider_apply" {
+  count = var.tailscale_enable_management ? 1 : 0
+
+  description = "home-lab GitHub OpenTofu Tailscale apply provider"
+  issuer      = "https://token.actions.githubusercontent.com"
+  subject     = "repo:${local.contract.github.owner}/${local.contract.github.repository}:environment:${local.contract.github.environments.apply}"
+  scopes = [
+    "devices:core:read",
+    "devices:posture_attributes",
+    "federated_keys",
+    "policy_file",
+  ]
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 output "ci_plan_client_id" {
   value = try(tailscale_federated_identity.ci_plan[0].id, null)
 }
 
+output "ci_plan_audience" {
+  value = try(tailscale_federated_identity.ci_plan[0].audience, null)
+}
+
 output "ci_apply_client_id" {
   value = try(tailscale_federated_identity.ci_apply[0].id, null)
+}
+
+output "ci_apply_audience" {
+  value = try(tailscale_federated_identity.ci_apply[0].audience, null)
+}
+
+output "provider_plan_client_id" {
+  value = try(tailscale_federated_identity.provider_plan[0].id, null)
+}
+
+output "provider_plan_audience" {
+  value = try(tailscale_federated_identity.provider_plan[0].audience, null)
+}
+
+output "provider_apply_client_id" {
+  value = try(tailscale_federated_identity.provider_apply[0].id, null)
+}
+
+output "provider_apply_audience" {
+  value = try(tailscale_federated_identity.provider_apply[0].audience, null)
 }

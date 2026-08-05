@@ -166,7 +166,7 @@ if [[ $action == validate ]]; then
   infrastructure/policy/test-policy.sh
   scripts/test-recovery-tools
   python3 -m py_compile scripts/*.py .github/scripts/*.py
-  shellcheck scripts/reconcile-infrastructure scripts/bootstrap-aws-state \
+  shellcheck scripts/reconcile-infrastructure scripts/bootstrap-aws-state scripts/bootstrap-tailscale-state \
     scripts/bootstrap-proxmox-host scripts/build-recovery-bundle \
     scripts/collect-proxmox-protected-inputs scripts/migrate-proxmox-zfs-stack \
     scripts/migrate-sops-recipients \
@@ -191,7 +191,7 @@ if [[ $action == validate ]]; then
   exit 0
 fi
 
-for command in tofu node python3 jq git aws ansible ansible-playbook; do
+for command in tofu node python3 jq git aws ansible ansible-playbook curl; do
   command -v "$command" >/dev/null || {
     echo "required command is unavailable: $command" >&2
     exit 69
@@ -235,6 +235,118 @@ sha256_file() {
   else
     shasum -a 256 "$1" | awk '{print $1}'
   fi
+}
+
+
+tailscale_access_token() {
+  local token_response oidc_response oidc_token encoded_audience
+  if [[ -n ${TAILSCALE_OAUTH_CLIENT_SECRET:-} ]]; then
+    token_response=$(curl --fail --silent --show-error \
+      -d "client_id=$TAILSCALE_OAUTH_CLIENT_ID" \
+      -d "client_secret=$TAILSCALE_OAUTH_CLIENT_SECRET" \
+      https://api.tailscale.com/api/v2/oauth/token)
+  else
+    : "${TAILSCALE_AUDIENCE:?TAILSCALE_AUDIENCE is required for federated access}"
+    : "${ACTIONS_ID_TOKEN_REQUEST_URL:?GitHub OIDC request URL is unavailable}"
+    : "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:?GitHub OIDC request token is unavailable}"
+    encoded_audience=$(jq -rn --arg value "$TAILSCALE_AUDIENCE" '$value | @uri')
+    oidc_response=$(curl --fail --silent --show-error \
+      -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+      "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")
+    oidc_token=$(jq -er '.value' <<<"$oidc_response")
+    token_response=$(curl --fail --silent --show-error \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -d "client_id=$TAILSCALE_OAUTH_CLIENT_ID" \
+      -d "jwt=$oidc_token" \
+      https://api.tailscale.com/api/v2/oauth/token-exchange)
+  fi
+  jq -er '.access_token' <<<"$token_response"
+}
+
+tailscale_policy_identity() {
+  local access_token headers body canonical etag identity
+  : "${TAILSCALE_OAUTH_CLIENT_ID:?TAILSCALE_OAUTH_CLIENT_ID is required}"
+  access_token=$(tailscale_access_token)
+  headers=$(mktemp "${TMPDIR:-/tmp}/tailscale-policy-headers.XXXXXX")
+  body=$(mktemp "${TMPDIR:-/tmp}/tailscale-policy-body.XXXXXX")
+  canonical=$(mktemp "${TMPDIR:-/tmp}/tailscale-policy-canonical.XXXXXX")
+  chmod 0600 "$headers" "$body" "$canonical"
+  curl --fail --silent --show-error \
+    -D "$headers" \
+    -H "Authorization: Bearer $access_token" \
+    -H 'Accept: application/json' \
+    "https://api.tailscale.com/api/v2/tailnet/${TAILSCALE_TAILNET:--}/acl" \
+    -o "$body"
+  jq -cS -e . "$body" >"$canonical"
+  etag=$(awk 'tolower($1) == "etag:" {gsub(/\r/, ""); sub(/^[^:]+:[[:space:]]*/, ""); print; exit}' "$headers")
+  [[ -n $etag ]]
+  identity="$(sha256_file "$canonical")"$'\t'"$etag"
+  rm -f "$headers" "$body" "$canonical"
+  unset access_token
+  printf '%s\n' "$identity"
+}
+
+tailscale_planned_policy() {
+  local plan=$1 destination=$2
+  tofu show -json "$plan" | jq -er '
+    .resource_changes[] |
+    select(.address == "terraform_data.tailscale_policy[0]") |
+    .change.after.input.policy_json |
+    fromjson
+  ' | jq -cS . >"$destination"
+}
+
+tailscale_apply_planned_policy() {
+  local plan=$1 expected_sha=$2 expected_etag=$3
+  local desired current_sha current_etag desired_sha access_token response after_sha after_etag
+  desired=$(mktemp "${TMPDIR:-/tmp}/tailscale-policy-desired.XXXXXX")
+  response=$(mktemp "${TMPDIR:-/tmp}/tailscale-policy-response.XXXXXX")
+  chmod 0600 "$desired" "$response"
+  tailscale_planned_policy "$plan" "$desired"
+  desired_sha=$(sha256_file "$desired")
+  IFS=$'\t' read -r current_sha current_etag < <(tailscale_policy_identity)
+  if [[ $current_sha != "$desired_sha" ]]; then
+    [[ $current_sha == "$expected_sha" && $current_etag == "$expected_etag" ]] || {
+      echo "The live Tailscale policy changed after planning; refusing the saved plan." >&2
+      rm -f "$desired" "$response"
+      exit 1
+    }
+    access_token=$(tailscale_access_token)
+    curl --fail --silent --show-error \
+      -H "Authorization: Bearer $access_token" \
+      -H 'Content-Type: application/json' \
+      --data-binary @"$desired" \
+      "https://api.tailscale.com/api/v2/tailnet/${TAILSCALE_TAILNET:--}/acl/validate" \
+      -o "$response"
+    jq -e '((.errors // []) | length) == 0 and ((.warnings // []) | length) == 0' "$response" >/dev/null
+    curl --fail --silent --show-error -X POST \
+      -H "Authorization: Bearer $access_token" \
+      -H 'Content-Type: application/json' \
+      -H "If-Match: $expected_etag" \
+      --data-binary @"$desired" \
+      "https://api.tailscale.com/api/v2/tailnet/${TAILSCALE_TAILNET:--}/acl" \
+      -o "$response"
+    unset access_token
+  fi
+  IFS=$'\t' read -r after_sha after_etag < <(tailscale_policy_identity)
+  [[ $after_sha == "$desired_sha" && -n $after_etag ]]
+  rm -f "$desired" "$response"
+}
+
+tailscale_verify_state_policy() {
+  local expected current_sha current_etag expected_sha
+  expected=$(mktemp "${TMPDIR:-/tmp}/tailscale-state-policy.XXXXXX")
+  chmod 0600 "$expected"
+  tofu -chdir=infrastructure/tofu/tailscale state pull | jq -er '
+    .values.root_module.resources[] |
+    select(.address == "terraform_data.tailscale_policy[0]") |
+    .values.input.policy_json |
+    fromjson
+  ' | jq -cS . >"$expected"
+  expected_sha=$(sha256_file "$expected")
+  IFS=$'\t' read -r current_sha current_etag < <(tailscale_policy_identity)
+  [[ $current_sha == "$expected_sha" && -n $current_etag ]]
+  rm -f "$expected"
 }
 
 assert_plan_excludes_credentials() {
@@ -309,10 +421,15 @@ plan_all() {
   ./scripts/validate-contract
   ./scripts/validate-provider-locks
 
-  local root plan exit_code
+  local root plan exit_code tailscale_policy_sha256 tailscale_policy_etag tailscale_policy_changed desired_policy desired_policy_sha256
   for root in "${roots[@]}"; do
     echo "Planning OpenTofu root: $root"
     backend_init "$root"
+    tailscale_policy_sha256=""
+    tailscale_policy_etag=""
+    if [[ $root == tailscale && ${TF_VAR_tailscale_enable_management:-false} == true ]]; then
+      IFS=$'\t' read -r tailscale_policy_sha256 tailscale_policy_etag < <(tailscale_policy_identity)
+    fi
     plan="$plan_dir/$root.tfplan"
     mapfile -d '' -t plan_args < <(root_plan_args "$root")
     set +e
@@ -322,6 +439,15 @@ plan_all() {
     set -e
     [[ $exit_code == 0 || $exit_code == 2 ]] || exit "$exit_code"
     assert_plan_excludes_credentials "$plan"
+    tailscale_policy_changed=false
+    if [[ $root == tailscale && ${TF_VAR_tailscale_enable_management:-false} == true ]]; then
+      desired_policy=$(mktemp "${TMPDIR:-/tmp}/tailscale-planned-policy.XXXXXX")
+      chmod 0600 "$desired_policy"
+      tailscale_planned_policy "$plan" "$desired_policy"
+      desired_policy_sha256=$(sha256_file "$desired_policy")
+      [[ $desired_policy_sha256 == "$tailscale_policy_sha256" ]] || tailscale_policy_changed=true
+      rm -f "$desired_policy"
+    fi
 
     mapfile -d '' -t inspect_args < <(policy_args "$root")
     ./scripts/inspect-tofu-plan "$plan" "${inspect_args[@]}"
@@ -329,8 +455,12 @@ plan_all() {
       --arg root "$root" \
       --arg file "$(basename "$plan")" \
       --arg sha256 "$(sha256_file "$plan")" \
-      --argjson changed "$([[ $exit_code == 2 ]] && echo true || echo false)" \
-      '{root: $root, file: $file, sha256: $sha256, changed: $changed}' >>"$records"
+      --arg tailscale_policy_sha256 "$tailscale_policy_sha256" \
+      --arg tailscale_policy_etag "$tailscale_policy_etag" \
+      --argjson changed "$([[ $exit_code == 2 || $tailscale_policy_changed == true ]] && echo true || echo false)" \
+      '{root: $root, file: $file, sha256: $sha256, changed: $changed,
+        tailscale_policy_sha256: $tailscale_policy_sha256,
+        tailscale_policy_etag: $tailscale_policy_etag}' >>"$records"
   done
 
   if [[ $ct_operation == true ]]; then
@@ -441,7 +571,7 @@ verify_manifest() {
 
 apply_root() {
   local root=$1
-  local plan_file changed
+  local plan_file changed expected_policy_sha256 expected_policy_etag
   local old_proxmox=${PROXMOX_VE_API_TOKEN:-}
   local old_omada_username=${OMADA_USERNAME:-}
   local old_omada_password=${OMADA_PASSWORD:-}
@@ -475,17 +605,29 @@ apply_root() {
       [[ -z ${GITHUB_APPLY_TOKEN:-} ]] || export GITHUB_TOKEN=$GITHUB_APPLY_TOKEN
       ;;
     tailscale)
-      [[ $changed == false || (-n ${TAILSCALE_APPLY_OAUTH_CLIENT_ID:-} && -n ${TAILSCALE_APPLY_AUDIENCE:-}) ]] || {
-        echo "The separated Tailscale apply workload identity is required." >&2
-        exit 66
-      }
+      if [[ $changed == true && (-z ${TAILSCALE_APPLY_OAUTH_CLIENT_ID:-} || -z ${TAILSCALE_APPLY_AUDIENCE:-}) ]]; then
+        [[ -n ${TAILSCALE_OAUTH_CLIENT_SECRET:-} && ${TAILSCALE_BOOTSTRAP_CONFIRMED:-} == apply-reviewed-tailscale-bootstrap ]] || {
+          echo "The separated Tailscale apply workload identity or explicit temporary bootstrap credential is required." >&2
+          exit 66
+        }
+      fi
       [[ -z ${TAILSCALE_APPLY_OAUTH_CLIENT_ID:-} ]] || export TAILSCALE_OAUTH_CLIENT_ID=$TAILSCALE_APPLY_OAUTH_CLIENT_ID
       [[ -z ${TAILSCALE_APPLY_AUDIENCE:-} ]] || export TAILSCALE_AUDIENCE=$TAILSCALE_APPLY_AUDIENCE
       ;;
   esac
+  if [[ $root == tailscale ]]; then
+    expected_policy_sha256=$(jq -r --arg root "$root" '.plans[] | select(.root == $root) | .tailscale_policy_sha256' "$plan_dir/manifest.json")
+    expected_policy_etag=$(jq -r --arg root "$root" '.plans[] | select(.root == $root) | .tailscale_policy_etag' "$plan_dir/manifest.json")
+    if [[ -n $expected_policy_sha256 && -n $expected_policy_etag ]]; then
+      tailscale_apply_planned_policy "$plan_dir/$plan_file" "$expected_policy_sha256" "$expected_policy_etag"
+    fi
+  fi
   echo "Applying exact saved OpenTofu plan: $root"
   tofu -chdir="infrastructure/tofu/$root" apply -input=false -lock-timeout=5m \
     -parallelism=1 -auto-approve "$plan_dir/$plan_file"
+  if [[ $root == tailscale && ${TF_VAR_tailscale_enable_management:-false} == true ]]; then
+    tailscale_verify_state_policy
+  fi
   export PROXMOX_VE_API_TOKEN=$old_proxmox
   export OMADA_USERNAME=$old_omada_username OMADA_PASSWORD=$old_omada_password
   export GITHUB_TOKEN=$old_github_token
@@ -642,6 +784,9 @@ verify_all() {
       echo "OpenTofu root is not converged: $root" >&2
       exit 1
     }
+    if [[ $root == tailscale && ${TF_VAR_tailscale_enable_management:-false} == true ]]; then
+      tailscale_verify_state_policy
+    fi
   done
   pushd ansible >/dev/null
   ansible_require_noop "$proxmox_inventory" playbooks/proxmox-site.yml \

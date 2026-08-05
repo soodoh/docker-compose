@@ -44,7 +44,7 @@ Completed prerequisites:
 The one-use, non-ephemeral `tag:docker-host` key was supplied only through the controller environment and a root-only
 temporary file. It was consumed during enrollment and removed immediately afterward.
 
-Historical conceptual policy fragment used during bootstrap—`tag:ci` was later retired and must not be restored:
+Historical conceptual policy fragment used during bootstrap—its `tag:ci` workload identity was retired, but the policy entries remain live and must be preserved unchanged during initial OpenTofu adoption:
 
 ```json
 {
@@ -69,6 +69,8 @@ Historical conceptual policy fragment used during bootstrap—`tag:ci` was later
   ]
 }
 ```
+
+The retained entries do not authorize a standing credential because no active workload identity can mint `tag:ci`. Remove them only in a separately reviewed post-adoption plan after the managed plan/apply identities and CT 101 independence are proven.
 
 The current CI identities are `tag:ci-plan` and `tag:ci-apply` and use direct Docker connectivity as documented in
 [`github-actions-deploy.md`](./github-actions-deploy.md). The gateway, LAN SSH, and console remain independent recovery
