@@ -28,7 +28,7 @@ jq -e '
     (.source_image_id | test("^sha256:[0-9a-f]{64}$")) and
     (.repository | test("^ghcr\\.io/[a-z0-9-]+/home-lab/wolf-[a-z0-9-]+$")) and
     (.tag | test("^image-[0-9a-f]{64}$")) and
-    .tag == ("image-" + (.source_image_id | sub("^sha256:"; ""))))
+    .tag == ("image-" + (.source_image_id | sub("^sha256:"; "")))
   )
 ' "$manifest" >/dev/null
 
