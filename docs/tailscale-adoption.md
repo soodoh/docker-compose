@@ -22,6 +22,8 @@ The provider-plan identity has only `policy_file:read`, `devices:core:read`, `de
 2. Render and validate the repository policy through the Tailscale validation API. Validation must report no errors or warnings.
 3. Bootstrap and migrate the AWS state foundation before creating Tailscale state.
 4. Authenticate the reviewed AWS bootstrap profile, export the protected backend coordinates, and set `TAILSCALE_BOOTSTRAP_CONFIRMED=apply-reviewed-tailscale-bootstrap`.
+
+Before importing a legacy plan-enrollment identity whose description is unset, set its description to the reviewed `infrastructure-plan` value in the tailnet admin console. Provider `0.29.2` normalizes an unset description to an empty string only in saved plans, causing a metadata-only perpetual update; the non-empty declarative description removes that provider ambiguity while keeping subject, scopes, and tags fully managed.
 5. Run `scripts/bootstrap-tailscale-state`. It acquires the global mutation lease, imports both existing CI enrollment identities, permits only the two new provider identities and the declarative `terraform_data.tailscale_policy` state record, binds the saved plan to the live policy hash and `ETag`, atomically submits any policy change with `If-Match`, applies the exact OpenTofu plan serially, proves a no-op, compares live policy to state, and stages the resulting client IDs and audiences in the protected GitHub environments.
 
 A failed partial apply retains its evidence and remote state. After correcting the reviewed credential scope, set `TAILSCALE_BOOTSTRAP_RESUME_CONFIRMED=resume-reviewed-partial-tailscale-bootstrap`; resume permits only in-place updates to the five already adopted resources and still forbids creates, replacements, and deletes.

@@ -232,15 +232,14 @@ resource "terraform_data" "tailscale_policy" {
 resource "tailscale_federated_identity" "ci_plan" {
   count = var.tailscale_enable_management ? 1 : 0
 
-  issuer  = "https://token.actions.githubusercontent.com"
-  subject = "${local.github_subject_prefix}:environment:${local.contract.github.environments.plan}"
-  scopes  = ["auth_keys"]
-  tags    = [local.tags.ci_plan]
+  description = "infrastructure-plan"
+  issuer      = "https://token.actions.githubusercontent.com"
+  subject     = "${local.github_subject_prefix}:environment:${local.contract.github.environments.plan}"
+  scopes      = ["auth_keys"]
+  tags        = [local.tags.ci_plan]
 
   lifecycle {
     prevent_destroy = true
-    # The API returns null for this adopted identity while the provider normalizes an omitted value to an empty string.
-    ignore_changes = [description]
   }
 }
 
