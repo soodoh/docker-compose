@@ -2,6 +2,11 @@ variable "aws_region" {
   type = string
 }
 
+
+variable "recovery_bucket_region" {
+  type = string
+}
+
 variable "state_bucket_name" {
   type = string
 }

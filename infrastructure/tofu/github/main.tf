@@ -18,6 +18,7 @@ locals {
 
   variables = {
     AWS_REGION                       = var.aws_region
+    AWS_RECOVERY_REGION              = local.contract.aws.recovery_region
     AWS_PLAN_ROLE_ARN                = var.aws_plan_role_arn
     AWS_APPLY_ROLE_ARN               = var.aws_apply_role_arn
     ARCH_SSH_HOST                    = local.contract.network.arch.magicdns_name

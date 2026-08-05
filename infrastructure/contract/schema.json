@@ -123,9 +123,10 @@
     "aws": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["region", "state_bucket", "recovery_bucket", "mutation_lease_table", "kms_alias"],
+      "required": ["region", "recovery_region", "state_bucket", "recovery_bucket", "mutation_lease_table", "kms_alias"],
       "properties": {
         "region": { "type": "string", "pattern": "^[a-z]{2}-[a-z]+-[0-9]+$" },
+        "recovery_region": { "type": "string", "pattern": "^[a-z]{2}-[a-z]+-[0-9]+$" },
         "state_bucket": { "anyOf": [{ "$ref": "#/$defs/bucket" }, { "type": "null" }] },
         "recovery_bucket": { "anyOf": [{ "$ref": "#/$defs/bucket" }, { "type": "null" }] },
         "mutation_lease_table": { "type": "string", "minLength": 3 },

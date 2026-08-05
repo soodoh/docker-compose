@@ -46,6 +46,7 @@ data "aws_iam_policy_document" "tls_only_recovery" {
 }
 
 resource "aws_s3_bucket_policy" "recovery" {
-  bucket = aws_s3_bucket.recovery.id
-  policy = data.aws_iam_policy_document.tls_only_recovery.json
+  provider = aws.recovery
+  bucket   = aws_s3_bucket.recovery.id
+  policy   = data.aws_iam_policy_document.tls_only_recovery.json
 }

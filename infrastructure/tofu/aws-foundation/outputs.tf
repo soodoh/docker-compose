@@ -10,6 +10,11 @@ output "kms_key_arn" {
   value = aws_kms_key.opentofu.arn
 }
 
+
+output "recovery_kms_key_arn" {
+  value = aws_kms_key.recovery.arn
+}
+
 output "mutation_lease_table" {
   value = aws_dynamodb_table.mutation_lease.name
 }

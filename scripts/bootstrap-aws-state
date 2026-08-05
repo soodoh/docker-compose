@@ -5,6 +5,7 @@ umask 077
 [[ ${AWS_FOUNDATION_BOOTSTRAP_CONFIRMED:-} == create-and-migrate-reviewed-aws-foundation ]]
 : "${TF_BACKEND_BUCKET:?TF_BACKEND_BUCKET is required}"
 : "${TF_VAR_aws_region:?TF_VAR_aws_region is required}"
+: "${TF_VAR_recovery_bucket_region:?TF_VAR_recovery_bucket_region is required}"
 : "${TF_VAR_state_bucket_name:?TF_VAR_state_bucket_name is required}"
 [[ $TF_BACKEND_BUCKET == "$TF_VAR_state_bucket_name" ]]
 : "${TF_VAR_recovery_bucket_name:?TF_VAR_recovery_bucket_name is required}"

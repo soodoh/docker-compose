@@ -176,6 +176,7 @@ jobs:
         env:
           TF_BACKEND_BUCKET: ${{ vars.TF_BACKEND_BUCKET }}
           TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+          TF_VAR_recovery_bucket_region: ${{ vars.AWS_RECOVERY_REGION }}
           TF_VAR_state_bucket_name: ${{ vars.TF_BACKEND_BUCKET }}
           TF_VAR_plan_artifact_age_recipient: ${{ vars.PLAN_ARTIFACT_AGE_RECIPIENT }}
           TF_VAR_recovery_bucket_name: ${{ vars.RECOVERY_BUCKET }}
@@ -272,6 +273,7 @@ jobs:
         env:
           TF_BACKEND_BUCKET: ${{ vars.TF_BACKEND_BUCKET }}
           TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+          TF_VAR_recovery_bucket_region: ${{ vars.AWS_RECOVERY_REGION }}
           TF_VAR_state_bucket_name: ${{ vars.TF_BACKEND_BUCKET }}
           TF_VAR_plan_artifact_age_recipient: ${{ vars.PLAN_ARTIFACT_AGE_RECIPIENT }}
           TF_VAR_recovery_bucket_name: ${{ vars.RECOVERY_BUCKET }}
@@ -433,6 +435,7 @@ jobs:
         env:
           TF_BACKEND_BUCKET: ${{ vars.TF_BACKEND_BUCKET }}
           TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+          TF_VAR_recovery_bucket_region: ${{ vars.AWS_RECOVERY_REGION }}
           TF_VAR_state_bucket_name: ${{ vars.TF_BACKEND_BUCKET }}
           TF_VAR_plan_artifact_age_recipient: ${{ vars.PLAN_ARTIFACT_AGE_RECIPIENT }}
           TF_VAR_recovery_bucket_name: ${{ vars.RECOVERY_BUCKET }}

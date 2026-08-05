@@ -193,6 +193,7 @@ github:
     apply: infrastructure-apply
 aws:
   region: us-east-1
+  recovery_region: us-west-2
   state_bucket: null
   recovery_bucket: null
   mutation_lease_table: home-lab-infrastructure-lease

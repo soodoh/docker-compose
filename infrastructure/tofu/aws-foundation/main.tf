@@ -9,6 +9,19 @@ provider "aws" {
   }
 }
 
+
+provider "aws" {
+  alias  = "recovery"
+  region = var.recovery_bucket_region
+
+  default_tags {
+    tags = {
+      ManagedBy = "OpenTofu"
+      System    = "home-lab-recovery"
+    }
+  }
+}
+
 locals {
   contract = yamldecode(file("${path.module}/../../contract/home-lab.yml"))
 }
@@ -25,6 +38,24 @@ resource "aws_kms_key" "opentofu" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+
+resource "aws_kms_key" "recovery" {
+  provider                = aws.recovery
+  description             = "Home lab off-site recovery bundles"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_kms_alias" "recovery" {
+  provider      = aws.recovery
+  name          = "alias/home-lab-recovery"
+  target_key_id = aws_kms_key.recovery.key_id
 }
 
 resource "aws_kms_alias" "opentofu" {
@@ -77,7 +108,8 @@ resource "aws_s3_bucket_public_access_block" "state" {
 
 
 resource "aws_s3_bucket" "recovery" {
-  bucket = var.recovery_bucket_name
+  provider = aws.recovery
+  bucket   = var.recovery_bucket_name
 
   lifecycle {
     prevent_destroy = true
@@ -85,31 +117,35 @@ resource "aws_s3_bucket" "recovery" {
 }
 
 resource "aws_s3_bucket_versioning" "recovery" {
-  bucket = aws_s3_bucket.recovery.id
+  provider = aws.recovery
+  bucket   = aws_s3_bucket.recovery.id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "recovery" {
-  bucket = aws_s3_bucket.recovery.id
+  provider = aws.recovery
+  bucket   = aws_s3_bucket.recovery.id
   rule {
     bucket_key_enabled = true
     apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.opentofu.arn
+      kms_master_key_id = aws_kms_key.recovery.arn
       sse_algorithm     = "aws:kms"
     }
   }
 }
 
 resource "aws_s3_bucket_ownership_controls" "recovery" {
-  bucket = aws_s3_bucket.recovery.id
+  provider = aws.recovery
+  bucket   = aws_s3_bucket.recovery.id
   rule {
     object_ownership = "BucketOwnerEnforced"
   }
 }
 
 resource "aws_s3_bucket_public_access_block" "recovery" {
+  provider                = aws.recovery
   bucket                  = aws_s3_bucket.recovery.id
   block_public_acls       = true
   block_public_policy     = true
@@ -118,7 +154,8 @@ resource "aws_s3_bucket_public_access_block" "recovery" {
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "recovery" {
-  bucket = aws_s3_bucket.recovery.id
+  provider = aws.recovery
+  bucket   = aws_s3_bucket.recovery.id
 
   rule {
     id     = "critical-backup-retention"

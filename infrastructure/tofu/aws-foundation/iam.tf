@@ -86,7 +86,7 @@ data "aws_iam_policy_document" "state_plan" {
   }
   statement {
     actions   = ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
-    resources = [aws_kms_key.opentofu.arn]
+    resources = [aws_kms_key.opentofu.arn, aws_kms_key.recovery.arn]
   }
 
   statement {
@@ -111,7 +111,7 @@ data "aws_iam_policy_document" "state_plan" {
       "kms:ListAliases",
       "kms:ListResourceTags",
     ]
-    resources = [aws_kms_key.opentofu.arn]
+    resources = [aws_kms_key.opentofu.arn, aws_kms_key.recovery.arn]
   }
   statement {
     actions   = ["iam:Get*", "iam:List*"]
@@ -287,7 +287,7 @@ data "aws_iam_policy_document" "recovery" {
   }
   statement {
     actions   = ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
-    resources = [aws_kms_key.opentofu.arn]
+    resources = [aws_kms_key.opentofu.arn, aws_kms_key.recovery.arn]
   }
 }
 
