@@ -19,7 +19,7 @@ while (($#)); do
   esac
 done
 
-[[ $backup_id =~ ^daily-remote-backup-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}\.tar\.gz\.gpg$ ]]
+[[ $backup_id =~ ^(daily-remote-backup|weekly-backup)-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}\.tar\.gz\.gpg$ ]]
 [[ $confirmed_empty == true ]]
 : "${RECOVERY_BACKUP_URL:?RECOVERY_BACKUP_URL is required}"
 : "${RECOVERY_TARGET:?RECOVERY_TARGET is required}"
