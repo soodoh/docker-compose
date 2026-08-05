@@ -406,9 +406,13 @@ policy_args() {
 }
 
 root_plan_args() {
-  local root=$1
+  local root=$1 root_phase=$phase
   if [[ $root == proxmox ]]; then
-    printf '%s\0' -var="phase=$phase"
+    if [[ $phase == adoption ]] && tofu -chdir=infrastructure/tofu/proxmox state list 2>/dev/null |
+      grep -Fxq 'proxmox_virtual_environment_vm.arch'; then
+      root_phase=steady
+    fi
+    printf '%s\0' -var="phase=$root_phase"
     if [[ $phase == recovery || $network_migration == true ]]; then
       printf '%s\0' -var=use_hardware_mappings=true
       printf '%s\0' -var=manage_hardware_mappings=true
