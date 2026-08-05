@@ -97,6 +97,26 @@ resource "proxmox_virtual_environment_container" "tailscale_gateway" {
     down_delay = "60"
   }
 
+  lifecycle {
+    ignore_changes = [
+      console,
+      cpu,
+      description,
+      device_passthrough,
+      disk,
+      features,
+      initialization,
+      memory,
+      network_interface,
+      operating_system,
+      start_on_boot,
+      started,
+      startup,
+      tags,
+      unprivileged,
+    ]
+  }
+
 }
 
 import {
