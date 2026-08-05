@@ -145,6 +145,7 @@ services:
   daily-local-backup:
     image: ghcr.io/offen/docker-volume-backup:v2.48.2@sha256:19102d8e59eb1d598cf8c647c2b21100abaadc5a1c808ac643fa612e323c3013
     container_name: daily-local-backup
+    restart: unless-stopped
     logging: *default-logging
     environment:
       <<: *backup-env
@@ -161,6 +162,7 @@ services:
   weekly-remote-backup:
     image: ghcr.io/offen/docker-volume-backup:v2.48.2@sha256:19102d8e59eb1d598cf8c647c2b21100abaadc5a1c808ac643fa612e323c3013
     container_name: weekly-remote-backup
+    restart: unless-stopped
     logging: *default-logging
     environment:
       <<: *backup-env
