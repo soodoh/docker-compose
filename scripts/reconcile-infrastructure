@@ -349,9 +349,9 @@ tailscale_verify_state_policy() {
   expected=$(mktemp "${TMPDIR:-/tmp}/tailscale-state-policy.XXXXXX")
   chmod 0600 "$expected"
   tofu -chdir=infrastructure/tofu/tailscale state pull | jq -er '
-    .values.root_module.resources[] |
-    select(.address == "terraform_data.tailscale_policy[0]") |
-    .values.input.policy_json |
+    .resources[] |
+    select(.type == "terraform_data" and .name == "tailscale_policy") |
+    .instances[].attributes.input.value.policy_json |
     fromjson
   ' | jq -cS . >"$expected"
   expected_sha=$(sha256_file "$expected")
@@ -387,9 +387,7 @@ backend_init() {
 
 policy_args() {
   local root=$1 mode=normal
-  if [[ $phase == adoption && ($root == proxmox || $root == proxmox-legacy) ]]; then
-    mode=adopt
-  elif [[ $phase == adoption && ($root == omada || $root == tailscale || $root == github) ]]; then
+  if [[ $phase == adoption && ($root == proxmox || $root == proxmox-legacy || $root == omada || $root == tailscale || $root == github) ]]; then
     mode=adopt-or-noop
   fi
   if [[ $phase == recovery && $root == proxmox ]]; then
