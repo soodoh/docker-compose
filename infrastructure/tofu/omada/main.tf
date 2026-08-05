@@ -1,6 +1,7 @@
 locals {
   contract = yamldecode(file("${path.module}/../../contract/home-lab.yml"))
   export = var.omada_enable_management ? jsondecode(file(var.omada_export_path)) : {
+    exported_at        = ""
     controller_version = ""
     site               = { id = "", name = "" }
     network            = { id = "", name = "", vlan_id = 1, gateway_subnet = "", dhcp_enabled = false, dhcp_start = "", dhcp_end = "" }
