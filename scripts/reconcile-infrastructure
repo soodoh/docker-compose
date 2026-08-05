@@ -707,8 +707,9 @@ ansible_require_noop() {
   shift 2
   local check_log host
   check_log=$(mktemp)
-  ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" | tee "$check_log"
-  host=$(ansible-inventory -i "$inventory" --list | jq -r '._meta.hostvars | keys[0]')
+  host=$(ansible-inventory -i "$inventory" --list | jq -er '._meta.hostvars | keys | if length == 1 then .[0] else error("inventory must select exactly one host") end')
+  echo "Auditing Ansible no-op: $playbook host=$host"
+  ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" 2>&1 | tee "$check_log"
   python3 "$repo_root/.github/scripts/parse-ansible-recap.py" "$check_log" "$host" \
     | jq -e '.changed == 0 and .unreachable == 0 and .failed == 0' >/dev/null
   rm -f "$check_log"
