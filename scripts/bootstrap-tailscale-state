@@ -37,7 +37,13 @@ export TF_VAR_ci_apply_identity_import_id=${TF_VAR_ci_apply_identity_import_id:-
 
 root=infrastructure/tofu/tailscale
 workspace=.local/tailscale/adoption
-[[ ! -e $workspace ]]
+resume=false
+if [[ -e $workspace ]]; then
+  [[ ${TAILSCALE_BOOTSTRAP_RESUME_CONFIRMED:-} == resume-reviewed-partial-tailscale-bootstrap ]]
+  workspace=.local/tailscale/adoption-resume
+  [[ ! -e $workspace ]]
+  resume=true
+fi
 install -d -m 0700 "$workspace"
 
 contract_value() {
@@ -183,7 +189,7 @@ tofu -chdir="$root" plan -input=false -lock-timeout=5m -parallelism=1 \
 [[ $rc == 2 ]]
 tofu -chdir="$root" show -json "$PWD/$workspace/tailscale.tfplan" >"$workspace/tailscale-plan.json"
 
-jq -e '
+jq -e --argjson resume "$resume" '
   [
     "tailscale_federated_identity.ci_apply[0]",
     "tailscale_federated_identity.ci_plan[0]",
@@ -195,17 +201,23 @@ jq -e '
     select(.mode == "managed") |
     select((.change.actions != ["no-op"]) or (.change.importing != null))
   ] as $changes |
-  ([$changes[].address] | sort) == ($expected | sort) and
-  ($changes | all(.change.actions | index("delete") == null)) and
-  ($changes | map(select(.address == "terraform_data.tailscale_policy[0]")) | all(
-    .change.importing == null and .change.before == null and .change.actions == ["create"]
-  )) and
-  ($changes | map(select(.address == "tailscale_federated_identity.ci_plan[0]" or .address == "tailscale_federated_identity.ci_apply[0]")) | all(
-    .change.importing != null and (.change.actions == ["no-op"] or .change.actions == ["update"])
-  )) and
-  ($changes | map(select(.address == "tailscale_federated_identity.provider_plan[0]" or .address == "tailscale_federated_identity.provider_apply[0]")) | all(
-    .change.importing == null and .change.before == null and .change.actions == ["create"]
-  ))
+  if $resume then
+    ($changes | length > 0) and
+    (([$changes[].address] - $expected) | length == 0) and
+    ($changes | all(.change.importing == null and .change.actions == ["update"]))
+  else
+    ([$changes[].address] | sort) == ($expected | sort) and
+    ($changes | all(.change.actions | index("delete") == null)) and
+    ($changes | map(select(.address == "terraform_data.tailscale_policy[0]")) | all(
+      .change.importing == null and .change.before == null and .change.actions == ["create"]
+    )) and
+    ($changes | map(select(.address == "tailscale_federated_identity.ci_plan[0]" or .address == "tailscale_federated_identity.ci_apply[0]")) | all(
+      .change.importing != null and (.change.actions == ["no-op"] or .change.actions == ["update"])
+    )) and
+    ($changes | map(select(.address == "tailscale_federated_identity.provider_plan[0]" or .address == "tailscale_federated_identity.provider_apply[0]")) | all(
+      .change.importing == null and .change.before == null and .change.actions == ["create"]
+    ))
+  end
 ' "$workspace/tailscale-plan.json" >/dev/null
 
 PLAN_FILE="$workspace/tailscale.tfplan" SECRET_VALUE="$TAILSCALE_OAUTH_CLIENT_SECRET" python3 - <<'PY'

@@ -272,11 +272,13 @@ resource "tailscale_federated_identity" "provider_apply" {
   issuer      = "https://token.actions.githubusercontent.com"
   subject     = "repo:${local.contract.github.owner}/${local.contract.github.repository}:environment:${local.contract.github.environments.apply}"
   scopes = [
+    "auth_keys",
     "devices:core:read",
     "devices:posture_attributes",
     "federated_keys",
     "policy_file",
   ]
+  tags = [local.tags.ci_plan, local.tags.ci_apply]
 
   lifecycle {
     prevent_destroy = true
