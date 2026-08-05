@@ -102,14 +102,14 @@ jobs:
             scripts/bootstrap-proxmox-host scripts/build-recovery-bundle \
             scripts/collect-proxmox-protected-inputs scripts/migrate-proxmox-zfs-stack \
             scripts/migrate-sops-recipients \
-            scripts/prepare-omada-plan-input scripts/publish-wolf-images \
+            scripts/prepare-omada-plan-input scripts/prepare-provider-ca-bundle scripts/publish-wolf-images \
             scripts/rehearse-recovery scripts/restore-critical-backup \
             scripts/test-recovery-tools .github/scripts/prepare-ansible-controller.sh
           bash -n scripts/reconcile-infrastructure scripts/bootstrap-aws-state scripts/bootstrap-tailscale-state \
             scripts/bootstrap-proxmox-host scripts/build-recovery-bundle \
             scripts/collect-proxmox-protected-inputs scripts/migrate-proxmox-zfs-stack \
             scripts/migrate-sops-recipients \
-            scripts/prepare-omada-plan-input scripts/publish-wolf-images \
+            scripts/prepare-omada-plan-input scripts/prepare-provider-ca-bundle scripts/publish-wolf-images \
             scripts/rehearse-recovery scripts/restore-critical-backup \
             scripts/test-recovery-tools
 
@@ -184,6 +184,7 @@ jobs:
           TF_VAR_github_repository: ${{ github.event.repository.name }}
           TF_VAR_proxmox_endpoint: ${{ vars.PROXMOX_API_ENDPOINT }}
           PROXMOX_VE_API_TOKEN: ${{ secrets.PROXMOX_PLAN_API_TOKEN }}
+          PROXMOX_CA_PEM: ${{ secrets.PROXMOX_CA_PEM }}
           TF_VAR_use_hardware_mappings: ${{ vars.PROXMOX_HARDWARE_MAPPINGS_ENABLED || 'false' }}
           TF_VAR_manage_hardware_mappings: ${{ vars.PROXMOX_HARDWARE_MAPPINGS_ENABLED || 'false' }}
           TF_VAR_games_disk_by_id: ${{ secrets.HOMELAB_GAMES_DISK_BY_ID }}
@@ -196,7 +197,7 @@ jobs:
           TF_VAR_omada_export_path: .local/omada/export.json
           OMADA_EXPORT_JSON: ${{ secrets.OMADA_EXPORT_JSON }}
           OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
-          SSL_CERT_FILE: ${{ github.workspace }}/.local/omada/controller-ca.pem
+          SSL_CERT_FILE: ${{ github.workspace }}/.local/provider-ca/bundle.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
           TF_VAR_github_owner_id: ${{ vars.TAILSCALE_SUBJECT_OWNER_ID }}
           TF_VAR_github_repository_id: ${{ vars.TAILSCALE_SUBJECT_REPOSITORY_ID }}
@@ -213,6 +214,7 @@ jobs:
           TAILSCALE_AUDIENCE: ${{ vars.TS_PROVIDER_PLAN_AUDIENCE }}
         run: |
           set -euo pipefail
+          ./scripts/prepare-provider-ca-bundle
           ./scripts/prepare-omada-plan-input
           ./scripts/reconcile-infrastructure plan --phase steady
 
@@ -283,6 +285,7 @@ jobs:
           TF_VAR_github_repository: ${{ github.event.repository.name }}
           TF_VAR_proxmox_endpoint: ${{ vars.PROXMOX_API_ENDPOINT }}
           PROXMOX_VE_API_TOKEN: ${{ secrets.PROXMOX_PLAN_API_TOKEN }}
+          PROXMOX_CA_PEM: ${{ secrets.PROXMOX_CA_PEM }}
           TF_VAR_use_hardware_mappings: ${{ vars.PROXMOX_HARDWARE_MAPPINGS_ENABLED || 'false' }}
           TF_VAR_manage_hardware_mappings: ${{ vars.PROXMOX_HARDWARE_MAPPINGS_ENABLED || 'false' }}
           TF_VAR_games_disk_by_id: ${{ secrets.HOMELAB_GAMES_DISK_BY_ID }}
@@ -295,7 +298,7 @@ jobs:
           TF_VAR_omada_export_path: .local/omada/export.json
           OMADA_EXPORT_JSON: ${{ secrets.OMADA_EXPORT_JSON }}
           OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
-          SSL_CERT_FILE: ${{ github.workspace }}/.local/omada/controller-ca.pem
+          SSL_CERT_FILE: ${{ github.workspace }}/.local/provider-ca/bundle.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
           TF_VAR_github_owner_id: ${{ vars.TAILSCALE_SUBJECT_OWNER_ID }}
           TF_VAR_github_repository_id: ${{ vars.TAILSCALE_SUBJECT_REPOSITORY_ID }}
@@ -312,6 +315,7 @@ jobs:
           TAILSCALE_AUDIENCE: ${{ vars.TS_PROVIDER_PLAN_AUDIENCE }}
         run: |
           set -euo pipefail
+          ./scripts/prepare-provider-ca-bundle
           ./scripts/prepare-omada-plan-input
           migration_args=()
           if [[ '${{ inputs.network_migration }}' == true ]]; then
@@ -447,6 +451,7 @@ jobs:
           TF_VAR_github_repository: ${{ github.event.repository.name }}
           TF_VAR_proxmox_endpoint: ${{ vars.PROXMOX_API_ENDPOINT }}
           PROXMOX_VE_API_TOKEN: ${{ secrets.PROXMOX_PLAN_API_TOKEN }}
+          PROXMOX_CA_PEM: ${{ secrets.PROXMOX_CA_PEM }}
           PROXMOX_APPLY_API_TOKEN: ${{ secrets.PROXMOX_APPLY_API_TOKEN }}
           TF_VAR_use_hardware_mappings: ${{ vars.PROXMOX_HARDWARE_MAPPINGS_ENABLED || 'false' }}
           TF_VAR_manage_hardware_mappings: ${{ vars.PROXMOX_HARDWARE_MAPPINGS_ENABLED || 'false' }}
@@ -460,7 +465,7 @@ jobs:
           TF_VAR_omada_enable_management: ${{ vars.OMADA_MANAGEMENT_ENABLED }}
           TF_VAR_adoption_complete: ${{ vars.OMADA_ADOPTION_COMPLETE }}
           TF_VAR_omada_export_path: .local/omada/export.json
-          SSL_CERT_FILE: ${{ github.workspace }}/.local/omada/controller-ca.pem
+          SSL_CERT_FILE: ${{ github.workspace }}/.local/provider-ca/bundle.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
           TF_VAR_github_owner_id: ${{ vars.TAILSCALE_SUBJECT_OWNER_ID }}
           TF_VAR_github_repository_id: ${{ vars.TAILSCALE_SUBJECT_REPOSITORY_ID }}
@@ -506,6 +511,7 @@ jobs:
           RECONCILE_ANSIBLE_EXTRA_VARS_FILE: .local/reconcile-extra-vars.json
         run: |
           set -euo pipefail
+          ./scripts/prepare-provider-ca-bundle
           install -d -m 0700 .local
           jq -n \
             --arg arch "$ARCH_SSH_ACCESS_PROVEN" \

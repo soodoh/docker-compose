@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+: "${PROXMOX_CA_PEM:?PROXMOX_CA_PEM is required}"
+if [[ ${TF_VAR_omada_enable_management:-false} == true ]]; then
+  : "${OMADA_CA_PEM:?OMADA_CA_PEM is required when Omada management is enabled}"
+fi
+
+command -v openssl >/dev/null || { echo "missing command: openssl" >&2; exit 69; }
+
+install -d -m 0700 .local/provider-ca
+printf '%s' "$PROXMOX_CA_PEM" >.local/provider-ca/proxmox.pem
+openssl verify -CAfile .local/provider-ca/proxmox.pem .local/provider-ca/proxmox.pem >/dev/null
+
+: >.local/provider-ca/bundle.pem
+if [[ -f /etc/ssl/certs/ca-certificates.crt ]]; then
+  cat /etc/ssl/certs/ca-certificates.crt >>.local/provider-ca/bundle.pem
+fi
+cat .local/provider-ca/proxmox.pem >>.local/provider-ca/bundle.pem
+if [[ ${TF_VAR_omada_enable_management:-false} == true ]]; then
+  printf '%s' "$OMADA_CA_PEM" >.local/provider-ca/omada.pem
+  openssl verify -CAfile .local/provider-ca/omada.pem .local/provider-ca/omada.pem >/dev/null
+  cat .local/provider-ca/omada.pem >>.local/provider-ca/bundle.pem
+fi
+chmod 0600 .local/provider-ca/*.pem
