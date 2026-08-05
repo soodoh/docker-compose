@@ -93,7 +93,7 @@ jobs:
                 export GHCR_TOKEN GHCR_USERNAME
                 WOLF_DOCKER_USE_SUDO=true \
                 WOLF_IMAGE_PUBLICATION_CONFIRMED=publish-reviewed-wolf-images-to-ghcr \
-                /tmp/home-lab-wolf-publication/publish-wolf-images \
+                /usr/bin/bash /tmp/home-lab-wolf-publication/publish-wolf-images \
                   --manifest /tmp/home-lab-wolf-publication/manifest.json \
                   --output /tmp/home-lab-wolf-publication/wolf-images.json
               '
