@@ -893,7 +893,7 @@ case "$action" in
       if [[ $ct_operation == false ]]; then apply_root proxmox-legacy; fi
       apply_root proxmox
       pushd ansible >/dev/null
-      ansible_checked_apply "$proxmox_inventory" playbooks/proxmox-site.yml Proxmox
+      ansible_checked_apply "$proxmox_inventory" playbooks/proxmox-site.yml Proxmox -e proxmox_ssh_access_proven=true
       apply_arch_steady
       popd >/dev/null
     fi
