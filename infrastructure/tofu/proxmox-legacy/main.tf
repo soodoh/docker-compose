@@ -113,7 +113,13 @@ resource "proxmox_virtual_environment_container" "tailscale_gateway" {
       started,
       startup,
       tags,
+      timeout_clone,
+      timeout_create,
+      timeout_delete,
+      timeout_start,
+      timeout_update,
       unprivileged,
+      vm_id,
     ]
   }
 
