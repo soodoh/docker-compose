@@ -299,7 +299,7 @@ tailscale_policy_identity() {
 
 tailscale_planned_policy() {
   local plan=$1 destination=$2
-  tofu show -json "$plan" | jq -er '
+  tofu -chdir=infrastructure/tofu/tailscale show -json "$plan" | jq -er '
     .resource_changes[] |
     select(.address == "terraform_data.tailscale_policy[0]") |
     .change.after.input.policy_json |
