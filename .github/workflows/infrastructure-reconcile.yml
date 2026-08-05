@@ -194,7 +194,6 @@ jobs:
           OMADA_SITE: ${{ vars.OMADA_SITE }}
           TF_VAR_omada_enable_management: ${{ vars.OMADA_MANAGEMENT_ENABLED }}
           TF_VAR_adoption_complete: ${{ vars.OMADA_ADOPTION_COMPLETE }}
-          TF_VAR_omada_export_path: .local/omada/export.json
           OMADA_EXPORT_JSON: ${{ secrets.OMADA_EXPORT_JSON }}
           OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
           SSL_CERT_FILE: ${{ github.workspace }}/.local/provider-ca/bundle.pem
@@ -296,7 +295,6 @@ jobs:
           OMADA_SITE: ${{ vars.OMADA_SITE }}
           TF_VAR_omada_enable_management: ${{ vars.OMADA_MANAGEMENT_ENABLED }}
           TF_VAR_adoption_complete: ${{ vars.OMADA_ADOPTION_COMPLETE }}
-          TF_VAR_omada_export_path: .local/omada/export.json
           OMADA_EXPORT_JSON: ${{ secrets.OMADA_EXPORT_JSON }}
           OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
           SSL_CERT_FILE: ${{ github.workspace }}/.local/provider-ca/bundle.pem
@@ -466,7 +464,6 @@ jobs:
           OMADA_SITE: ${{ vars.OMADA_SITE }}
           TF_VAR_omada_enable_management: ${{ vars.OMADA_MANAGEMENT_ENABLED }}
           TF_VAR_adoption_complete: ${{ vars.OMADA_ADOPTION_COMPLETE }}
-          TF_VAR_omada_export_path: .local/omada/export.json
           OMADA_EXPORT_JSON: ${{ secrets.OMADA_EXPORT_JSON }}
           OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
           SSL_CERT_FILE: ${{ github.workspace }}/.local/provider-ca/bundle.pem
