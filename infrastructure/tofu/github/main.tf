@@ -32,6 +32,11 @@ locals {
     INFRASTRUCTURE_APPLY_ENABLED     = "true"
   }
 
+  managed_repository_variables = var.github_repository_variables_adopt_existing ? {
+    for name, value in local.variables : name => value
+    if contains(var.github_repository_variable_names_adopt_existing, name)
+  } : local.variables
+
   tailscale_plan_variables = {
     TS_OAUTH_CLIENT_ID         = try(local.tailscale_outputs.ci_plan_client_id, "")
     TS_AUDIENCE                = try(local.tailscale_outputs.ci_plan_audience, "")
@@ -54,15 +59,9 @@ provider "github" {
 resource "github_repository_environment" "plan" {
   count = var.github_enable_management ? 1 : 0
 
-  repository          = local.repository
-  environment         = local.contract.github.environments.plan
-  can_admins_bypass   = false
-  prevent_self_review = true
-
-  deployment_branch_policy {
-    protected_branches     = true
-    custom_branch_policies = false
-  }
+  repository        = local.repository
+  environment       = local.contract.github.environments.plan
+  can_admins_bypass = true
 
   lifecycle {
     prevent_destroy = true
@@ -72,29 +71,32 @@ resource "github_repository_environment" "plan" {
 resource "github_repository_environment" "apply" {
   count = var.github_enable_management ? 1 : 0
 
-  repository          = local.repository
-  environment         = local.contract.github.environments.apply
-  can_admins_bypass   = false
-  prevent_self_review = true
+  repository        = local.repository
+  environment       = local.contract.github.environments.apply
+  can_admins_bypass = false
 
   deployment_branch_policy {
-    protected_branches     = true
-    custom_branch_policies = false
-  }
-
-  reviewers {
-    users = var.apply_reviewer_user_ids
-    teams = var.apply_reviewer_team_ids
+    protected_branches     = false
+    custom_branch_policies = true
   }
 
   lifecycle {
     prevent_destroy = true
-
-    precondition {
-      condition     = length(var.apply_reviewer_user_ids) + length(var.apply_reviewer_team_ids) > 0
-      error_message = "The apply environment requires at least one independent reviewer."
-    }
   }
+}
+
+resource "github_repository_environment_deployment_policy" "apply" {
+  for_each = var.github_enable_management ? var.apply_deployment_branches : toset([])
+
+  repository     = local.repository
+  environment    = github_repository_environment.apply[0].environment
+  branch_pattern = each.value
+}
+
+import {
+  for_each = var.github_enable_management ? var.apply_deployment_policy_import_ids : {}
+  to       = github_repository_environment_deployment_policy.apply[each.key]
+  id       = "${local.repository}:${local.contract.github.environments.apply}:${each.value}"
 }
 
 import {
@@ -110,11 +112,17 @@ import {
 }
 
 resource "github_actions_variable" "infrastructure" {
-  for_each = var.github_enable_management ? local.variables : {}
+  for_each = var.github_enable_management ? local.managed_repository_variables : {}
 
   repository    = local.repository
   variable_name = each.key
   value         = each.value
+}
+
+import {
+  for_each = var.github_enable_management && var.github_repository_variables_adopt_existing ? local.managed_repository_variables : {}
+  to       = github_actions_variable.infrastructure[each.key]
+  id       = "${local.repository}:${each.key}"
 }
 
 
@@ -167,7 +175,7 @@ resource "github_repository_ruleset" "main" {
   count = var.github_enable_management ? 1 : 0
 
   repository  = local.repository
-  name        = "protect-main"
+  name        = "Default"
   target      = "branch"
   enforcement = "active"
 
@@ -179,16 +187,15 @@ resource "github_repository_ruleset" "main" {
   }
 
   rules {
-    deletion                = true
-    non_fast_forward        = true
-    required_linear_history = true
+    deletion         = true
+    non_fast_forward = true
 
     pull_request {
-      allowed_merge_methods             = ["squash", "rebase"]
-      dismiss_stale_reviews_on_push     = true
-      require_last_push_approval        = true
-      required_approving_review_count   = 1
-      required_review_thread_resolution = true
+      allowed_merge_methods             = ["merge", "squash", "rebase"]
+      dismiss_stale_reviews_on_push     = false
+      require_last_push_approval        = false
+      required_approving_review_count   = 0
+      required_review_thread_resolution = false
     }
 
     dynamic "required_status_checks" {

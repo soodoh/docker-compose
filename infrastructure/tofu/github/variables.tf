@@ -29,6 +29,36 @@ variable "tailscale_environment_variables_adopt_existing" {
   description = "Import pre-staged Tailscale environment variables during the one-time GitHub adoption."
 }
 
+variable "github_repository_variables_adopt_existing" {
+  type        = bool
+  default     = false
+  description = "Import only the pre-existing repository variables during one-time GitHub adoption."
+}
+
+variable "github_repository_variable_names_adopt_existing" {
+  type = set(string)
+  default = [
+    "AWS_RECOVERY_REGION",
+    "INFRASTRUCTURE_APPLY_ENABLED",
+    "INFRASTRUCTURE_AUTO_PLAN_ENABLED",
+    "PLAN_ARTIFACT_AGE_RECIPIENT",
+  ]
+}
+
+variable "apply_deployment_branches" {
+  type = set(string)
+  default = [
+    "feat/infrastructure-reconciliation",
+    "main",
+  ]
+}
+
+variable "apply_deployment_policy_import_ids" {
+  type        = map(number)
+  default     = {}
+  description = "Existing apply-environment deployment policy IDs keyed by exact branch pattern."
+}
+
 variable "aws_region" {
   type = string
 }
@@ -61,18 +91,9 @@ variable "proxmox_ssh_host_key_fingerprint" {
 
 variable "required_status_checks" {
   type    = set(string)
-  default = ["Validate infrastructure"]
+  default = ["Hash and copy exact Compose artifact"]
 }
 
-variable "apply_reviewer_user_ids" {
-  type    = set(number)
-  default = []
-}
-
-variable "apply_reviewer_team_ids" {
-  type    = set(number)
-  default = []
-}
 
 variable "ruleset_import_id" {
   type        = string
