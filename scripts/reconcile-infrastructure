@@ -703,11 +703,11 @@ ansible_checked_apply() {
 }
 
 ansible_require_noop() {
-  local inventory=$1 playbook=$2
-  shift 2
-  local check_log host
+  local inventory=$1 playbook=$2 host=$3
+  shift 3
+  local check_log
   check_log=$(mktemp)
-  host=$(ansible-inventory -i "$inventory" --list | jq -er '._meta.hostvars | keys | if length == 1 then .[0] else error("inventory must select exactly one host") end')
+  ansible-inventory -i "$inventory" --list | jq -e --arg host "$host" '._meta.hostvars | has($host)' >/dev/null
   echo "Auditing Ansible no-op: $playbook host=$host"
   ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" 2>&1 | tee "$check_log"
   python3 "$repo_root/.github/scripts/parse-ansible-recap.py" "$check_log" "$host" \
@@ -807,11 +807,11 @@ verify_all() {
     fi
   done
   pushd ansible >/dev/null
-  ansible_require_noop "$proxmox_inventory" playbooks/proxmox-site.yml \
+  ansible_require_noop "$proxmox_inventory" playbooks/proxmox-site.yml proxmox \
     -e proxmox_ssh_access_proven=true
-  ansible_require_noop "$arch_inventory" playbooks/audit.yml
+  ansible_require_noop "$arch_inventory" playbooks/audit.yml docker-host-production
   if [[ $phase == recovery ]]; then
-    ansible_require_noop "$arch_inventory" playbooks/arch-bootstrap.yml
+    ansible_require_noop "$arch_inventory" playbooks/arch-bootstrap.yml docker-host-production
   fi
   popd >/dev/null
 }
@@ -822,11 +822,11 @@ apply_ct_decommission() {
     apply_root "$root"
   done
   pushd ansible >/dev/null
-  ansible_require_noop "$proxmox_inventory" playbooks/proxmox-site.yml -e proxmox_ssh_access_proven=true
+  ansible_require_noop "$proxmox_inventory" playbooks/proxmox-site.yml proxmox -e proxmox_ssh_access_proven=true
   for tag in base arch_network tailscale ssh storage docker sops_age hardware coral host_files compose maintenance; do
-    ansible_require_noop "$arch_inventory" playbooks/site.yml --tags "$tag"
+    ansible_require_noop "$arch_inventory" playbooks/site.yml docker-host-production --tags "$tag"
   done
-  ansible_require_noop "$arch_inventory" playbooks/audit.yml
+  ansible_require_noop "$arch_inventory" playbooks/audit.yml docker-host-production
   popd >/dev/null
   apply_root proxmox-legacy
   verify_all
@@ -838,11 +838,11 @@ apply_network_migration() {
     apply_root "$root"
   done
   pushd ansible >/dev/null
-  ansible_require_noop "$proxmox_inventory" playbooks/proxmox-site.yml -e proxmox_ssh_access_proven=true
+  ansible_require_noop "$proxmox_inventory" playbooks/proxmox-site.yml proxmox -e proxmox_ssh_access_proven=true
   for tag in base arch_network tailscale ssh storage docker sops_age hardware coral host_files compose maintenance; do
-    ansible_require_noop "$arch_inventory" playbooks/site.yml --tags "$tag"
+    ansible_require_noop "$arch_inventory" playbooks/site.yml docker-host-production --tags "$tag"
   done
-  ansible_require_noop "$arch_inventory" playbooks/audit.yml
+  ansible_require_noop "$arch_inventory" playbooks/audit.yml docker-host-production
   popd >/dev/null
   apply_root proxmox
   verify_all
