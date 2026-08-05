@@ -28,6 +28,7 @@ root=infrastructure/tofu/aws-foundation
 workspace=.local/aws-foundation-bootstrap
 copy="$workspace/repository"
 bootstrap_root="$copy/infrastructure/tofu/aws-foundation"
+resume=false
 if [[ -e $workspace ]]; then
   [[ ${AWS_FOUNDATION_BOOTSTRAP_RESUME_CONFIRMED:-} == resume-reviewed-partial-aws-bootstrap ]]
   [[ -s $bootstrap_root/terraform.tfstate ]]
@@ -36,6 +37,7 @@ if [[ -e $workspace ]]; then
     cmp -s "$source" "$bootstrap_root/$(basename "$source")"
   done
   diff -qr infrastructure/contract "$copy/infrastructure/contract" >/dev/null
+  resume=true
 else
   mkdir -p "$copy/infrastructure/tofu" "$copy/infrastructure/contract"
   cp -a "$root" "$copy/infrastructure/tofu/"
@@ -103,10 +105,41 @@ import {
 EOF
 fi
 
+verify_remote_state_matches() {
+  local local_state=$1 local_projection remote_projection
+  local_projection=$(mktemp "${TMPDIR:-/tmp}/aws-foundation-local.XXXXXX")
+  remote_projection=$(mktemp "${TMPDIR:-/tmp}/aws-foundation-remote.XXXXXX")
+  chmod 0600 "$local_projection" "$remote_projection"
+  jq -cS '{outputs,resources}' "$local_state" >"$local_projection"
+  tofu -chdir="$root" state pull | jq -cS '{outputs,resources}' >"$remote_projection"
+  cmp -s "$local_projection" "$remote_projection"
+  rm -f "$local_projection" "$remote_projection"
+}
+
+initialize_remote_backend() {
+  rm -rf "$root/.terraform"
+  rm -f "$root/terraform.tfstate" "$root/terraform.tfstate.backup"
+  tofu -chdir="$root" init -input=false -reconfigure \
+    -backend-config="bucket=$TF_BACKEND_BUCKET" \
+    -backend-config="region=$TF_VAR_aws_region" \
+    -backend-config="encrypt=true" \
+    -backend-config="use_lockfile=true" >/dev/null
+}
+
 tofu -chdir="$bootstrap_root" init -input=false
 rc=0
 tofu -chdir="$bootstrap_root" plan -input=false -parallelism=1 -out=bootstrap.tfplan -detailed-exitcode || rc=$?
-[[ ${rc:-0} == 2 ]]
+if [[ $rc == 0 ]]; then
+  [[ $resume == true ]]
+  initialize_remote_backend
+  verify_remote_state_matches "$bootstrap_root/terraform.tfstate"
+  remote_rc=0
+  tofu -chdir="$root" plan -input=false -parallelism=1 -detailed-exitcode || remote_rc=$?
+  [[ $remote_rc == 0 ]]
+  echo "aws_foundation_bootstrap=resumed_migrated_noop retained_sensitive_workspace=$workspace"
+  exit 0
+fi
+[[ $rc == 2 ]]
 tofu -chdir="$bootstrap_root" show -json bootstrap.tfplan >"$workspace/bootstrap-plan.json"
 jq -e --argjson adopt_recovery "$adopt_recovery" --argjson adopt_github_oidc "$adopt_github_oidc" '
   ([.resource_changes[]? | select(.mode == "managed") |
@@ -152,9 +185,7 @@ tofu -chdir="$root" init -input=false -migrate-state -force-copy \
   -backend-config="region=$TF_VAR_aws_region" \
   -backend-config="encrypt=true" \
   -backend-config="use_lockfile=true"
-local_identity=$(jq -c '{lineage,serial}' "$bootstrap_root/terraform.tfstate")
-remote_identity=$(tofu -chdir="$root" state pull | jq -c '{lineage,serial}')
-[[ $local_identity == "$remote_identity" ]]
+verify_remote_state_matches "$bootstrap_root/terraform.tfstate"
 rm -f "$root/terraform.tfstate" "$root/terraform.tfstate.backup"
 rc=0
 
