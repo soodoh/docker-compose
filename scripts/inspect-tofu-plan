@@ -8,10 +8,16 @@ fi
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 plan=$1
+plan="$(cd "$(dirname "$plan")" && pwd)/$(basename "$plan")"
 shift
+tofu_chdir=${TOFU_PLAN_CHDIR:-}
 json=$(mktemp)
 trap 'rm -f "$json"' EXIT
 umask 077
 
-tofu show -json "$plan" >"$json"
+if [[ -n $tofu_chdir ]]; then
+  tofu -chdir="$tofu_chdir" show -json "$plan" >"$json"
+else
+  tofu show -json "$plan" >"$json"
+fi
 python3 "$repo_root/infrastructure/policy/inspect-plan.py" "$json" "$@"

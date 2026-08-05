@@ -450,7 +450,7 @@ plan_all() {
     fi
 
     mapfile -d '' -t inspect_args < <(policy_args "$root")
-    ./scripts/inspect-tofu-plan "$plan" "${inspect_args[@]}"
+    TOFU_PLAN_CHDIR="infrastructure/tofu/$root" ./scripts/inspect-tofu-plan "$plan" "${inspect_args[@]}"
     jq -cn \
       --arg root "$root" \
       --arg file "$(basename "$plan")" \
@@ -565,7 +565,7 @@ verify_manifest() {
     [[ -f $plan_dir/$file ]]
     [[ $(sha256_file "$plan_dir/$file") == "$expected" ]]
     mapfile -d '' -t inspect_args < <(policy_args "$root")
-    ./scripts/inspect-tofu-plan "$plan_dir/$file" "${inspect_args[@]}"
+    TOFU_PLAN_CHDIR="infrastructure/tofu/$root" ./scripts/inspect-tofu-plan "$plan_dir/$file" "${inspect_args[@]}"
   done < <(jq -r '.plans[] | [.root, .file, .sha256] | @tsv' "$manifest")
 }
 
