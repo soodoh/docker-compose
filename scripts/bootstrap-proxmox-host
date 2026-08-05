@@ -65,7 +65,7 @@ if [[ $mode == check ]]; then
   exit 0
 fi
 [[ ${PROXMOX_BOOTSTRAP_EXECUTION_CONFIRMED:-} == run-reviewed-proxmox-bootstrap-with-console ]]
-: "${TAILSCALE_AUTH_KEY:?missing one-use Proxmox Tailscale auth key}"
+export TAILSCALE_AUTH_KEY=${TAILSCALE_AUTH_KEY:-}
 : "${PROXMOX_PLAN_SSH_PUBLIC_KEYS:?missing plan-account public key}"
 : "${PROXMOX_APPLY_SSH_PUBLIC_KEYS:?missing apply-account public key}"
 [[ $PROXMOX_PLAN_SSH_PUBLIC_KEYS != "$PROXMOX_APPLY_SSH_PUBLIC_KEYS" ]]
