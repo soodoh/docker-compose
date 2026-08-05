@@ -240,7 +240,7 @@ resource "tailscale_federated_identity" "ci_plan" {
   lifecycle {
     prevent_destroy = true
     # The API returns null for this adopted identity while the provider normalizes an omitted value to an empty string.
-    ignore_changes = [description, updated_at]
+    ignore_changes = [description]
   }
 }
 
