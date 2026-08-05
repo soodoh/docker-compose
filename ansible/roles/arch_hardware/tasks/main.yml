@@ -69,6 +69,25 @@
     fail_msg: "Distinct SOPS-protected Zigbee and Z-Wave serial identities are required."
   no_log: true
 
+- name: Inspect attached USB identities without exposing device metadata
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/udevadm
+      - info
+      - --export-db
+  register: arch_hardware_udev_database
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Require both protected USB devices to be physically attached
+  ansible.builtin.assert:
+    that:
+      - arch_hardware_zigbee_serial in arch_hardware_udev_database.stdout
+      - arch_hardware_zwave_serial in arch_hardware_udev_database.stdout
+    fail_msg: "Both protected USB devices must be attached before symlink convergence."
+  no_log: true
+
 - name: Install stable USB serial symlinks
   ansible.builtin.copy:
     dest: /etc/udev/rules.d/71-home-lab-usb-serial.rules
@@ -86,6 +105,7 @@
       SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60",
       ATTRS{serial}=="{{ arch_hardware_zwave_serial }}", SYMLINK+="zwave", GROUP="uucp", MODE="0660"
   no_log: true
+  register: arch_hardware_usb_rules
   notify: Reload hardware rules
 - name: Install explicit hardware permissions
   ansible.builtin.copy:
@@ -136,5 +156,14 @@
 - name: Assert all modeled device dependencies exist
   ansible.builtin.assert:
     that:
-      - arch_hardware_devices.results | map(attribute='stat.exists') | min
+      - arch_hardware_devices.results[0].stat.exists
+      - arch_hardware_devices.results[1].stat.exists
+      - arch_hardware_devices.results[4].stat.exists
+      - arch_hardware_devices.results[5].stat.exists
+      - >-
+        (ansible_check_mode and arch_hardware_usb_rules.changed) or
+        (
+          arch_hardware_devices.results[2].stat.exists and
+          arch_hardware_devices.results[3].stat.exists
+        )
     fail_msg: "A required Coral/GPU/USB/Wolf device is absent."

@@ -143,12 +143,16 @@
 - name: Select changes permitted by the requested deployment lane
   ansible.builtin.set_fact:
     compose_deploy_effective_changes: >-
-      {{ compose_deploy_plan.has_changes and
-         (((compose_deploy_artifact_only | default(false) | ansible.builtin.bool) and
+      {{
+        (compose_deploy_plan.has_changes or compose_deploy_plan.recreate_services | length > 0) and
+        (
+          ((compose_deploy_artifact_only | default(false) | ansible.builtin.bool) and
            compose_deploy_plan.artifact_only_eligible) or
           (not (compose_deploy_artifact_only | default(false) | ansible.builtin.bool) and
            (not (compose_deploy_canary_only | default(false) | ansible.builtin.bool) or
-            compose_deploy_plan.canary_eligible))) }}
+            compose_deploy_plan.canary_eligible))
+        )
+      }}
 
 - name: Display only the secret-free deployment plan
   ansible.builtin.debug:
@@ -198,14 +202,14 @@
       become: true
       changed_when: true
       no_log: true
-    - name: Pull only changed service images without starting containers
+    - name: Reuse the prefetched changed-service images without refreshing tags
       ansible.builtin.command:
         argv: >-
           {{ ['/usr/bin/docker', 'compose', '--project-name', compose_project_name,
               '--project-directory', compose_staging_root ~ '/' ~ compose_artifact_hash,
               '--env-file', compose_staged_env_path,
               '--file', compose_staging_root ~ '/' ~ compose_artifact_hash ~ '/docker-compose.yml',
-              'pull', '--policy', 'always', '--ignore-buildable'] + compose_deploy_plan.image_services }}
+              'pull', '--policy', 'missing', '--ignore-buildable'] + compose_deploy_plan.image_services }}
       become: true
       environment:
         HOME: "{{ compose_home_dir }}"

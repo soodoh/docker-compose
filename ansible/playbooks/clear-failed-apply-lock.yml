@@ -6,11 +6,13 @@
   vars_files:
     - "{{ playbook_dir }}/../group_vars/docker_host.yml"
   tasks:
-    - name: Require explicit failed-lock clearance confirmation
+    - name: Require exact failed-lock clearance inputs
       ansible.builtin.assert:
         that:
           - ansible_check_mode or (iac_lock_clear_confirmed | default(false) | ansible.builtin.bool)
-        fail_msg: "Failed production lock clearance requires iac_lock_clear_confirmed=true."
+          - iac_failed_lock_expected_operation | default('') is match('^[a-z0-9_-]+$')
+        fail_msg: >-
+          Failed production lock clearance requires confirmation and the exact inspected operation.
 
     - name: Inspect the failed production apply lock
       ansible.builtin.stat:
@@ -33,24 +35,54 @@
       register: iac_failed_lock_entries
       when: iac_failed_lock_paths.results[0].stat.isdir | default(false)
 
-    - name: Require the inspected empty failed lock
+    - name: Read the exact failed-lock owner record
+      ansible.builtin.slurp:
+        src: "{{ apply_lock_path }}/owner"
+      become: true
+      register: iac_failed_lock_owner
+      no_log: true
+      when: iac_failed_lock_paths.results[1].stat.isreg | default(false)
+
+    - name: Require the exact inspected failed lock and owner
       ansible.builtin.assert:
         that:
           - iac_failed_lock_paths.results[0].stat.isdir | default(false)
-          - not (iac_failed_lock_paths.results[1].stat.exists | default(false))
-          - iac_failed_lock_entries.matched == 0
-        fail_msg: "Production lock is absent, has an owner record, or contains unreviewed entries."
+          - iac_failed_lock_paths.results[0].stat.pw_name == 'root'
+          - iac_failed_lock_paths.results[0].stat.mode == '0700'
+          - iac_failed_lock_paths.results[1].stat.isreg | default(false)
+          - iac_failed_lock_paths.results[1].stat.pw_name == 'root'
+          - iac_failed_lock_paths.results[1].stat.mode == '0600'
+          - iac_failed_lock_entries.matched == 1
+          - "'controller=ansible-deploy' in (iac_failed_lock_owner.content | b64decode).splitlines()"
+          - >-
+            'operation=' ~ iac_failed_lock_expected_operation in
+            (iac_failed_lock_owner.content | b64decode).splitlines()
+          - >-
+            (iac_failed_lock_owner.content | b64decode).splitlines()
+            | select('match', '^started=[0-9]{4}-[0-9]{2}-[0-9]{2}T')
+            | list
+            | length == 1
+        fail_msg: "Production lock identity or contents differ from the reviewed failed operation."
+      no_log: true
 
-    - name: Report the failed-lock clearance plan
+    - name: Report the exact failed-lock clearance plan
       ansible.builtin.debug:
         msg:
           lock_path: "{{ apply_lock_path }}"
-          owner_record: absent
-          entry_count: 0
+          controller: ansible-deploy
+          operation: "{{ iac_failed_lock_expected_operation }}"
+          entry_count: 1
       changed_when: true
       when: ansible_check_mode
 
-    - name: Remove only the inspected empty failed lock
+    - name: Remove only the inspected owner record
+      ansible.builtin.file:
+        path: "{{ apply_lock_path }}/owner"
+        state: absent
+      become: true
+      when: not ansible_check_mode
+
+    - name: Remove only the inspected failed lock
       ansible.builtin.command:
         argv:
           - /usr/bin/rmdir

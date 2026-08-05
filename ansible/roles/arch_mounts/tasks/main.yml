@@ -51,7 +51,7 @@
   loop:
     - "{{ storage.nfs.mountpoint }}"
     - "{{ arch.games_mountpoint }}"
-  when: item not in ansible_mounts | map(attribute='mount') | list
+  when: item not in ansible_facts.mounts | map(attribute='mount') | list
 
 - name: Read mount identities before any workload write
   ansible.builtin.command:

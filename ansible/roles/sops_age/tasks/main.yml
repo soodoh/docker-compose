@@ -8,15 +8,51 @@
     group: root
     mode: "0755"
 
-- name: Create a root-only age installation workspace
-  ansible.builtin.tempfile:
-    state: directory
-    path: /var/tmp
-    prefix: age-install-
-  register: sops_age_workspace
+- name: Inspect installed age binaries before convergence
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+    checksum_algorithm: sha256
+  loop:
+    - path: /usr/local/bin/age
+      sha256: "{{ age_binary_sha256 }}"
+    - path: /usr/local/bin/age-keygen
+      sha256: "{{ age_keygen_binary_sha256 }}"
+  register: sops_age_existing_binaries
 
-- name: Install pinned age binaries
+- name: Record whether the pinned age binaries require installation
+  ansible.builtin.set_fact:
+    sops_age_install_required: >-
+      {{
+        sops_age_existing_binaries.results
+        | rejectattr('stat.checksum', 'defined')
+        | list
+        | length > 0
+        or
+        sops_age_existing_binaries.results[0].stat.checksum != age_binary_sha256
+        or
+        sops_age_existing_binaries.results[1].stat.checksum != age_keygen_binary_sha256
+      }}
+
+- name: Report pinned age binary drift during check mode
+  ansible.builtin.debug:
+    msg: The pinned age binaries require reconciliation.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - sops_age_install_required
+
+- name: Install pinned age binaries outside check mode
+  when:
+    - not ansible_check_mode
+    - sops_age_install_required
   block:
+    - name: Create a root-only age installation workspace
+      ansible.builtin.tempfile:
+        state: directory
+        path: /var/tmp
+        prefix: age-install-
+      register: sops_age_workspace
+
     - name: Download the pinned age archive
       ansible.builtin.get_url:
         url: "{{ age_download_url }}"
@@ -30,7 +66,7 @@
         dest: "{{ sops_age_workspace.path }}"
         remote_src: true
 
-    - name: Install age and age-keygen
+    - name: Install age
       ansible.builtin.copy:
         src: "{{ sops_age_workspace.path }}/age/age"
         dest: /usr/local/bin/age
@@ -52,6 +88,7 @@
       ansible.builtin.file:
         path: "{{ sops_age_workspace.path }}"
         state: absent
+      when: sops_age_workspace.path is defined
 
 - name: Verify installed age binary checksums
   ansible.builtin.stat:
@@ -70,6 +107,7 @@
       - item.stat.checksum == item.item.sha256
     fail_msg: "Installed age binary checksum differs from the pinned release."
   loop: "{{ sops_age_installed_binaries.results }}"
+  when: not ansible_check_mode or not sops_age_install_required
 
 - name: Require the manually installed recovery identity
   ansible.builtin.stat:

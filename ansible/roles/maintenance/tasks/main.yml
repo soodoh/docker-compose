@@ -8,6 +8,7 @@
       - linux-headers
   register: maintenance_kernel_packages
   changed_when: false
+  check_mode: false
 
 - name: Assert the pinned kernel and running-kernel state
   ansible.builtin.assert:

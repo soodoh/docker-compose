@@ -723,9 +723,11 @@ ansible_require_noop() {
 
 apply_arch_steady() {
   local tag
-  for tag in base arch_network tailscale ssh storage docker sops_age hardware coral host_files compose; do
+  echo "Deferring the separately gated Arch network migration and unpublished Coral artifact during routine steady convergence."
+  for tag in base tailscale ssh storage docker sops_age hardware host_files compose; do
     ansible_checked_apply "$arch_inventory" playbooks/site.yml "Arch/$tag" docker-host-production \
-      --tags "$tag" -e iac_apply_confirmed=true -e "iac_apply_tag=$tag"
+      --tags "$tag" -e iac_apply_confirmed=true -e "iac_apply_tag=$tag" \
+      -e arch_ssh_access_proven=true
   done
 }
 

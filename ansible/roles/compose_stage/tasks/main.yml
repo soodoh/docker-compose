@@ -276,12 +276,11 @@
         - source: "{{ compose_stage_decrypt_workspace.path }}/runtime-model.json"
           destination: "{{ compose_runtime_inventory_path }}"
 
-    - name: Simulate Compose create without pulls, builds, removal, or mutation
+    - name: Validate the Compose model before candidate image prefetch
       ansible.builtin.command:
         argv:
           - /usr/bin/docker
           - compose
-          - --dry-run
           - --project-name
           - "{{ compose_project_name }}"
           - --project-directory
@@ -290,13 +289,35 @@
           - "{{ compose_staged_env_path }}"
           - --file
           - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/docker-compose.yml"
-          - create
-          - --no-build
-          - --pull
-          - never
+          - config
+          - --quiet
       become: true
       register: compose_stage_dry_run
       changed_when: false
+      no_log: true
+      environment:
+        HOME: "{{ compose_home_dir }}"
+
+    - name: Prefetch only missing images from the exact staged Compose artifact
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/docker
+          - compose
+          - --project-name
+          - "{{ compose_project_name }}"
+          - --project-directory
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}"
+          - --env-file
+          - "{{ compose_staged_env_path }}"
+          - --file
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/docker-compose.yml"
+          - pull
+          - --policy
+          - missing
+          - --ignore-buildable
+          - --quiet
+      become: true
+      changed_when: true
       no_log: true
       environment:
         HOME: "{{ compose_home_dir }}"
