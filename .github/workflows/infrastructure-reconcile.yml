@@ -128,6 +128,7 @@ jobs:
           ./infrastructure/policy/test-policy.sh
           python .github/scripts/test-ct-retirement.py
           python .github/scripts/test-ct-compose-precheck.py
+          python .github/scripts/test-reconcile-manifest.py
           ./scripts/test-recovery-tools
           python -m py_compile scripts/*.py .github/scripts/*.py
           shellcheck scripts/reconcile-infrastructure scripts/bootstrap-aws-state scripts/bootstrap-tailscale-state \
