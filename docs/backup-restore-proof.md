@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 1 is complete. Local encrypted-backup freshness, external recovery-key use, archive integrity, isolated application-level restore, cleanup, remote-object metadata, retention behavior, and post-restore server baselines are verified.
+Phase 1 and the guarded full-data local rehearsal are complete. Local encrypted-backup freshness, external recovery-key use, archive integrity, complete isolated extraction, application-level readability, cleanup, remote-object metadata, KMS upload authorization, retention behavior, and post-restore server baselines are verified.
 
 Observed on 2026-08-01:
 
@@ -76,6 +76,22 @@ restored SQLite sidecars: db.sqlite3-shm, db.sqlite3-wal
 
 The isolated destination was created under the workstation's private temporary directory and then removed with an exact-path guard. No decrypted archive or private key was written to the server, and no production path, container, volume, or service was changed.
 
+## Full local disaster-recovery rehearsal
+
+Observed on 2026-08-05:
+
+- The protected pipeline applied the exact reviewed recovery-KMS policy plan and proved an immediate no-op in run `31046872606`.
+- A disposable object written by the existing backup principal inherited `aws:kms` encryption and its exact version was deleted afterward. This proved the repaired S3/KMS upload path without triggering another disruptive backup.
+- The latest local encrypted archive was selected by mtime, hashed in full, and bound to the guarded local-rehearsal confirmation. The S3 transport step was intentionally omitted for this rehearsal; recovery continues to require an exact version-bound HTTPS object outside local-rehearsal mode.
+- `scripts/restore-critical-backup` verified the 46,277,041,740-byte ciphertext hash, decrypted it with the external recovery identity, and passed the decrypted archive to the safe extractor.
+- The extractor validated 140,292 members and restored 112,372 files totaling 50,788,119,836 bytes into a new isolated `/srv/home-lab-recovery/qualification-local-*` target.
+- Three absolute cache/runtime symlinks were deliberately omitted. Contained relative symlinks were restored; path traversal, escaping symlinks, hard links, devices, FIFOs, duplicate destinations, and non-backup roots remain rejected by fixtures.
+- All six critical classes were present, the restored `.env` retained mode `0600`, and the restored Vaultwarden database passed read-only SQLite `PRAGMA integrity_check`.
+- The guarded restore completed in 986 seconds, below the eight-hour critical RTO.
+- The exact rehearsal target, temporary GPG export, passphrase file, host-side recovery identity, diagnostic status, and production apply lock were removed after verification.
+
+No recovered bind, Docker volume, Compose project, or production service was activated or overwritten.
+
 ## Cleanup and post-check
 
 After the verifier result has been recorded, remove only the exact external-workstation restore destination and its evidence file:
@@ -106,7 +122,8 @@ host apply lock absent
 
 ## Recovery limitations
 
-- The newly initialized remote destination has only one weekly object, so the configured 14-day prune behavior cannot be observed across a full expiration cycle yet. The successful prune step, current/version metadata, and in-window object prove the active retention path without proving future expiration timing.
-- The restore verifier extracts one stateful service subset rather than every archived volume. It validates the complete compressed archive stream and Vaultwarden application readability but does not prove every application can start from the snapshot.
-- The drill does not restore over a production bind or Docker volume and does not test database migrations.
-- The backup includes state captured through the backup job's stop-during-backup mechanism; no new manual backup was triggered because doing so would read the mounted plaintext `.env` and restart labeled services.
+- The full rehearsal deliberately used an existing local encrypted archive and treated S3 transport as available, as approved by the operator. Remote mode still enforces an exact version-bound HTTPS URL and ciphertext checksum.
+- No recovered bind, Docker volume, or Compose project was activated, so the drill does not prove application migrations or a cold boot of all 41 services.
+- A fresh daily remote object has not yet completed after the KMS authorization repair. The encrypted upload canary proves access, but the 24-hour remote RPO remains pending the next successful scheduled backup.
+- Future expiration timing is not yet proven across a full retention window; current/version metadata and successful pruning prove only the active retention path.
+- No manual backup was triggered because it would stop labeled production services while reading mounted plaintext configuration.

@@ -26,6 +26,9 @@ recovery_backup_sha256: ""
 recovery_target: ""
 recovery_gpg_key_file: ""
 recovery_gpg_passphrase_file: ""
+# Local-only rehearsal bypasses S3 transport but uses the same checksum, decrypt, and extraction path.
+recovery_local_rehearsal_source: ""
+recovery_local_rehearsal_confirmation: ""
 recovery_restore_confirmed: false
 recovery_target_approved_empty: false
 recovery_retain_existing_bind_data: false
