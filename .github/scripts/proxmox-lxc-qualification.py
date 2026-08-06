@@ -595,6 +595,11 @@ def validate_live(mode: str) -> None:
         raise QualificationError("live qualification protection is not exact")
 
 
+def recovery_diagnostic(error: QualificationError) -> str:
+    # QualificationError messages are fixed, value-free control labels.
+    return re.sub(r"[^a-z0-9]+", "-", str(error).lower()).strip("-")[:96]
+
+
 def recovery_classification(state: Any, live_protection: bool | None) -> str:
     try:
         attributes = state_instance(state)
@@ -603,11 +608,11 @@ def recovery_classification(state: Any, live_protection: bool | None) -> str:
         else:
             protection = attributes.get("protection")
             if not isinstance(protection, bool):
-                return "state-identity-mismatch"
+                return "state-identity-mismatch:protection-not-boolean"
             validate_identity(attributes, protection, require_disk_path=True)
             state_protection = protection
-    except QualificationError:
-        return "state-identity-mismatch"
+    except QualificationError as error:
+        return f"state-identity-mismatch:{recovery_diagnostic(error)}"
     if state_protection is None and live_protection is None:
         return "aligned-empty"
     if state_protection is None:
@@ -622,8 +627,8 @@ def recovery_classification(state: Any, live_protection: bool | None) -> str:
 def inspect_recovery(state: Any) -> str:
     try:
         live_protection = live_identity()
-    except QualificationError:
-        return "live-identity-mismatch"
+    except QualificationError as error:
+        return f"live-identity-mismatch:{recovery_diagnostic(error)}"
     return recovery_classification(state, live_protection)
 
 
