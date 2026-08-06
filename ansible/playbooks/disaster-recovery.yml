@@ -10,9 +10,17 @@
     - name: Validate destructive recovery gates
       ansible.builtin.assert:
         that:
-          - recovery_backup_id | default('') is match('^(daily-remote-backup|weekly-backup)-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}\\.tar\\.gz\\.gpg$')
-          - recovery_backup_url | default('') is match('^https://')
-          - recovery_backup_version_id | default('') is match('^[A-Za-z0-9._~+-]{1,1024}$')
+          - >-
+            (
+              (recovery_local_rehearsal_source | default('') | length == 0) and
+              (recovery_backup_id | default('') is match('^(daily-remote-backup|weekly-backup)-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}\\.tar\\.gz\\.gpg$')) and
+              (recovery_backup_url | default('') is match('^https://')) and
+              (recovery_backup_version_id | default('') is match('^[A-Za-z0-9._~+-]{1,1024}$'))
+            ) or (
+              (recovery_local_rehearsal_source | default('') is match('^/mnt/storage/backups/(daily-local-backup|daily-backup)-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}\\.tar\\.gz\\.gpg$')) and
+              (recovery_backup_id | default('') is match('^(daily-local-backup|daily-backup)-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}\\.tar\\.gz\\.gpg$')) and
+              (recovery_local_rehearsal_confirmation | default('') == 'use-reviewed-local-backup-without-s3-download')
+            )
           - recovery_backup_sha256 | default('') is match('^[0-9a-f]{64}$')
           - recovery_restore_confirmed | default(false) | bool
           - recovery_target_approved_empty | default(false) | bool
@@ -54,16 +62,18 @@
         cmd: >-
           {{ playbook_dir }}/../../scripts/restore-critical-backup
           --backup-id {{ recovery_backup_id | quote }}
+          {{ ('--local-rehearsal-source ' ~ (recovery_local_rehearsal_source | quote)) if (recovery_local_rehearsal_source | default('') | length > 0) else '' }}
           --confirmed-empty-target
       register: disaster_recovery_restore
       no_log: true
       environment:
-        RECOVERY_BACKUP_URL: "{{ recovery_backup_url }}"
-        RECOVERY_BACKUP_VERSION_ID: "{{ recovery_backup_version_id }}"
+        RECOVERY_BACKUP_URL: "{{ recovery_backup_url | default('') }}"
+        RECOVERY_BACKUP_VERSION_ID: "{{ recovery_backup_version_id | default('') }}"
         RECOVERY_BACKUP_SHA256: "{{ recovery_backup_sha256 }}"
         RECOVERY_TARGET: "{{ recovery_target }}"
         RECOVERY_GPG_KEY_FILE: "{{ recovery_gpg_key_file }}"
         RECOVERY_GPG_PASSPHRASE_FILE: "{{ recovery_gpg_passphrase_file | default('') }}"
+        RECOVERY_LOCAL_REHEARSAL_CONFIRMED: "{{ recovery_local_rehearsal_confirmation | default('') }}"
         RECOVERY_STATUS_FILE: /run/home-lab-recovery-restore-status
 
   post_tasks:
