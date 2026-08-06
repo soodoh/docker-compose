@@ -486,17 +486,17 @@ fi
 
 if [[ $action == inspect-recovery ]]; then
   if ! backend_init >/dev/null 2>&1; then
-    echo "identity-mismatch"
+    echo "backend-init-failed"
     exit 1
   fi
   if ! lock_count=$(backend_lock_count); then
-    echo "identity-mismatch"
+    echo "lock-query-failed"
     exit 1
   fi
   if [[ $lock_count == 1 ]]; then
     if ! aws s3api get-object --bucket "$TF_BACKEND_BUCKET" --key "${backend_key}.tflock" \
       "$work/inspection-lock.json" >/dev/null 2>&1; then
-      echo "identity-mismatch"
+      echo "lock-read-failed"
       exit 1
     fi
     fingerprint=$(python3 - "$work/inspection-lock.json" <<'PY'
@@ -509,11 +509,11 @@ PY
     echo "lock-present sha256=$fingerprint"
     exit 0
   elif [[ $lock_count != 0 ]]; then
-    echo "identity-mismatch"
+    echo "lock-count-invalid"
     exit 1
   fi
   if ! pull_state_recovery "$work/recovery-state.json"; then
-    echo "identity-mismatch"
+    echo "state-read-failed"
     exit 1
   fi
   export PROXMOX_VE_API_TOKEN=$PROXMOX_PLAN_API_TOKEN

@@ -280,7 +280,7 @@ class QualificationOrchestrationTests(unittest.TestCase):
         self.log.unlink(missing_ok=True)
         result = self.run_driver("inspect-recovery", extra_env={"FAKE_INIT_FAILURE": "1"})
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(result.stdout.strip(), "identity-mismatch")
+        self.assertEqual(result.stdout.strip(), "backend-init-failed")
         self.assertEqual(result.stderr, "")
 
     def test_recover_lock_binds_failed_run_proves_alignment_and_releases_exact_lease(self) -> None:
