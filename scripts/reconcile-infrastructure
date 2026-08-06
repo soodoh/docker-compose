@@ -21,13 +21,15 @@ Options:
   --proxmox-inventory <path>          Proxmox Ansible inventory
   --arch-inventory <path>             Arch Ansible inventory
   --arch-bootstrap-inventory <path>   Temporary Arch recovery inventory
-  --ct-decommission                   Plan/apply only qualified CT 101 deletion
-  --ct-unprotect                      Plan/apply only qualified CT 101 unprotection
+  --ct-operation <none|unprotect|delete>
+                                      Select the qualified CT retirement policy (default: none)
   --network-migration                 Permit only the reviewed hardware-mapping migration
 
 Required environment:
   TF_BACKEND_BUCKET                   Existing encrypted OpenTofu state bucket
   AWS credentials and provider TF_VAR_* credentials for every enabled root
+  PROXMOX_CT_DECOMMISSION_CONFIRMATION
+                                      Required outside protected CT steady state
 
 Apply additionally requires a clean checkout at the manifest commit and the
 DynamoDB mutation lease from the infrastructure contract. Recovery gates are
@@ -69,8 +71,7 @@ proxmox_inventory=inventory/infrastructure.yml
 arch_inventory=inventory/production.yml
 arch_bootstrap_inventory=inventory/arch-recovery.yml
 recovery_backup_id=
-ct_decommission=false
-ct_unprotect=false
+ct_retirement_operation=none
 network_migration=false
 
 while (($#)); do
@@ -106,13 +107,10 @@ while (($#)); do
       arch_bootstrap_inventory=$2
       shift 2
       ;;
-    --ct-decommission)
-      ct_decommission=true
-      shift
-      ;;
-    --ct-unprotect)
-      ct_unprotect=true
-      shift
+    --ct-operation)
+      (($# >= 2)) || usage
+      ct_retirement_operation=$2
+      shift 2
       ;;
     --network-migration)
       network_migration=true
@@ -150,14 +148,18 @@ if [[ $requested_action == recover ]]; then
 elif [[ -n $recovery_backup_id ]]; then
   usage
 fi
+case "$ct_retirement_operation" in none|unprotect|delete) ;; *) usage ;; esac
+unset TF_VAR_decommission_confirmation
+python3 .github/scripts/ct-retirement.py validate-operation \
+  --contract infrastructure/contract/home-lab.yml \
+  --operation "$ct_retirement_operation" || exit 64
+if [[ -n ${PROXMOX_CT_DECOMMISSION_CONFIRMATION:-} ]]; then
+  export TF_VAR_decommission_confirmation=$PROXMOX_CT_DECOMMISSION_CONFIRMATION
+fi
 ct_operation=false
-if [[ $ct_decommission == true || $ct_unprotect == true ]]; then ct_operation=true; fi
+if [[ $ct_retirement_operation != none ]]; then ct_operation=true; fi
 if [[ $ct_operation == true && $phase != steady ]]; then
   echo "CT operations require steady phase." >&2
-  exit 64
-fi
-if [[ $ct_decommission == true && $ct_unprotect == true ]]; then
-  echo "Select exactly one CT operation." >&2
   exit 64
 fi
 if [[ $network_migration == true && ($phase != steady || $ct_operation == true) ]]; then
@@ -184,6 +186,8 @@ if [[ $action == validate ]]; then
   scripts/validate-contract
   scripts/validate-provider-locks
   infrastructure/policy/test-policy.sh
+  python3 .github/scripts/test-ct-retirement.py
+  python3 .github/scripts/test-ct-compose-precheck.py
   scripts/test-recovery-tools
   python3 -m py_compile scripts/*.py .github/scripts/*.py
   shellcheck scripts/reconcile-infrastructure scripts/bootstrap-aws-state scripts/bootstrap-tailscale-state \
@@ -198,6 +202,7 @@ if [[ $action == validate ]]; then
     tofu -chdir="infrastructure/tofu/$root" init -backend=false -input=false >/dev/null
     tofu -chdir="infrastructure/tofu/$root" validate
   done
+  python3 .github/scripts/test-proxmox-legacy-retirement.py
   (
     cd ansible
     ansible-lint -c ../.ansible-lint playbooks roles
@@ -260,6 +265,10 @@ for root in "${roots[@]}"; do
 done
 roots=("${enabled_roots[@]}")
 unset enabled_roots
+if [[ $ct_operation == true && ${#roots[@]} -ne 6 ]]; then
+  echo "CT retirement requires every OpenTofu root to be enabled for no-op proof." >&2
+  exit 64
+fi
 sha256_file() {
   if command -v sha256sum >/dev/null; then
     sha256sum "$1" | awk '{print $1}'
@@ -383,7 +392,8 @@ tailscale_verify_state_policy() {
 assert_plan_excludes_credentials() {
   local plan=$1 variable value
   for variable in AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN PROXMOX_VE_API_TOKEN \
-    OMADA_PASSWORD GITHUB_TOKEN TAILSCALE_OAUTH_CLIENT_SECRET; do
+    OMADA_PASSWORD GITHUB_TOKEN TAILSCALE_OAUTH_CLIENT_SECRET \
+    PROXMOX_CT_DECOMMISSION_CONFIRMATION; do
     value=${!variable:-}
     [[ -z $value ]] && continue
     PLAN_FILE="$plan" SECRET_VALUE="$value" python3 - <<'PY'
@@ -417,7 +427,7 @@ policy_args() {
     mode=network-migration
   fi
   if [[ $ct_operation == true && $root == proxmox-legacy ]]; then
-    mode=ct-decommission
+    mode="ct-$ct_retirement_operation"
   fi
   if [[ $root == omada && $omada_qualification_operation != none ]]; then
     mode=qualification
@@ -442,8 +452,7 @@ root_plan_args() {
     fi
   fi
   if [[ $root == proxmox-legacy ]]; then
-    printf '%s\0' -var="decommission_legacy_ct=$ct_decommission"
-    printf '%s\0' -var="decommission_unprotect=$ct_unprotect"
+    printf '%s\0' -var="retirement_operation=$ct_retirement_operation"
   fi
   if [[ $root == omada && ${TF_VAR_omada_enable_management:-false} == true ]]; then
     printf '%s\0' -var="omada_export_path=$repo_root/.local/omada/export.json"
@@ -463,6 +472,7 @@ plan_all() {
   ./scripts/validate-provider-locks
 
   local root plan exit_code tailscale_policy_sha256 tailscale_policy_etag tailscale_policy_changed desired_policy desired_policy_sha256
+  local compose_hash retirement_stage
   for root in "${roots[@]}"; do
     echo "Planning OpenTofu root: $root"
     backend_init "$root"
@@ -524,17 +534,19 @@ plan_all() {
   fi
 
   compose_hash=$(python3 scripts/compose-artifact.py hash)
+  retirement_stage=$(contract_value proxmox.legacy_container.retirement_stage)
   jq -s \
     --arg commit "$commit" \
     --arg phase "$phase" \
-    --argjson ct_decommission "$ct_decommission" \
-    --argjson ct_unprotect "$ct_unprotect" \
+    --arg ct_retirement_operation "$ct_retirement_operation" \
+    --arg retirement_stage "$retirement_stage" \
     --argjson network_migration "$network_migration" \
     --arg backend_bucket "$backend_bucket" \
     --arg compose_hash "$compose_hash" \
-    '{version: 1, commit: $commit, phase: $phase, ct_decommission: $ct_decommission,
-      ct_unprotect: $ct_unprotect, network_migration: $network_migration,
-      backend_bucket: $backend_bucket, compose_artifact_sha256: $compose_hash, plans: .}' \
+    '{version: 2, commit: $commit, phase: $phase,
+      ct_retirement_operation: $ct_retirement_operation, retirement_stage: $retirement_stage,
+      network_migration: $network_migration, backend_bucket: $backend_bucket,
+      compose_artifact_sha256: $compose_hash, plans: .}' \
     "$records" >"$plan_dir/manifest.json"
   rm -f "$records"
   chmod 0600 "$plan_dir"/*
@@ -578,11 +590,12 @@ acquire_lease() {
 verify_manifest() {
   local manifest="$plan_dir/manifest.json"
   [[ -f $manifest ]] || { echo "saved-plan manifest is missing" >&2; exit 66; }
-  [[ $(jq -r .version "$manifest") == 1 ]]
+  python3 .github/scripts/ct-retirement.py verify-manifest \
+    --manifest "$manifest" \
+    --contract infrastructure/contract/home-lab.yml \
+    --operation "$ct_retirement_operation"
   [[ $(jq -r .commit "$manifest") == "$commit" ]]
   [[ $(jq -r .phase "$manifest") == "$phase" ]]
-  [[ $(jq -r .ct_decommission "$manifest") == "$ct_decommission" ]]
-  [[ $(jq -r .ct_unprotect "$manifest") == "$ct_unprotect" ]]
   [[ $(jq -r .network_migration "$manifest") == "$network_migration" ]]
   [[ $(jq -r .backend_bucket "$manifest") == "$backend_bucket" ]]
   [[ $(jq -r .compose_artifact_sha256 "$manifest") == "$(python3 scripts/compose-artifact.py hash)" ]]
@@ -860,11 +873,34 @@ verify_all() {
   popd >/dev/null
 }
 
-apply_ct_decommission() {
+verify_active_compose_artifact_for_ct_retirement() {
+  local expected_hash expected_vars check_log playbook_status=0
+  expected_hash=$(jq -er '.compose_artifact_sha256 | select(test("^[0-9a-f]{64}$"))' \
+    "$plan_dir/manifest.json")
+  expected_vars=$(mktemp)
+  check_log=$(mktemp)
+  chmod 0600 "$expected_vars" "$check_log"
+  jq -n --arg expected_hash "$expected_hash" \
+    '{compose_retirement_expected_artifact_sha256: $expected_hash}' >"$expected_vars"
+
+  pushd ansible >/dev/null
+  set +e
+  ansible-playbook -i "$arch_inventory" playbooks/verify-active-compose-artifact.yml \
+    --extra-vars "@$expected_vars" 2>&1 | tee "$check_log"
+  playbook_status=${PIPESTATUS[0]}
+  set -e
+  popd >/dev/null
+  if [[ $playbook_status -eq 0 ]] && ! python3 "$repo_root/.github/scripts/parse-ansible-recap.py" \
+    "$check_log" docker-host-production | jq -e \
+    '.changed == 0 and .unreachable == 0 and .failed == 0' >/dev/null; then
+    playbook_status=1
+  fi
+  rm -f "$expected_vars" "$check_log"
+  return "$playbook_status"
+}
+
+apply_ct_retirement() {
   local root tag
-  for root in aws-foundation proxmox omada tailscale github; do
-    apply_root "$root"
-  done
   pushd ansible >/dev/null
   ansible_require_noop "$proxmox_inventory" playbooks/proxmox-site.yml proxmox -e proxmox_ssh_access_proven=true
   for tag in base arch_network tailscale ssh storage docker sops_age hardware coral host_files compose maintenance; do
@@ -872,6 +908,10 @@ apply_ct_decommission() {
   done
   ansible_require_noop "$arch_inventory" playbooks/audit.yml docker-host-production
   popd >/dev/null
+  for root in aws-foundation proxmox omada tailscale github; do
+    apply_root "$root"
+  done
+  verify_active_compose_artifact_for_ct_retirement
   apply_root proxmox-legacy
   verify_all
 }
@@ -909,7 +949,7 @@ case "$action" in
       exit 0
     fi
     if [[ $ct_operation == true ]]; then
-      apply_ct_decommission
+      apply_ct_retirement
       exit 0
     fi
     if [[ $network_migration == true ]]; then

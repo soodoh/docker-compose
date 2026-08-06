@@ -8,6 +8,7 @@ on:
     paths:
       - .github/actions/ansible-controller/**
       - .github/requirements-ansible-controller.lock
+      - .github/scripts/**
       - .github/workflows/infrastructure-reconcile.yml
       - ansible/**
       - infrastructure/**
@@ -18,6 +19,7 @@ on:
     paths:
       - .github/actions/ansible-controller/**
       - .github/requirements-ansible-controller.lock
+      - .github/scripts/**
       - .github/workflows/infrastructure-reconcile.yml
       - ansible/**
       - infrastructure/**
@@ -32,6 +34,15 @@ on:
         options:
           - steady
           - adoption
+      ct_retirement:
+        description: Select the staged CT retirement operation
+        required: true
+        default: none
+        type: choice
+        options:
+          - none
+          - unprotect
+          - delete
       network_migration:
         description: Permit only the reviewed Proxmox hardware-mapping migration
         required: false
@@ -65,6 +76,7 @@ env:
 jobs:
   validate:
     name: Validate infrastructure
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -105,6 +117,8 @@ jobs:
           ./scripts/validate-contract
           ./scripts/validate-provider-locks
           ./infrastructure/policy/test-policy.sh
+          python .github/scripts/test-ct-retirement.py
+          python .github/scripts/test-ct-compose-precheck.py
           ./scripts/test-recovery-tools
           python -m py_compile scripts/*.py .github/scripts/*.py
           shellcheck scripts/reconcile-infrastructure scripts/bootstrap-aws-state scripts/bootstrap-tailscale-state \
@@ -130,6 +144,7 @@ jobs:
             tofu -chdir="infrastructure/tofu/$root" init -backend=false -input=false
             tofu -chdir="infrastructure/tofu/$root" validate
           done
+          python .github/scripts/test-proxmox-legacy-retirement.py
 
       - name: Lint and syntax-check every Ansible playbook
         working-directory: ansible
@@ -181,8 +196,31 @@ jobs:
           host-key-fingerprint: ${{ vars.ARCH_SSH_HOST_KEY_FINGERPRINT }}
           accept-subnet-routes: "false"
 
+      - name: Check out only the exact PR base contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .local/ct-retirement-base
+          sparse-checkout: infrastructure/contract/home-lab.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Select the reviewed CT retirement preview policy
+        id: ct-retirement
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          [[ $BASE_SHA =~ ^[0-9a-f]{40}$ ]]
+          [[ $(git -C .local/ct-retirement-base rev-parse HEAD) == "$BASE_SHA" ]]
+          python .github/scripts/ct-retirement.py transition \
+            --base-contract .local/ct-retirement-base/infrastructure/contract/home-lab.yml \
+            --head-contract infrastructure/contract/home-lab.yml \
+            --github-output "$GITHUB_OUTPUT"
+
       - name: Create policy-inspected saved plans
         env:
+          PROXMOX_CT_DECOMMISSION_CONFIRMATION: ${{ secrets.PROXMOX_CT_DECOMMISSION_CONFIRMATION }}
           TF_BACKEND_BUCKET: ${{ vars.TF_BACKEND_BUCKET }}
           TF_VAR_aws_region: ${{ vars.AWS_REGION }}
           TF_VAR_recovery_bucket_region: ${{ vars.AWS_RECOVERY_REGION }}
@@ -226,13 +264,15 @@ jobs:
           set -euo pipefail
           ./scripts/prepare-provider-ca-bundle
           ./scripts/prepare-omada-plan-input
-          ./scripts/reconcile-infrastructure plan --phase steady
+          ./scripts/reconcile-infrastructure plan --phase steady \
+            --ct-operation '${{ steps.ct-retirement.outputs.operation }}'
 
   dispatch-plan:
     name: Plan dispatched infrastructure
     needs: validate
     if: >-
       github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
       vars.INFRASTRUCTURE_APPLY_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -285,6 +325,7 @@ jobs:
 
       - name: Create policy-inspected saved plans with restricted credentials
         env:
+          PROXMOX_CT_DECOMMISSION_CONFIRMATION: ${{ secrets.PROXMOX_CT_DECOMMISSION_CONFIRMATION }}
           TF_BACKEND_BUCKET: ${{ vars.TF_BACKEND_BUCKET }}
           TF_VAR_aws_region: ${{ vars.AWS_REGION }}
           TF_VAR_recovery_bucket_region: ${{ vars.AWS_RECOVERY_REGION }}
@@ -336,7 +377,8 @@ jobs:
           if [[ '${{ inputs.network_migration }}' == true ]]; then
             migration_args+=(--network-migration)
           fi
-          ./scripts/reconcile-infrastructure plan --phase '${{ inputs.phase }}' "${migration_args[@]}"
+          ./scripts/reconcile-infrastructure plan --phase '${{ inputs.phase }}' \
+            --ct-operation '${{ inputs.ct_retirement }}' "${migration_args[@]}"
 
       - name: Encrypt the exact saved-plan bundle
         env:
@@ -365,6 +407,7 @@ jobs:
       - dispatch-plan
     if: >-
       github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
       vars.INFRASTRUCTURE_APPLY_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -456,6 +499,7 @@ jobs:
 
       - name: Apply the exact saved plans and audit
         env:
+          PROXMOX_CT_DECOMMISSION_CONFIRMATION: ${{ secrets.PROXMOX_CT_DECOMMISSION_CONFIRMATION }}
           TF_BACKEND_BUCKET: ${{ vars.TF_BACKEND_BUCKET }}
           TF_VAR_aws_region: ${{ vars.AWS_REGION }}
           TF_VAR_recovery_bucket_region: ${{ vars.AWS_RECOVERY_REGION }}
@@ -562,5 +606,6 @@ jobs:
             migration_args+=(--network-migration)
           fi
           ./scripts/reconcile-infrastructure apply --phase '${{ inputs.phase }}' \
+            --ct-operation '${{ inputs.ct_retirement }}' \
             --proxmox-inventory inventory/infrastructure.yml \
             --arch-inventory inventory/production.yml "${migration_args[@]}"

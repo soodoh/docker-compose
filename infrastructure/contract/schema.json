@@ -239,9 +239,22 @@
     },
     "legacyContainer": {
       "type": "object",
-      "additionalProperties": true,
-      "required": ["vmid", "name", "mac", "protected", "recreate_after_decommission"],
-      "properties": { "vmid": { "const": 101 }, "name": { "const": "tailscale-gateway" }, "mac": { "$ref": "#/$defs/mac" }, "protected": { "const": true }, "recreate_after_decommission": { "const": false } }
+      "additionalProperties": false,
+      "required": ["vmid", "name", "mac", "retirement_stage", "recreate_after_decommission", "root_datastore", "root_size_gb", "memory_mb", "swap_mb", "cores", "on_boot", "unprivileged"],
+      "properties": {
+        "vmid": { "const": 101 },
+        "name": { "const": "tailscale-gateway" },
+        "mac": { "$ref": "#/$defs/mac" },
+        "retirement_stage": { "type": "string", "enum": ["protected", "unprotected", "retired"] },
+        "recreate_after_decommission": { "const": false },
+        "root_datastore": { "type": "string", "minLength": 1 },
+        "root_size_gb": { "type": "integer", "minimum": 1 },
+        "memory_mb": { "type": "integer", "minimum": 1 },
+        "swap_mb": { "type": "integer", "minimum": 0 },
+        "cores": { "type": "integer", "minimum": 1 },
+        "on_boot": { "type": "boolean" },
+        "unprivileged": { "type": "boolean" }
+      }
     },
     "zfs": {
       "type": "object",

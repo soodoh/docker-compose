@@ -2,37 +2,46 @@ variable "proxmox_endpoint" {
   type = string
 }
 
+variable "retirement_operation" {
+  type    = string
+  default = "none"
 
-variable "decommission_legacy_ct" {
-  type    = bool
-  default = false
-}
-
-variable "decommission_unprotect" {
-  type    = bool
-  default = false
+  validation {
+    condition     = contains(["none", "unprotect", "delete"], var.retirement_operation)
+    error_message = "retirement_operation must be none, unprotect, or delete."
+  }
 }
 
 variable "decommission_confirmation" {
   type      = string
   sensitive = true
+  ephemeral = true
   default   = ""
-}
 
-check "decommission_gate" {
-  assert {
+  validation {
     condition = (
-      !(var.decommission_legacy_ct || var.decommission_unprotect) || (
-        var.decommission_confirmation == "decommission-ct-101-after-direct-tailscale-qualified" &&
-        !local.legacy.recreate_after_decommission &&
-        !(var.decommission_legacy_ct && var.decommission_unprotect)
-    ))
-    error_message = "CT 101 decommission requires the exact post-qualification confirmation."
+      local.operation_matches_stage &&
+      !local.legacy.recreate_after_decommission &&
+      (
+        (local.retirement_stage == "protected" && var.retirement_operation == "none") ||
+        sha256(var.decommission_confirmation) == "6aef61a66bc191b96d854e1c34be3a8c79178bd1ae864a2cdc5bc8700c5eff8c"
+      )
+    )
+    error_message = "CT retirement requires a matching durable stage, disabled recreation, and the exact confirmation when gated."
   }
 }
+
 locals {
-  contract = yamldecode(file("${path.module}/../../contract/home-lab.yml"))
-  legacy   = local.contract.proxmox.legacy_container
+  contract          = yamldecode(file("${path.module}/../../contract/home-lab.yml"))
+  legacy            = local.contract.proxmox.legacy_container
+  retirement_stage  = local.legacy.retirement_stage
+  legacy_enabled    = local.retirement_stage != "retired"
+  legacy_protection = local.retirement_stage == "protected"
+  operation_matches_stage = (
+    var.retirement_operation == "none" ||
+    (var.retirement_operation == "unprotect" && local.retirement_stage == "unprotected") ||
+    (var.retirement_operation == "delete" && local.retirement_stage == "retired")
+  )
 }
 
 provider "proxmox" {
@@ -41,12 +50,12 @@ provider "proxmox" {
 }
 
 resource "proxmox_virtual_environment_container" "tailscale_gateway" {
-  count       = var.decommission_legacy_ct ? 0 : 1
+  count       = local.legacy_enabled ? 1 : 0
   node_name   = local.contract.proxmox.node
   vm_id       = local.legacy.vmid
   description = "Legacy recovery gateway; adopted only for controlled decommission"
 
-  protection    = var.decommission_unprotect ? false : local.legacy.protected
+  protection    = local.legacy_protection
   started       = true
   start_on_boot = local.legacy.on_boot
   unprivileged  = local.legacy.unprivileged
@@ -122,11 +131,10 @@ resource "proxmox_virtual_environment_container" "tailscale_gateway" {
       vm_id,
     ]
   }
-
 }
 
 import {
-  for_each = var.decommission_legacy_ct ? toset([]) : toset(["${local.contract.proxmox.node}/${local.legacy.vmid}"])
+  for_each = local.legacy_enabled ? toset(["${local.contract.proxmox.node}/${local.legacy.vmid}"]) : toset([])
   to       = proxmox_virtual_environment_container.tailscale_gateway[0]
   id       = each.value
 }
