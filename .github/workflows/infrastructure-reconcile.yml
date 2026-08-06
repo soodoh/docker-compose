@@ -59,6 +59,11 @@ on:
         required: false
         default: false
         type: boolean
+      disk_growth:
+        description: Grow only VM 100 root disk from 400 to 550 GiB
+        required: false
+        default: false
+        type: boolean
       omada_qualification:
         description: Run only the disposable Omada provider qualification operation
         required: false
@@ -409,6 +414,9 @@ jobs:
           if [[ '${{ inputs.network_migration }}' == true ]]; then
             migration_args+=(--network-migration)
           fi
+          if [[ '${{ inputs.disk_growth }}' == true ]]; then
+            migration_args+=(--disk-growth)
+          fi
           ./scripts/reconcile-infrastructure plan --phase '${{ inputs.phase }}' \
             --ct-operation '${{ inputs.ct_retirement }}' \
             --tailscale-gateway-operation '${{ inputs.tailscale_gateway }}' "${migration_args[@]}"
@@ -638,6 +646,9 @@ jobs:
           migration_args=()
           if [[ '${{ inputs.network_migration }}' == true ]]; then
             migration_args+=(--network-migration)
+          fi
+          if [[ '${{ inputs.disk_growth }}' == true ]]; then
+            migration_args+=(--disk-growth)
           fi
           ./scripts/reconcile-infrastructure apply --phase '${{ inputs.phase }}' \
             --ct-operation '${{ inputs.ct_retirement }}' \

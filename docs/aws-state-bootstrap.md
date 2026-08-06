@@ -1,6 +1,8 @@
 # AWS state bootstrap and migration
 
-The AWS foundation root is intentionally local-state first because it creates the remote state bucket, recovery bucket, KMS keys, and DynamoDB lease table used by later roots.
+The AWS foundation root is intentionally local-state first because it creates the remote state bucket, recovery bucket, KMS keys, and GitHub OIDC roles used by later roots. Root operations use native OpenTofu S3 lockfiles rather than a separate DynamoDB lease table.
+
+The migration away from the former global lease is destructive only for that obsolete table. The reviewed AWS-foundation plan first updates the apply policy with temporary `GetItem`, `DescribeTable`, and `DeleteTable` authority scoped to the exact former table; the count-zero tombstone depends on that update. Immediately before exact-plan apply, the reconciler performs a consistent read of only the fixed production lease key and refuses retirement unless the item is absent. Plan policy permits only the exact former name, key schema, billing mode, TTL schema, and deletion address. After a successful delete and no-op proof, use a follow-up reviewed PR to remove the transitional tombstone and temporary DynamoDB authority. A failed deletion is non-authoritative and must be replanned after inspection.
 
 1. Authenticate with a reviewed bootstrap identity and populate protected `TF_VAR_*` values.
 2. Ensure the checkout is clean and inspect `scripts/bootstrap-aws-state`.

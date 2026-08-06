@@ -15,7 +15,7 @@ Configure environment-scoped values with distinct capabilities:
 
 The Tailscale client IDs and audiences are OpenTofu-managed environment variables read from the Tailscale root's remote state. GitHub exchanges short-lived OIDC tokens directly with Tailscale; no reusable Tailscale provider secret belongs in SOPS or GitHub. See [`tailscale-adoption.md`](./tailscale-adoption.md).
 
-The apply role needs backend/state access, the DynamoDB lease, and only the mutation permissions modeled by the roots. The plan role must not have mutation permissions. Provider credentials are supplied through provider environment variables, not OpenTofu input variables.
+The apply role needs backend/state access and only the mutation permissions modeled by the roots. The plan role must not have mutation permissions. GitHub concurrency, host apply locks, and each root's native OpenTofu S3 lock provide serialization. Provider credentials are supplied through provider environment variables, not OpenTofu input variables.
 
 Protected environment variables carry explicit gates for SSH proof, ZFS migration review, image-lock bootstrap, Proxmox apply/passthrough, console access, LAN rollback, and Arch network restart. Missing or false gates must stop the job. Provision the CT confirmation out of band; do not record its acknowledgement value in Git, workflow inputs, CLI arguments, manifests, or logs. The reconciler verifies the environment secret without printing it and exports it only as the sensitive OpenTofu input environment variable. It is required for special CT operations and for ordinary converged plans whenever the committed stage is `unprotected` or `retired`; protected operation `none` remains valid without it.
 

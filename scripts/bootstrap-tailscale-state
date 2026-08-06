@@ -161,34 +161,6 @@ apply_planned_policy() {
   rm -f "$desired" "$response"
 }
 
-lease_table=$(contract_value aws.mutation_lease_table)
-lease_owner="tailscale-bootstrap:$$:$(git rev-parse HEAD)"
-lease_held=false
-release_lease() {
-  if [[ $lease_held == true ]]; then
-    aws dynamodb delete-item \
-      --region "$aws_region" \
-      --table-name "$lease_table" \
-      --key '{"LeaseName":{"S":"home-lab-production"}}' \
-      --condition-expression '#owner = :owner' \
-      --expression-attribute-names '{"#owner":"Owner"}' \
-      --expression-attribute-values "{\":owner\":{\"S\":\"$lease_owner\"}}" \
-      >/dev/null || echo "warning: global mutation lease release failed" >&2
-  fi
-}
-trap release_lease EXIT
-
-now=$(date +%s)
-expires=$((now + 14400))
-aws dynamodb put-item \
-  --region "$aws_region" \
-  --table-name "$lease_table" \
-  --item "{\"LeaseName\":{\"S\":\"home-lab-production\"},\"Owner\":{\"S\":\"$lease_owner\"},\"ExpiresAt\":{\"N\":\"$expires\"}}" \
-  --condition-expression 'attribute_not_exists(LeaseName) OR #expires < :now' \
-  --expression-attribute-names '{"#expires":"ExpiresAt"}' \
-  --expression-attribute-values "{\":now\":{\"N\":\"$now\"}}" \
-  >/dev/null
-lease_held=true
 
 IFS=$'\t' read -r planned_policy_sha planned_policy_etag < <(tailscale_policy_identity)
 printf '%s\n' "$planned_policy_sha" >"$workspace/planned-policy.sha256"

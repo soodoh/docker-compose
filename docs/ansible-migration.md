@@ -106,7 +106,7 @@ bootstrap command and reported that the audit completed with `changed=0`.
   It asserts the adopted aligned client/server version and refuses drift.
 - `compose` performs only config, count, legacy-volume, and dry-run-create preflight checks. It never runs Compose
   up/down/pull/restart, removes orphans, or changes volumes.
-- `health` verifies 41 services remain running and requires Gluetun and Seerr to remain healthy.
+- `health` verifies all 41 services remain running and requires Gluetun and Seerr to remain healthy.
 
 Package, service, and copy tasks elevate only during a separately guarded normal run; check mode is unprivileged.
 Run the complete plan from any trusted controller clone:
@@ -155,7 +155,7 @@ A manual restore drill is mandatory before any stateful Compose adoption or appl
 and approved, and must not touch production volumes. At minimum:
 
 1. Verify the decryption key is available from its recovery location outside Git and CI.
-2. Select a recent local encrypted backup and independently verify the corresponding remote object exists.
+2. Select and hash a recent local encrypted backup. Independently inventory the separate weekly S3 archive for remote-RPO evidence, but do not block a local restore on weekly upload completion.
 3. Restore into an isolated disposable destination, never over a production volume or bind directory.
 4. Verify archive integrity, expected ownership/modes, and application-level readability for at least one stateful
    service.

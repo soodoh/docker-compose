@@ -12,11 +12,10 @@ usage: scripts/reconcile-infrastructure <validate|bootstrap|adopt|plan|apply|rec
 Compatibility commands are deliberately plan-only:
   bootstrap                           Plan the recovery/bootstrap phase
   adopt                               Plan the import-only adoption phase
-  recover --backup-id <exact-id>      Plan recovery bound to the exact protected input
+  recover                             Plan recovery with automatic local-first selection
 
 Options:
   --phase <adoption|steady|recovery>  Desired Proxmox phase (plan/apply/verify only; default: steady)
-  --backup-id <exact-id>              Required by recover; must match the protected extra-vars file
   --plan-dir <path>                   Protected saved-plan directory
   --proxmox-inventory <path>          Proxmox Ansible inventory
   --arch-inventory <path>             Arch Ansible inventory
@@ -26,6 +25,7 @@ Options:
   --tailscale-gateway-operation <none|detach|retire>
                                       Select the guarded gateway-policy lifecycle (default: none)
   --network-migration                 Permit only the reviewed hardware-mapping migration
+  --disk-growth                      Permit only reviewed VM 100 root-disk growth
 
 Required environment:
   TF_BACKEND_BUCKET                   Existing encrypted OpenTofu state bucket
@@ -33,9 +33,9 @@ Required environment:
   PROXMOX_CT_DECOMMISSION_CONFIRMATION
                                       Required outside protected CT steady state
 
-Apply additionally requires a clean checkout at the manifest commit and the
-DynamoDB mutation lease from the infrastructure contract. CT and Tailscale
-gateway lifecycle applies additionally require the exact main commit. Recovery
+Apply additionally requires a clean checkout at the manifest commit. GitHub workflow
+concurrency, per-root OpenTofu S3 locks, and the host-side apply lock serialize mutation.
+CT and Tailscale gateway lifecycle applies additionally require the exact main commit. Recovery
 gates are supplied only through RECONCILE_ANSIBLE_EXTRA_VARS_FILE (an ignored root-only
 YAML file); they are never accepted as shell text. Proxmox host bootstrap must
 already have been run locally with console/LAN fallback before recovery apply.
@@ -73,10 +73,10 @@ plan_dir="$repo_root/.reconcile/plans"
 proxmox_inventory=inventory/infrastructure.yml
 arch_inventory=inventory/production.yml
 arch_bootstrap_inventory=inventory/arch-recovery.yml
-recovery_backup_id=
 ct_retirement_operation=none
 tailscale_gateway_operation=none
 network_migration=false
+disk_growth=false
 
 while (($#)); do
   case "$1" in
@@ -84,11 +84,6 @@ while (($#)); do
       (($# >= 2)) || usage
       [[ $compatibility_action == false ]] || usage
       phase=$2
-      shift 2
-      ;;
-    --backup-id)
-      (($# >= 2)) || usage
-      recovery_backup_id=$2
       shift 2
       ;;
     --plan-dir)
@@ -125,6 +120,10 @@ while (($#)); do
       network_migration=true
       shift
       ;;
+    --disk-growth)
+      disk_growth=true
+      shift
+      ;;
     *) usage ;;
   esac
 done
@@ -152,11 +151,6 @@ if [[ $omada_qualification_operation != none && $phase != steady ]]; then
   echo "Omada qualification requires steady phase." >&2
   exit 64
 fi
-if [[ $requested_action == recover ]]; then
-  [[ $recovery_backup_id =~ ^(daily-remote-backup|weekly-backup)-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}\.tar\.gz\.gpg$ ]] || usage
-elif [[ -n $recovery_backup_id ]]; then
-  usage
-fi
 case "$ct_retirement_operation" in none|unprotect|delete) ;; *) usage ;; esac
 case "$tailscale_gateway_operation" in none|detach|retire) ;; *) usage ;; esac
 unset TF_VAR_decommission_confirmation
@@ -181,19 +175,23 @@ if [[ $tailscale_gateway_lifecycle == true && $phase != steady ]]; then
   echo "Tailscale gateway-policy operations require steady phase." >&2
   exit 64
 fi
-if [[ $network_migration == true && ($phase != steady || $ct_operation == true || $tailscale_gateway_lifecycle == true) ]]; then
+if [[ $network_migration == true && ($phase != steady || $disk_growth == true || $ct_operation == true || $tailscale_gateway_lifecycle == true) ]]; then
   echo "Network migration requires steady phase and cannot be combined with lifecycle operations." >&2
+  exit 64
+fi
+if [[ $disk_growth == true && ($phase != steady || $ct_operation == true || $tailscale_gateway_lifecycle == true) ]]; then
+  echo "Disk growth requires steady phase and cannot be combined with another special operation." >&2
   exit 64
 fi
 if [[ $ct_operation == true && $tailscale_gateway_lifecycle == true ]]; then
   echo "CT and Tailscale gateway-policy lifecycle operations cannot be combined." >&2
   exit 64
 fi
-if [[ $omada_qualification_operation != none && ($network_migration == true || $ct_operation == true || $tailscale_gateway_lifecycle == true) ]]; then
+if [[ $omada_qualification_operation != none && ($network_migration == true || $disk_growth == true || $ct_operation == true || $tailscale_gateway_lifecycle == true) ]]; then
   echo "Omada qualification cannot be combined with another special operation." >&2
   exit 64
 fi
-if [[ $action == apply && ($ct_operation == true || $tailscale_gateway_lifecycle == true) ]]; then
+if [[ $action == apply && ($disk_growth == true || $ct_operation == true || $tailscale_gateway_lifecycle == true) ]]; then
   python3 .github/scripts/reconcile-apply-source.py
 fi
 case "$plan_dir" in
@@ -267,6 +265,25 @@ process.stdout.write(String(value));
 NODE
 }
 
+recovery_expected_backup_identity_sha256() {
+  if [[ $phase != recovery ]]; then
+    printf '\n'
+    return
+  fi
+  [[ -n ${RECONCILE_ANSIBLE_EXTRA_VARS_FILE:-} && -f $RECONCILE_ANSIBLE_EXTRA_VARS_FILE ]] || {
+    echo "Recovery planning requires the protected Ansible extra-vars file." >&2
+    return 1
+  }
+  EXTRA_VARS_FILE="$RECONCILE_ANSIBLE_EXTRA_VARS_FILE" node --input-type=module - <<'NODE'
+import fs from "node:fs";
+import yaml from "js-yaml";
+const document = yaml.load(fs.readFileSync(process.env.EXTRA_VARS_FILE, "utf8"));
+const value = document?.recovery_expected_backup_identity_sha256;
+if (typeof value !== "string" || !/^[0-9a-f]{64}$/.test(value)) process.exit(1);
+process.stdout.write(value);
+NODE
+}
+
 backend_bucket=${TF_BACKEND_BUCKET:-}
 if [[ -z $backend_bucket ]]; then
   backend_bucket=$(contract_value aws.state_bucket) || {
@@ -275,7 +292,6 @@ if [[ -z $backend_bucket ]]; then
   }
 fi
 aws_region=${AWS_REGION:-$(contract_value aws.region)}
-lease_table=$(contract_value aws.mutation_lease_table)
 commit=$(git rev-parse HEAD)
 
 roots=(aws-foundation proxmox omada tailscale github)
@@ -494,6 +510,9 @@ policy_args() {
   if [[ $network_migration == true && $root == proxmox ]]; then
     mode=network-migration
   fi
+  if [[ $disk_growth == true && $root == proxmox ]]; then
+    mode=disk-growth
+  fi
   if [[ $ct_operation == true && $root == proxmox-legacy ]]; then
     mode="ct-$ct_retirement_operation"
   fi
@@ -543,7 +562,7 @@ plan_all() {
   ./scripts/validate-provider-locks
 
   local root plan exit_code tailscale_live_policy_sha256 tailscale_policy_before_sha256 tailscale_policy_after_sha256 tailscale_policy_etag tailscale_policy_changed
-  local planned_before_policy planned_after_policy compose_hash retirement_stage tailscale_gateway_policy_stage
+  local planned_before_policy planned_after_policy compose_hash retirement_stage tailscale_gateway_policy_stage recovery_backup_identity_sha256
   for root in "${roots[@]}"; do
     echo "Planning OpenTofu root: $root"
     backend_init "$root"
@@ -624,10 +643,20 @@ plan_all() {
       exit 1
     }
   fi
+  if [[ $disk_growth == true ]]; then
+    jq -s -e '
+      (map(select(.root == "proxmox" and .changed == true)) | length == 1) and
+      (map(select(.root != "proxmox" and .root != "aws-foundation" and .changed == true)) | length == 0)
+    ' "$records" >/dev/null || {
+      echo "Disk growth requires every non-AWS OpenTofu root except Proxmox to be a no-op." >&2
+      exit 1
+    }
+  fi
 
   compose_hash=$(python3 scripts/compose-artifact.py hash)
   retirement_stage=$(contract_value proxmox.legacy_container.retirement_stage)
   tailscale_gateway_policy_stage=$(contract_value tailscale.gateway_policy_stage)
+  recovery_backup_identity_sha256=$(recovery_expected_backup_identity_sha256)
   jq -s \
     --arg commit "$commit" \
     --arg phase "$phase" \
@@ -636,13 +665,16 @@ plan_all() {
     --arg tailscale_gateway_operation "$tailscale_gateway_operation" \
     --arg tailscale_gateway_policy_stage "$tailscale_gateway_policy_stage" \
     --argjson network_migration "$network_migration" \
+    --argjson disk_growth "$disk_growth" \
     --arg backend_bucket "$backend_bucket" \
     --arg compose_hash "$compose_hash" \
+    --arg recovery_backup_identity_sha256 "$recovery_backup_identity_sha256" \
     '{version: 2, commit: $commit, phase: $phase,
       ct_retirement_operation: $ct_retirement_operation, retirement_stage: $retirement_stage,
       tailscale_gateway_operation: $tailscale_gateway_operation,
       tailscale_gateway_policy_stage: $tailscale_gateway_policy_stage,
-      network_migration: $network_migration, backend_bucket: $backend_bucket,
+      network_migration: $network_migration, disk_growth: $disk_growth, backend_bucket: $backend_bucket,
+      recovery_backup_identity_sha256: $recovery_backup_identity_sha256,
       compose_artifact_sha256: $compose_hash, plans: .}' \
     "$records" >"$plan_dir/manifest.json"
   rm -f "$records"
@@ -650,39 +682,8 @@ plan_all() {
   echo "Saved reviewed plans and manifest under $plan_dir"
 }
 
-lease_owner="${GITHUB_RUN_ID:-local}:$$:$commit"
-lease_held=false
-release_lease() {
-  if [[ $lease_held == true ]]; then
-    aws dynamodb delete-item \
-      --region "$aws_region" \
-      --table-name "$lease_table" \
-      --key "{\"LeaseName\":{\"S\":\"home-lab-production\"}}" \
-      --condition-expression "#owner = :owner" \
-      --expression-attribute-names '{"#owner":"Owner"}' \
-      --expression-attribute-values "{\":owner\":{\"S\":\"$lease_owner\"}}" \
-      >/dev/null || echo "warning: global mutation lease release failed" >&2
-    lease_held=false
-  fi
-}
-trap release_lease EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-
-acquire_lease() {
-  local now expires
-  now=$(date +%s)
-  expires=$((now + 14400))
-  aws dynamodb put-item \
-    --region "$aws_region" \
-    --table-name "$lease_table" \
-    --item "{\"LeaseName\":{\"S\":\"home-lab-production\"},\"Owner\":{\"S\":\"$lease_owner\"},\"ExpiresAt\":{\"N\":\"$expires\"}}" \
-    --condition-expression "attribute_not_exists(LeaseName) OR #expires < :now" \
-    --expression-attribute-names '{"#expires":"ExpiresAt"}' \
-    --expression-attribute-values "{\":now\":{\"N\":\"$now\"}}" \
-    >/dev/null
-  lease_held=true
-}
 
 verify_manifest() {
   local manifest="$plan_dir/manifest.json"
@@ -698,8 +699,10 @@ verify_manifest() {
   [[ $(jq -r .commit "$manifest") == "$commit" ]]
   [[ $(jq -r .phase "$manifest") == "$phase" ]]
   [[ $(jq -r .network_migration "$manifest") == "$network_migration" ]]
+  [[ $(jq -r .disk_growth "$manifest") == "$disk_growth" ]]
   [[ $(jq -r .backend_bucket "$manifest") == "$backend_bucket" ]]
   [[ $(jq -r .compose_artifact_sha256 "$manifest") == "$(python3 scripts/compose-artifact.py hash)" ]]
+  [[ $(jq -r .recovery_backup_identity_sha256 "$manifest") == "$(recovery_expected_backup_identity_sha256)" ]]
 
   local expected_roots
   expected_roots=$(printf '%s\n' "${roots[@]}" | jq -R . | jq -s 'sort')
@@ -738,6 +741,39 @@ verify_manifest() {
     mapfile -d '' -t inspect_args < <(policy_args "$root")
     TOFU_PLAN_CHDIR="infrastructure/tofu/$root" ./scripts/inspect-tofu-plan "$plan_dir/$file" "${inspect_args[@]}"
   done < <(jq -r '.plans[] | [.root, .file, .sha256] | @tsv' "$manifest")
+}
+
+assert_retired_mutation_lease_absent() {
+  local plan=$1 classification
+  classification=$(tofu -chdir=infrastructure/tofu/aws-foundation show -json "$plan" \
+    | jq -r 'if any(.resource_changes[]?;
+        ((.address == "aws_dynamodb_table.mutation_lease") or
+         (.address == "aws_dynamodb_table.mutation_lease[0]" and
+          .previous_address == "aws_dynamodb_table.mutation_lease")) and
+        .type == "aws_dynamodb_table" and
+        .change.actions == ["delete"])
+      then "retire" else "skip" end') || {
+    echo "obsolete mutation lease retirement plan inspection failed" >&2
+    exit 66
+  }
+  case "$classification" in
+    skip) return ;;
+    retire) ;;
+    *)
+      echo "obsolete mutation lease retirement plan classification is invalid" >&2
+      exit 66
+      ;;
+  esac
+  aws dynamodb get-item \
+    --region "$aws_region" \
+    --table-name home-lab-infrastructure-lease \
+    --key '{"LeaseName":{"S":"home-lab-production"}}' \
+    --projection-expression LeaseName \
+    --consistent-read \
+    | jq -e '((.Item // {}) | length) == 0' >/dev/null || {
+      echo "obsolete mutation lease is not proved absent; refusing table retirement" >&2
+      exit 66
+    }
 }
 
 apply_root() {
@@ -790,6 +826,9 @@ apply_root() {
       [[ -z ${TAILSCALE_APPLY_AUDIENCE:-} ]] || export TAILSCALE_AUDIENCE=$TAILSCALE_APPLY_AUDIENCE
       ;;
   esac
+  if [[ $root == aws-foundation ]]; then
+    assert_retired_mutation_lease_absent "$plan_dir/$plan_file"
+  fi
   if [[ $root == tailscale ]]; then
     expected_policy_before_sha256=$(jq -r --arg root "$root" '.plans[] | select(.root == $root) | .tailscale_policy_before_sha256' "$plan_dir/manifest.json")
     expected_policy_after_sha256=$(jq -r --arg root "$root" '.plans[] | select(.root == $root) | .tailscale_policy_after_sha256' "$plan_dir/manifest.json")
@@ -827,17 +866,6 @@ fi
 if [[ $requested_action == recover ]]; then
   [[ -n ${RECONCILE_ANSIBLE_EXTRA_VARS_FILE:-} ]] || {
     echo "recover requires RECONCILE_ANSIBLE_EXTRA_VARS_FILE" >&2
-    exit 66
-  }
-  protected_backup_id=$(EXTRA_VARS_FILE="$RECONCILE_ANSIBLE_EXTRA_VARS_FILE" node --input-type=module - <<'NODE'
-import fs from "node:fs";
-import yaml from "js-yaml";
-const document = yaml.load(fs.readFileSync(process.env.EXTRA_VARS_FILE, "utf8"));
-process.stdout.write(String(document?.recovery_backup_id ?? ""));
-NODE
-  )
-  [[ $protected_backup_id == "$recovery_backup_id" ]] || {
-    echo "recover backup ID differs from the protected extra-vars file" >&2
     exit 66
   }
 fi
@@ -1059,6 +1087,44 @@ apply_network_migration() {
   verify_all
 }
 
+apply_disk_growth() {
+  local root exit_code
+  for root in proxmox-legacy omada tailscale github; do
+    apply_root "$root"
+  done
+  echo "Leaving the separately reviewed AWS retirement plan unapplied during disk growth."
+  pushd ansible >/dev/null
+  ansible-playbook -i "$arch_inventory" playbooks/root-disk-transaction-lock.yml \
+    -e root_disk_transaction_lock_action=acquire
+  popd >/dev/null
+  apply_root proxmox
+  pushd ansible >/dev/null
+  ansible-playbook -i "$arch_inventory" playbooks/grow-root-filesystem.yml \
+    -e arch_root_disk_growth_confirmation=grow-reviewed-docker-root-disk \
+    -e root_disk_growth_lock_already_held=true
+  popd >/dev/null
+  backend_init proxmox
+  mapfile -d '' -t plan_args < <(root_plan_args proxmox)
+  set +e
+  tofu -chdir=infrastructure/tofu/proxmox plan -input=false -lock-timeout=5m \
+    -parallelism=1 -detailed-exitcode "${plan_args[@]}"
+  exit_code=$?
+  set -e
+  [[ $exit_code == 0 ]] || {
+    echo "Proxmox root is not converged after disk growth." >&2
+    exit 1
+  }
+  pushd ansible >/dev/null
+  ansible-playbook -i "$arch_inventory" playbooks/grow-root-filesystem.yml --check \
+    -e arch_root_disk_growth_confirmation=grow-reviewed-docker-root-disk \
+    -e root_disk_growth_lock_already_held=true
+  popd >/dev/null
+  pushd ansible >/dev/null
+  ansible-playbook -i "$arch_inventory" playbooks/root-disk-transaction-lock.yml \
+    -e root_disk_transaction_lock_action=release
+  popd >/dev/null
+}
+
 case "$action" in
   plan)
     plan_all
@@ -1069,7 +1135,6 @@ case "$action" in
       exit 65
     fi
     verify_manifest
-    acquire_lease
     if [[ $phase == adoption ]]; then
       for root in "${roots[@]}"; do apply_root "$root"; done
       verify_all
@@ -1085,6 +1150,10 @@ case "$action" in
     fi
     if [[ $network_migration == true ]]; then
       apply_network_migration
+      exit 0
+    fi
+    if [[ $disk_growth == true ]]; then
+      apply_disk_growth
       exit 0
     fi
     apply_root aws-foundation

@@ -54,6 +54,7 @@ def parse_args() -> argparse.Namespace:
             "ct-gateway-detach",
             "ct-gateway-retire",
             "network-migration",
+            "disk-growth",
             "qualification",
         ),
         default="normal",
@@ -289,6 +290,38 @@ def main() -> int:
                 failures.append(f"{address}: migration permits only the complete VM 100 host-device mapping transition")
             continue
 
+        if args.mode == "disk-growth":
+            before = change.get("before") or {}
+            after = change.get("after") or {}
+            before_disks = before.get("disk")
+            after_disks = after.get("disk")
+            expected_after = deepcopy(before)
+            valid_disks = (
+                isinstance(before_disks, list)
+                and isinstance(after_disks, list)
+                and len(before_disks) == 2
+                and len(after_disks) == 2
+                and before_disks[0].get("interface") == "scsi0"
+                and before_disks[0].get("datastore_id") == "local-lvm"
+                and before_disks[0].get("size") == 400
+                and after_disks[0].get("size") == 550
+            )
+            if valid_disks:
+                expected_after["disk"] = deepcopy(before_disks)
+                expected_after["disk"][0]["size"] = 550
+            if (
+                address != "proxmox_virtual_environment_vm.arch"
+                or actions != ["update"]
+                or before.get("vm_id") != 100
+                or after.get("vm_id") != 100
+                or before.get("protection") is not True
+                or after.get("protection") is not True
+                or not valid_disks
+                or after != expected_after
+            ):
+                failures.append(f"{address}: disk-growth mode permits only VM 100 scsi0 growth from 400 to 550 GiB")
+            continue
+
         if args.mode in {"ct-gateway-detach", "ct-gateway-retire"}:
             try:
                 before_policy = policy_json(change, "before")
@@ -365,6 +398,28 @@ def main() -> int:
         if retired_branch_policy_delete:
             continue
 
+        retired_mutation_lease_before = change.get("before") or {}
+        retired_mutation_lease_delete = (
+            (
+                address == "aws_dynamodb_table.mutation_lease"
+                or (
+                    address == "aws_dynamodb_table.mutation_lease[0]"
+                    and resource.get("previous_address") == "aws_dynamodb_table.mutation_lease"
+                )
+            )
+            and resource_type == "aws_dynamodb_table"
+            and actions == ["delete"]
+            and retired_mutation_lease_before.get("name") == "home-lab-infrastructure-lease"
+            and retired_mutation_lease_before.get("billing_mode") == "PAY_PER_REQUEST"
+            and retired_mutation_lease_before.get("hash_key") == "LeaseName"
+            and retired_mutation_lease_before.get("attribute") == [{"name": "LeaseName", "type": "S"}]
+            and retired_mutation_lease_before.get("ttl")
+            == [{"attribute_name": "ExpiresAt", "enabled": True}]
+            and change.get("after") is None
+        )
+        if retired_mutation_lease_delete:
+            continue
+
         if "delete" in actions:
             failures.append(f"{address}: delete or replacement is forbidden")
             continue
@@ -399,6 +454,11 @@ def main() -> int:
         and observed_addresses != MAPPING_ADDRESSES | {"proxmox_virtual_environment_vm.arch"}
     ):
         failures.append("hardware migration plan must contain all mappings and the VM transition")
+    if args.mode == "disk-growth" and (
+        observed_actions != 1
+        or observed_addresses != {"proxmox_virtual_environment_vm.arch"}
+    ):
+        failures.append("disk growth plan must contain exactly one VM 100 action")
     if args.mode in {"ct-gateway-detach", "ct-gateway-retire"} and (
         observed_actions != 1
         or observed_addresses != {"terraform_data.tailscale_policy[0]"}

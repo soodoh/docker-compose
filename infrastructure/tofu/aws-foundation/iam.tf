@@ -8,9 +8,10 @@ locals {
     "home-lab/tailscale/tofu.tfstate",
     "home-lab/github/tofu.tfstate",
   ]
-  state_arns            = [for key in local.state_keys : "${aws_s3_bucket.state.arn}/${key}"]
-  lock_arns             = [for key in local.state_keys : "${aws_s3_bucket.state.arn}/${key}.tflock"]
-  github_subject_prefix = "repo:${var.github_owner}@${var.github_owner_id}/${var.github_repository}@${var.github_repository_id}"
+  state_arns                 = [for key in local.state_keys : "${aws_s3_bucket.state.arn}/${key}"]
+  lock_arns                  = [for key in local.state_keys : "${aws_s3_bucket.state.arn}/${key}.tflock"]
+  github_subject_prefix      = "repo:${var.github_owner}@${var.github_owner_id}/${var.github_repository}@${var.github_repository_id}"
+  retired_mutation_lease_arn = "arn:${data.aws_partition.current.partition}:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/home-lab-infrastructure-lease"
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -130,15 +131,6 @@ data "aws_iam_policy_document" "state_plan" {
     actions   = ["iam:Get*", "iam:List*"]
     resources = ["*"]
   }
-  statement {
-    actions = [
-      "dynamodb:DescribeContinuousBackups",
-      "dynamodb:DescribeTable",
-      "dynamodb:DescribeTimeToLive",
-      "dynamodb:ListTagsOfResource",
-    ]
-    resources = [aws_dynamodb_table.mutation_lease.arn]
-  }
 }
 
 data "aws_iam_policy_document" "state_apply" {
@@ -163,15 +155,11 @@ data "aws_iam_policy_document" "state_apply" {
     actions   = ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
     resources = [aws_kms_key.opentofu.arn]
   }
+  # One-release authority for the exact obsolete table. The table resource
+  # depends on this policy update so deletion cannot race the grant.
   statement {
-    actions = [
-      "dynamodb:DeleteItem",
-      "dynamodb:DescribeTable",
-      "dynamodb:GetItem",
-      "dynamodb:PutItem",
-      "dynamodb:UpdateItem",
-    ]
-    resources = [aws_dynamodb_table.mutation_lease.arn]
+    actions   = ["dynamodb:DeleteTable", "dynamodb:DescribeTable", "dynamodb:GetItem"]
+    resources = [local.retired_mutation_lease_arn]
   }
 
   statement {
@@ -243,20 +231,6 @@ data "aws_iam_policy_document" "state_apply" {
       "iam:SetDefaultPolicyVersion",
       "iam:UpdateAssumeRolePolicy",
       "iam:UpdateOpenIDConnectProviderThumbprint",
-    ]
-    resources = ["*"]
-  }
-  statement {
-    actions = [
-      "dynamodb:CreateTable",
-      "dynamodb:DescribeContinuousBackups",
-      "dynamodb:DescribeTable",
-      "dynamodb:DescribeTimeToLive",
-      "dynamodb:ListTagsOfResource",
-      "dynamodb:TagResource",
-      "dynamodb:UpdateContinuousBackups",
-      "dynamodb:UpdateTable",
-      "dynamodb:UpdateTimeToLive",
     ]
     resources = ["*"]
   }
