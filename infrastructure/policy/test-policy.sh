@@ -12,6 +12,7 @@ python3 "$policy" "$fixtures/network-migration.json" --mode network-migration
 python3 "$policy" "$fixtures/ct-decommission.json" --mode ct-decommission
 python3 "$policy" "$fixtures/ct-unprotect.json" --mode ct-decommission
 python3 "$policy" "$fixtures/protection-enable.json"
+python3 "$policy" "$fixtures/retired-branch-policy-delete.json"
 python3 "$policy" "$fixtures/qualification-create.json" --mode qualification
 python3 "$policy" "$fixtures/qualification-delete.json" --mode qualification
 

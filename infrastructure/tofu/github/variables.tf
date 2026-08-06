@@ -48,7 +48,6 @@ variable "github_repository_variable_names_adopt_existing" {
 variable "apply_deployment_branches" {
   type = set(string)
   default = [
-    "feat/infrastructure-reconciliation",
     "main",
   ]
 }
