@@ -51,7 +51,9 @@ if [[ -n $status_file ]]; then
   [[ $status_file =~ ^/run/home-lab-recovery-[a-z0-9-]+$ ]]
 fi
 stage=workspace
-workspace=$(mktemp -d)
+workspace_parent=${RECOVERY_TARGET%/*}
+[[ $workspace_parent == /srv/home-lab-recovery ]]
+workspace=$(mktemp -d "$workspace_parent/.restore-staging.XXXXXX")
 cleanup() {
   local status=$?
   rm -rf "$workspace"
