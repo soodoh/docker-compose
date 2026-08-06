@@ -94,9 +94,12 @@ resource "github_repository_environment_deployment_policy" "apply" {
 }
 
 import {
-  for_each = var.github_enable_management ? var.apply_deployment_policy_import_ids : {}
-  to       = github_repository_environment_deployment_policy.apply[each.key]
-  id       = "${local.repository}:${local.contract.github.environments.apply}:${each.value}"
+  for_each = var.github_enable_management ? {
+    for branch, id in var.apply_deployment_policy_import_ids : branch => id
+    if contains(var.apply_deployment_branches, branch)
+  } : {}
+  to = github_repository_environment_deployment_policy.apply[each.key]
+  id = "${local.repository}:${local.contract.github.environments.apply}:${each.value}"
 }
 
 import {
