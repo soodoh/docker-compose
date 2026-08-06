@@ -32,7 +32,7 @@ A failed partial apply retains its evidence and remote state. After correcting t
 
 The pinned Tailscale provider does not expose conditional policy updates. The repository therefore keeps the complete desired policy inside OpenTofu state while the guarded reconciler performs the policy API mutation from the saved plan using the captured `ETag`. The API update is validated first and uses `If-Match`; OpenTofu then records the exact same policy. Every steady plan compares live policy to the planned declaration, and every apply verifies live policy against state afterward.
 
-The durable gateway-policy lifecycle is now `active -> detached -> retired`. The contract currently selects `detached`: the guarded detach operation removes the legacy `tag:ci` owner and all of its uses, route auto-approvers, and both routed LAN grants while retaining only the `tag:infra-router` owner/admin grant needed to manage the still-live node. This desired-state change is non-live until the exact saved-plan workflow is dispatched on `main`. Final `retired` policy is implemented but may be selected only after CT 101 is durably retired and device absence is separately approved.
+The durable gateway-policy lifecycle is now `active -> detached -> retired`. The contract currently selects `active` while the manifest-initialization fix is qualified: a later reviewed transition to `detached` removes the legacy `tag:ci` owner and all of its uses, route auto-approvers, and both routed LAN grants while retaining only the `tag:infra-router` owner/admin grant needed to manage the still-live node. Final `retired` policy is implemented but may be selected only after CT 101 is durably retired and device absence is separately approved.
 
 ## Recovery
 

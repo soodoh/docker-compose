@@ -70,7 +70,7 @@ Historical conceptual policy fragment used during bootstrap—its `tag:ci` workl
 }
 ```
 
-The retained live entries do not authorize a standing credential because no active workload identity can mint `tag:ci`. Their reviewed removal is now represented by `tailscale.gateway_policy_stage: detached` and must occur only through the saved-plan gateway-policy operation.
+The retained live entries do not authorize a standing credential because no active workload identity can mint `tag:ci`. Their reviewed removal is represented by the later `tailscale.gateway_policy_stage: detached` transition and must occur only through the saved-plan gateway-policy operation.
 
 The current CI identities are `tag:ci-plan` and `tag:ci-apply` and use direct Docker connectivity as documented in
 [`github-actions-deploy.md`](./github-actions-deploy.md). The gateway, LAN SSH, and console remain independent recovery
