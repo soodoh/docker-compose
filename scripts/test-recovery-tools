@@ -106,7 +106,14 @@ reject_archive() {
   fi
 }
 
-for name in unsafe missing hardlink device unsafe-symlink duplicate; do
+unsafe_symlink_target="$work/skipped-unsafe-symlink"
+mkdir "$unsafe_symlink_target"
+unsafe_symlink_output=$(python3 "$repo_root/scripts/restore-critical-archive.py" \
+  --archive "$work/unsafe-symlink.tar.gz" --target "$unsafe_symlink_target")
+grep -q 'skipped_unsafe_symlinks=1$' <<<"$unsafe_symlink_output"
+[[ ! -e $unsafe_symlink_target/backup/hass-data/link ]]
+
+for name in unsafe missing hardlink device duplicate; do
   reject_archive "$name"
 done
 [[ ! -e $work/escape ]]

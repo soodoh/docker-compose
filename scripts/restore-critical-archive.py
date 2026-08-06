@@ -55,6 +55,7 @@ def main() -> None:
 
     observed: set[str] = set()
     written: set[str] = set()
+    skipped_unsafe_symlinks: set[str] = set()
     extracted_files = 0
     member_count = 0
     expanded_bytes = 0
@@ -92,14 +93,17 @@ def main() -> None:
                             or normalized_target.parts[0] != "backup"
                             or ".." in normalized_target.parts
                         ):
-                            fail("unsafe_symlink")
+                            skipped_unsafe_symlinks.add(relative_name)
+                            observed.discard(relative_name)
                     elif not member.isdir() and not member.isfile():
                         fail("unsupported_archive_member")
 
             raw.seek(0)
             with tarfile.open(fileobj=raw, mode="r|gz") as archive:
                 for member in archive:
-                    destination, _ = safe_path(target, member.name)
+                    destination, relative = safe_path(target, member.name)
+                    if relative.as_posix() in skipped_unsafe_symlinks:
+                        continue
                     if not destination.parent.resolve(strict=False).is_relative_to(target):
                         fail("archive_parent_escape")
                     if member.isdir():
@@ -134,7 +138,10 @@ def main() -> None:
         required_path = f"backup/{required}"
         if not any(path == required_path or path.startswith(f"{required_path}/") for path in observed):
             fail("required_class_missing")
-    print(f"critical_restore=verified files={extracted_files} classes={len(REQUIRED_CLASSES)}")
+    print(
+        f"critical_restore=verified files={extracted_files} classes={len(REQUIRED_CLASSES)} "
+        f"skipped_unsafe_symlinks={len(skipped_unsafe_symlinks)}"
+    )
 
 
 if __name__ == "__main__":
