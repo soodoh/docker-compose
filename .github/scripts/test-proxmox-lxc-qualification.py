@@ -260,6 +260,11 @@ class QualificationEvidenceTests(unittest.TestCase):
             provider_attributes = provider_defaults["resources"][0]["instances"][0]["attributes"]
             provider_attributes["hook_script_file_id"] = ""
             provider_attributes["pool_id"] = ""
+            provider_initialization = provider_attributes["initialization"][0]
+            provider_initialization["dns"] = None
+            provider_initialization["entrypoint"] = ""
+            provider_initialization["ip_config"] = None
+            provider_initialization["user_account"] = None
             qualification.validate_state(provider_defaults, "protected")
             qualification.validate_state({"resources": []}, "empty")
             with self.assertRaises(qualification.QualificationError):
