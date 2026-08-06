@@ -93,7 +93,9 @@ class ManifestVerificationTests(unittest.TestCase):
                 "tailscale_gateway_operation": "none",
                 "tailscale_gateway_policy_stage": gateway_stage,
                 "network_migration": False,
+                "disk_growth": False,
                 "backend_bucket": "test-state-bucket",
+                "recovery_backup_identity_sha256": "",
                 "compose_artifact_sha256": compose_hash,
                 "plans": plans,
             }
@@ -152,7 +154,7 @@ fi
             write_executable(
                 binaries / "aws",
                 """#!/usr/bin/env bash
-echo 'test stopped before mutation lease acquisition' >&2
+echo 'unexpected AWS call after DynamoDB lease removal' >&2
 exit 86
 """,
             )
@@ -187,8 +189,9 @@ exit 86
                 stderr=subprocess.PIPE,
             )
 
-            self.assertEqual(result.returncode, 86, result.stderr)
-            self.assertIn("test stopped before mutation lease acquisition", result.stderr)
+            self.assertEqual(result.returncode, 73, result.stderr)
+            self.assertIn("unexpected tofu command", result.stderr)
+            self.assertNotIn("unexpected AWS call", result.stderr)
             events = log.read_text().splitlines()
             tailscale_init = events.index("init:tailscale")
             tailscale_shows = [

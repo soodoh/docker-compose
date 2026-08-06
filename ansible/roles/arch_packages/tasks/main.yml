@@ -20,9 +20,11 @@
   vars:
     pacman_packages_requested:
       - bluez
+      - cloud-guest-utils
       - cosign
       - curl
       - dkms
+      - e2fsprogs
       - gnupg
       - jq
       - linux-headers

@@ -63,8 +63,3 @@ variable "github_apply_environment" {
   type    = string
   default = "infrastructure-apply"
 }
-
-variable "mutation_lease_table_name" {
-  type    = string
-  default = "home-lab-infrastructure-lease"
-}
