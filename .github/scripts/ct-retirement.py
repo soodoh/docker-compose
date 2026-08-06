@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 from typing import Any
 
@@ -17,6 +18,10 @@ STAGES = {"protected", "unprotected", "retired"}
 OPERATIONS = {"none", "unprotect", "delete"}
 CONFIRMATION_ENVIRONMENT = "PROXMOX_CT_DECOMMISSION_CONFIRMATION"
 CONFIRMATION_SHA256 = "6aef61a66bc191b96d854e1c34be3a8c79178bd1ae864a2cdc5bc8700c5eff8c"
+QUALIFICATION_EVIDENCE = Path("infrastructure/evidence/proxmox-lxc-qualification.json")
+QUALIFICATION_EVIDENCE_VALIDATOR = Path(__file__).with_name(
+    "proxmox-lxc-qualification.py"
+)
 TRANSITION_OPERATIONS = {
     ("protected", "protected"): "none",
     ("protected", "unprotected"): "unprotect",
@@ -60,8 +65,37 @@ def contract_stage(path: Path) -> str:
     raise RetirementError("contract retirement_stage is missing")
 
 
-def operation_matches_stage(operation: str, stage: str) -> bool:
+def contract_lxc_provider_qualified(path: Path, *, missing_is_false: bool = False) -> bool:
+    target = ("proxmox", "legacy_container", "lxc_provider_qualified")
+    ancestors: list[tuple[int, str]] = []
+    for line in path.read_text().splitlines():
+        match = re.match(r"^( *)([A-Za-z_][A-Za-z0-9_]*):(?:[ ]+(.*))?$", line)
+        if not match:
+            continue
+        indent = len(match.group(1))
+        key = match.group(2)
+        value = match.group(3)
+        while ancestors and indent <= ancestors[-1][0]:
+            ancestors.pop()
+        current_path = tuple(entry[1] for entry in ancestors) + (key,)
+        if current_path == target:
+            parsed = (value or "").split(" #", 1)[0].strip()
+            if parsed not in {"true", "false"}:
+                raise RetirementError("contract lxc_provider_qualified is invalid")
+            return parsed == "true"
+        if value is None:
+            ancestors.append((indent, key))
+    if missing_is_false:
+        return False
+    raise RetirementError("contract lxc_provider_qualified is missing")
+
+
+def operation_matches_stage(
+    operation: str, stage: str, lxc_provider_qualified: bool = True
+) -> bool:
     if operation not in OPERATIONS or stage not in STAGES:
+        return False
+    if operation != "none" and not lxc_provider_qualified:
         return False
     return operation == "none" or (operation, stage) in {
         ("unprotect", "unprotected"),
@@ -86,6 +120,31 @@ def transition_operation(base_stage: str, head_stage: str) -> str:
         raise RetirementError("retirement_stage transition is not permitted") from error
 
 
+def validate_qualification_evidence(
+    path: Path, tooling_commit: str, provider_lockfile: Path
+) -> None:
+    if not re.fullmatch(r"[0-9a-f]{40}", tooling_commit):
+        raise RetirementError("qualification tooling commit is missing or invalid")
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(QUALIFICATION_EVIDENCE_VALIDATOR),
+            "validate-run-evidence",
+            "--evidence-json",
+            str(path),
+            "--expected-tooling-commit",
+            tooling_commit,
+            "--provider-lockfile",
+            str(provider_lockfile),
+        ],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if result.returncode != 0:
+        raise RetirementError("tracked LXC qualification evidence is missing or invalid")
+
+
 def verify_manifest_fields(manifest: Any, operation: str, stage: str) -> None:
     if not isinstance(manifest, dict) or manifest.get("version") != 2:
         raise RetirementError("saved-plan manifest version is invalid")
@@ -107,6 +166,15 @@ def parse_args() -> argparse.Namespace:
     transition.add_argument("--base-contract", type=Path, required=True)
     transition.add_argument("--head-contract", type=Path, required=True)
     transition.add_argument("--github-output", type=Path)
+    transition.add_argument(
+        "--qualification-evidence", type=Path, default=QUALIFICATION_EVIDENCE
+    )
+    transition.add_argument("--qualification-tooling-commit")
+    transition.add_argument(
+        "--qualification-provider-lock",
+        type=Path,
+        default=Path("infrastructure/tofu/proxmox-lxc-qualification/.terraform.lock.hcl"),
+    )
 
     manifest = subparsers.add_parser("verify-manifest")
     manifest.add_argument("--manifest", type=Path, required=True)
@@ -120,16 +188,38 @@ def main() -> int:
     try:
         if args.command == "validate-operation":
             stage = contract_stage(args.contract)
-            if not operation_matches_stage(args.operation, stage):
-                raise RetirementError("retirement operation does not match the contract stage")
+            if not operation_matches_stage(
+                args.operation, stage, contract_lxc_provider_qualified(args.contract)
+            ):
+                raise RetirementError(
+                    "retirement operation requires the matching stage and qualified LXC provider"
+                )
             if confirmation_required(args.operation, stage) and not confirmation_matches():
                 raise RetirementError("exact CT retirement confirmation is required")
             return 0
 
         if args.command == "transition":
-            operation = transition_operation(
-                contract_stage(args.base_contract), contract_stage(args.head_contract)
+            base_stage = contract_stage(args.base_contract)
+            head_stage = contract_stage(args.head_contract)
+            operation = transition_operation(base_stage, head_stage)
+            base_qualified = contract_lxc_provider_qualified(
+                args.base_contract, missing_is_false=True
             )
+            head_qualified = contract_lxc_provider_qualified(args.head_contract)
+            if base_qualified != head_qualified and base_stage != head_stage:
+                raise RetirementError(
+                    "LXC provider evidence change must not include a CT stage transition"
+                )
+            if not base_qualified and head_qualified:
+                validate_qualification_evidence(
+                    args.qualification_evidence,
+                    args.qualification_tooling_commit or "",
+                    args.qualification_provider_lock,
+                )
+            if operation != "none" and not head_qualified:
+                raise RetirementError(
+                    "CT retirement transition requires qualified LXC provider evidence"
+                )
             if args.github_output:
                 with args.github_output.open("a") as output:
                     output.write(f"operation={operation}\n")
@@ -138,8 +228,12 @@ def main() -> int:
             return 0
 
         stage = contract_stage(args.contract)
-        if not operation_matches_stage(args.operation, stage):
-            raise RetirementError("retirement operation does not match the contract stage")
+        if not operation_matches_stage(
+            args.operation, stage, contract_lxc_provider_qualified(args.contract)
+        ):
+            raise RetirementError(
+                "retirement operation requires the matching stage and qualified LXC provider"
+            )
         verify_manifest_fields(json.loads(args.manifest.read_text()), args.operation, stage)
         return 0
     except (OSError, json.JSONDecodeError, RetirementError) as error:

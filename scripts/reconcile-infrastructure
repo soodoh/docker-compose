@@ -213,6 +213,7 @@ if [[ $action == validate ]]; then
   scripts/validate-provider-locks
   infrastructure/policy/test-policy.sh
   python3 .github/scripts/test-ct-retirement.py
+  python3 .github/scripts/test-proxmox-lxc-qualification.py
   python3 .github/scripts/test-ct-compose-precheck.py
   python3 .github/scripts/test-reconcile-manifest.py
   scripts/test-recovery-tools
@@ -222,10 +223,10 @@ if [[ $action == validate ]]; then
     scripts/collect-proxmox-protected-inputs scripts/migrate-proxmox-zfs-stack \
     scripts/migrate-sops-recipients \
     scripts/prepare-omada-plan-input scripts/publish-wolf-images \
-    scripts/rehearse-recovery scripts/restore-critical-backup \
+    scripts/qualify-proxmox-lxc scripts/rehearse-recovery scripts/restore-critical-backup \
     scripts/test-recovery-tools .github/scripts/prepare-ansible-controller.sh
   tofu fmt -check -recursive infrastructure/tofu
-  for root in aws-foundation proxmox-legacy proxmox omada tailscale github; do
+  for root in aws-foundation proxmox-legacy proxmox proxmox-lxc-qualification omada tailscale github; do
     tofu -chdir="infrastructure/tofu/$root" init -backend=false -input=false >/dev/null
     tofu -chdir="infrastructure/tofu/$root" validate
   done

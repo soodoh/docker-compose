@@ -10,6 +10,7 @@
 - current/previous Compose image locks and immutable Wolf publication tooling
 - CI plan/apply credential separation and protected confirmation gates
 - static recovery fixtures and playbook syntax rehearsal
+- isolated saved-plan Proxmox LXC lifecycle qualification, exact policy modes, protected-delete classification, identity proofs, and empty-state tombstone controls
 
 ## Live qualified
 
@@ -23,6 +24,6 @@ Backend coordinates, provider credentials, SSH fingerprints/keys, hardware ident
 
 ## Requires live qualification
 
-Disposable-VM Proxmox provider behavior, raw disks/passthrough/mappings, ZFS import evidence, immutable Wolf image publication, Coral package publication/runtime, full restore, cold boot, service health, cleanup, recovery-time objective, and final no-op all remain operational proofs.
+The disposable Proxmox LXC create/protected-delete/no-op/unprotect/delete/empty sequence remains an operational proof; `proxmox.legacy_container.lxc_provider_qualified` therefore remains `false`. Disposable-VM Proxmox provider behavior, raw disks/passthrough/mappings, ZFS import evidence, immutable Wolf image publication, Coral package publication/runtime, full restore, cold boot, service health, cleanup, recovery-time objective, and final no-op also remain operational proofs.
 
 Static validation must not be represented as production readiness. Update this document only with evidence from the protected qualification process; never paste secrets or protected identifiers.

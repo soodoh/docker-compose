@@ -43,7 +43,9 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.pull_request.base.sha }}
           path: .local/ct-retirement-base
-          sparse-checkout: infrastructure/contract/home-lab.yml
+          sparse-checkout: |
+            infrastructure/contract/home-lab.yml
+            infrastructure/tofu/proxmox-lxc-qualification/.terraform.lock.hcl
           sparse-checkout-cone-mode: false
 
       - name: Validate the CT retirement lifecycle helper
@@ -54,6 +56,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/scripts/test-ct-retirement.py
+          python3 .github/scripts/test-proxmox-lxc-qualification.py
+          python3 .github/scripts/test-proxmox-lxc-workflow.py
           if [[ $GITHUB_EVENT_NAME == pull_request ]]; then
             [[ $BASE_SHA =~ ^[0-9a-f]{40}$ ]]
             [[ $HEAD_SHA =~ ^[0-9a-f]{40}$ ]]
@@ -61,7 +65,11 @@ jobs:
             [[ $(git -C .local/ct-retirement-base rev-parse HEAD) == "$BASE_SHA" ]]
             python3 .github/scripts/ct-retirement.py transition \
               --base-contract .local/ct-retirement-base/infrastructure/contract/home-lab.yml \
-              --head-contract infrastructure/contract/home-lab.yml >/dev/null
+              --head-contract infrastructure/contract/home-lab.yml \
+              --qualification-tooling-commit "$BASE_SHA" \
+              --qualification-provider-lock \
+                .local/ct-retirement-base/infrastructure/tofu/proxmox-lxc-qualification/.terraform.lock.hcl \
+              >/dev/null
             python3 .github/scripts/tailscale-gateway-policy.py transition \
               --base-contract .local/ct-retirement-base/infrastructure/contract/home-lab.yml \
               --head-contract infrastructure/contract/home-lab.yml >/dev/null

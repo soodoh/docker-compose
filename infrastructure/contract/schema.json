@@ -253,12 +253,13 @@
     "legacyContainer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["vmid", "name", "mac", "retirement_stage", "recreate_after_decommission", "root_datastore", "root_size_gb", "memory_mb", "swap_mb", "cores", "on_boot", "unprivileged"],
+      "required": ["vmid", "name", "mac", "retirement_stage", "lxc_provider_qualified", "recreate_after_decommission", "root_datastore", "root_size_gb", "memory_mb", "swap_mb", "cores", "on_boot", "unprivileged"],
       "properties": {
         "vmid": { "const": 101 },
         "name": { "const": "tailscale-gateway" },
         "mac": { "$ref": "#/$defs/mac" },
         "retirement_stage": { "type": "string", "enum": ["protected", "unprotected", "retired"] },
+        "lxc_provider_qualified": { "type": "boolean" },
         "recreate_after_decommission": { "const": false },
         "root_datastore": { "type": "string", "minLength": 1 },
         "root_size_gb": { "type": "integer", "minimum": 1 },

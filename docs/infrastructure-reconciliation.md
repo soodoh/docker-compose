@@ -33,6 +33,12 @@ The saved-plan manifest binds operation, stage, the exact saved plan's canonical
 
 Retirement additionally fails closed unless `TAILSCALE_GATEWAY_DEVICE_ABSENCE_APPROVED` is exactly `true` in both protected plan and apply environments. Set this temporary variable only after explicit device-deletion approval and read-only verification that the device is absent; it does not authorize device deletion. Remove it from both environments immediately after the retired no-op proof. Detach does not use this approval.
 
+## Proxmox LXC provider qualification gate
+
+Before any CT 101 unprotection, complete the isolated, main-only saved-plan lifecycle in [`proxmox-lxc-qualification.md`](./proxmox-lxc-qualification.md). The dedicated root has its own backend/state and can own only the fixed-marker disposable LXC. Its protected VMID and exact template file ID stay only in protected environments, encrypted plans, and backend state. Static implementation is not qualification evidence.
+
+The durable `proxmox.legacy_container.lxc_provider_qualified` gate remains `false` until a separate evidence-only PR records the completed create, rejected protected-delete probe, independent protected no-op, unprotect, delete, volume/API absence, empty state, no-lock, and verify-empty sequence. While false, the real evidence path stays absent and only `infrastructure/evidence/proxmox-lxc-qualification.example.json` is tracked. A `false -> true` PR must add the exact schema-valid `infrastructure/evidence/proxmox-lxc-qualification.json`; universal transition validation binds its six run IDs, tooling commit, provider lock, and final proof. CT `unprotect` and `delete` are rejected while the gate is false.
+
 ## CT 101 retirement lifecycle
 
 The durable desired state is `proxmox.legacy_container.retirement_stage`:
@@ -41,7 +47,7 @@ The durable desired state is `proxmox.legacy_container.retirement_stage`:
 - `unprotected`: the resource exists with protection disabled.
 - `retired`: resource count and import are disabled; the empty `proxmox-legacy` root and state remain as a tombstone.
 
-Change this contract stage in a reviewed PR before dispatching an operation. PR validation permits only `protected -> unprotected`, `unprotected -> retired`, and `unprotected -> protected`; stage skips and transitions out of `retired` are rejected.
+Change this contract stage in a reviewed PR before dispatching an operation. PR validation permits only `protected -> unprotected`, `unprotected -> retired`, and `unprotected -> protected`; stage skips and transitions out of `retired` are rejected. Unprotection and deletion additionally require `lxc_provider_qualified: true`, which must come from the earlier evidence-only PR rather than the stage-transition PR.
 
 After the stage change is on `main`, dispatch the workflow with exactly one matching `ct_retirement` operation. The reconciler equivalent is:
 
