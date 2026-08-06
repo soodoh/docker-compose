@@ -43,6 +43,15 @@ on:
           - none
           - unprotect
           - delete
+      tailscale_gateway:
+        description: Select the guarded Tailscale gateway-policy lifecycle
+        required: true
+        default: none
+        type: choice
+        options:
+          - none
+          - detach
+          - retire
       network_migration:
         description: Permit only the reviewed Proxmox hardware-mapping migration
         required: false
@@ -218,6 +227,15 @@ jobs:
             --head-contract infrastructure/contract/home-lab.yml \
             --github-output "$GITHUB_OUTPUT"
 
+      - name: Select the reviewed Tailscale gateway-policy preview
+        id: tailscale-gateway
+        run: |
+          set -euo pipefail
+          python .github/scripts/tailscale-gateway-policy.py transition \
+            --base-contract .local/ct-retirement-base/infrastructure/contract/home-lab.yml \
+            --head-contract infrastructure/contract/home-lab.yml \
+            --github-output "$GITHUB_OUTPUT"
+
       - name: Create policy-inspected saved plans
         env:
           PROXMOX_CT_DECOMMISSION_CONFIRMATION: ${{ secrets.PROXMOX_CT_DECOMMISSION_CONFIRMATION }}
@@ -246,6 +264,7 @@ jobs:
           OMADA_CA_PEM: ${{ secrets.OMADA_CA_PEM }}
           SSL_CERT_FILE: ${{ github.workspace }}/.local/provider-ca/bundle.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
+          TAILSCALE_GATEWAY_DEVICE_ABSENCE_APPROVED: ${{ vars.TAILSCALE_GATEWAY_DEVICE_ABSENCE_APPROVED }}
           TF_VAR_github_owner_id: ${{ vars.TAILSCALE_SUBJECT_OWNER_ID }}
           TF_VAR_github_repository_id: ${{ vars.TAILSCALE_SUBJECT_REPOSITORY_ID }}
           TF_VAR_github_enable_management: ${{ vars.INFRASTRUCTURE_GITHUB_MANAGEMENT_ENABLED }}
@@ -265,7 +284,8 @@ jobs:
           ./scripts/prepare-provider-ca-bundle
           ./scripts/prepare-omada-plan-input
           ./scripts/reconcile-infrastructure plan --phase steady \
-            --ct-operation '${{ steps.ct-retirement.outputs.operation }}'
+            --ct-operation '${{ steps.ct-retirement.outputs.operation }}' \
+            --tailscale-gateway-operation '${{ steps.tailscale-gateway.outputs.operation }}'
 
   dispatch-plan:
     name: Plan dispatched infrastructure
@@ -355,6 +375,7 @@ jobs:
           TF_VAR_qualification_ip: ${{ secrets.OMADA_QUALIFICATION_IP }}
           SSL_CERT_FILE: ${{ github.workspace }}/.local/provider-ca/bundle.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
+          TAILSCALE_GATEWAY_DEVICE_ABSENCE_APPROVED: ${{ vars.TAILSCALE_GATEWAY_DEVICE_ABSENCE_APPROVED }}
           TF_VAR_github_owner_id: ${{ vars.TAILSCALE_SUBJECT_OWNER_ID }}
           TF_VAR_github_repository_id: ${{ vars.TAILSCALE_SUBJECT_REPOSITORY_ID }}
           TF_VAR_github_enable_management: ${{ vars.INFRASTRUCTURE_GITHUB_MANAGEMENT_ENABLED }}
@@ -378,7 +399,8 @@ jobs:
             migration_args+=(--network-migration)
           fi
           ./scripts/reconcile-infrastructure plan --phase '${{ inputs.phase }}' \
-            --ct-operation '${{ inputs.ct_retirement }}' "${migration_args[@]}"
+            --ct-operation '${{ inputs.ct_retirement }}' \
+            --tailscale-gateway-operation '${{ inputs.tailscale_gateway }}' "${migration_args[@]}"
 
       - name: Encrypt the exact saved-plan bundle
         env:
@@ -532,6 +554,7 @@ jobs:
           TF_VAR_qualification_ip: ${{ secrets.OMADA_QUALIFICATION_IP }}
           SSL_CERT_FILE: ${{ github.workspace }}/.local/provider-ca/bundle.pem
           TF_VAR_tailscale_enable_management: ${{ vars.TAILSCALE_MANAGEMENT_ENABLED }}
+          TAILSCALE_GATEWAY_DEVICE_ABSENCE_APPROVED: ${{ vars.TAILSCALE_GATEWAY_DEVICE_ABSENCE_APPROVED }}
           TF_VAR_github_owner_id: ${{ vars.TAILSCALE_SUBJECT_OWNER_ID }}
           TF_VAR_github_repository_id: ${{ vars.TAILSCALE_SUBJECT_REPOSITORY_ID }}
           TF_VAR_github_enable_management: ${{ vars.INFRASTRUCTURE_GITHUB_MANAGEMENT_ENABLED }}
@@ -607,5 +630,6 @@ jobs:
           fi
           ./scripts/reconcile-infrastructure apply --phase '${{ inputs.phase }}' \
             --ct-operation '${{ inputs.ct_retirement }}' \
+            --tailscale-gateway-operation '${{ inputs.tailscale_gateway }}' \
             --proxmox-inventory inventory/infrastructure.yml \
             --arch-inventory inventory/production.yml "${migration_args[@]}"

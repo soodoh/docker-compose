@@ -172,6 +172,7 @@ omada:
   provider_qualified: true
   required_consecutive_noop_plans: 3
 tailscale:
+  gateway_policy_stage: detached
   tags:
     arch: tag:docker-host
     proxmox: tag:proxmox

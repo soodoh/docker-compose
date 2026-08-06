@@ -23,6 +23,8 @@ Options:
   --arch-bootstrap-inventory <path>   Temporary Arch recovery inventory
   --ct-operation <none|unprotect|delete>
                                       Select the qualified CT retirement policy (default: none)
+  --tailscale-gateway-operation <none|detach|retire>
+                                      Select the guarded gateway-policy lifecycle (default: none)
   --network-migration                 Permit only the reviewed hardware-mapping migration
 
 Required environment:
@@ -32,8 +34,9 @@ Required environment:
                                       Required outside protected CT steady state
 
 Apply additionally requires a clean checkout at the manifest commit and the
-DynamoDB mutation lease from the infrastructure contract. Recovery gates are
-supplied only through RECONCILE_ANSIBLE_EXTRA_VARS_FILE (an ignored root-only
+DynamoDB mutation lease from the infrastructure contract. CT and Tailscale
+gateway lifecycle applies additionally require the exact main commit. Recovery
+gates are supplied only through RECONCILE_ANSIBLE_EXTRA_VARS_FILE (an ignored root-only
 YAML file); they are never accepted as shell text. Proxmox host bootstrap must
 already have been run locally with console/LAN fallback before recovery apply.
 EOF
@@ -72,6 +75,7 @@ arch_inventory=inventory/production.yml
 arch_bootstrap_inventory=inventory/arch-recovery.yml
 recovery_backup_id=
 ct_retirement_operation=none
+tailscale_gateway_operation=none
 network_migration=false
 
 while (($#)); do
@@ -112,6 +116,11 @@ while (($#)); do
       ct_retirement_operation=$2
       shift 2
       ;;
+    --tailscale-gateway-operation)
+      (($# >= 2)) || usage
+      tailscale_gateway_operation=$2
+      shift 2
+      ;;
     --network-migration)
       network_migration=true
       shift
@@ -149,26 +158,43 @@ elif [[ -n $recovery_backup_id ]]; then
   usage
 fi
 case "$ct_retirement_operation" in none|unprotect|delete) ;; *) usage ;; esac
+case "$tailscale_gateway_operation" in none|detach|retire) ;; *) usage ;; esac
 unset TF_VAR_decommission_confirmation
 python3 .github/scripts/ct-retirement.py validate-operation \
   --contract infrastructure/contract/home-lab.yml \
   --operation "$ct_retirement_operation" || exit 64
+python3 .github/scripts/tailscale-gateway-policy.py validate-operation \
+  --contract infrastructure/contract/home-lab.yml \
+  --operation "$tailscale_gateway_operation" || exit 64
 if [[ -n ${PROXMOX_CT_DECOMMISSION_CONFIRMATION:-} ]]; then
   export TF_VAR_decommission_confirmation=$PROXMOX_CT_DECOMMISSION_CONFIRMATION
 fi
 ct_operation=false
 if [[ $ct_retirement_operation != none ]]; then ct_operation=true; fi
+tailscale_gateway_lifecycle=false
+if [[ $tailscale_gateway_operation != none ]]; then tailscale_gateway_lifecycle=true; fi
 if [[ $ct_operation == true && $phase != steady ]]; then
   echo "CT operations require steady phase." >&2
   exit 64
 fi
-if [[ $network_migration == true && ($phase != steady || $ct_operation == true) ]]; then
-  echo "Network migration requires steady phase and cannot be combined with CT operations." >&2
+if [[ $tailscale_gateway_lifecycle == true && $phase != steady ]]; then
+  echo "Tailscale gateway-policy operations require steady phase." >&2
   exit 64
 fi
-if [[ $omada_qualification_operation != none && ($network_migration == true || $ct_operation == true) ]]; then
+if [[ $network_migration == true && ($phase != steady || $ct_operation == true || $tailscale_gateway_lifecycle == true) ]]; then
+  echo "Network migration requires steady phase and cannot be combined with lifecycle operations." >&2
+  exit 64
+fi
+if [[ $ct_operation == true && $tailscale_gateway_lifecycle == true ]]; then
+  echo "CT and Tailscale gateway-policy lifecycle operations cannot be combined." >&2
+  exit 64
+fi
+if [[ $omada_qualification_operation != none && ($network_migration == true || $ct_operation == true || $tailscale_gateway_lifecycle == true) ]]; then
   echo "Omada qualification cannot be combined with another special operation." >&2
   exit 64
+fi
+if [[ $action == apply && ($ct_operation == true || $tailscale_gateway_lifecycle == true) ]]; then
+  python3 .github/scripts/reconcile-apply-source.py
 fi
 case "$plan_dir" in
   "$repo_root/.reconcile/"*) ;;
@@ -265,8 +291,8 @@ for root in "${roots[@]}"; do
 done
 roots=("${enabled_roots[@]}")
 unset enabled_roots
-if [[ $ct_operation == true && ${#roots[@]} -ne 6 ]]; then
-  echo "CT retirement requires every OpenTofu root to be enabled for no-op proof." >&2
+if [[ ($ct_operation == true || $tailscale_gateway_lifecycle == true) && ${#roots[@]} -ne 6 ]]; then
+  echo "Lifecycle operations require every OpenTofu root to be enabled for no-op proof." >&2
   exit 64
 fi
 sha256_file() {
@@ -317,9 +343,14 @@ tailscale_policy_identity() {
     -H 'Accept: application/json' \
     "https://api.tailscale.com/api/v2/tailnet/${TAILSCALE_TAILNET:--}/acl" \
     -o "$body"
-  jq -cS -e . "$body" >"$canonical"
+  python3 .github/scripts/tailscale-gateway-policy.py canonicalize-policy \
+    --policy "$body" >"$canonical"
   etag=$(awk 'tolower($1) == "etag:" {gsub(/\r/, ""); sub(/^[^:]+:[[:space:]]*/, ""); print; exit}' "$headers")
-  [[ -n $etag ]]
+  [[ $etag =~ ^(W/)?\"[^\"[:cntrl:]]+\"$ ]] || {
+    echo "The Tailscale policy response is missing a valid ETag." >&2
+    rm -f "$headers" "$body" "$canonical"
+    return 1
+  }
   identity="$(sha256_file "$canonical")"$'\t'"$etag"
   rm -f "$headers" "$body" "$canonical"
   unset access_token
@@ -327,30 +358,49 @@ tailscale_policy_identity() {
 }
 
 tailscale_planned_policy() {
-  local plan=$1 destination=$2
-  tofu -chdir=infrastructure/tofu/tailscale show -json "$plan" | jq -er '
-    .resource_changes[] |
-    select(.address == "terraform_data.tailscale_policy[0]") |
-    .change.after.input.policy_json |
-    fromjson
-  ' | jq -cS . >"$destination"
+  local plan=$1 side=$2 destination=$3
+  tofu -chdir=infrastructure/tofu/tailscale show -json "$plan" |
+    python3 .github/scripts/tailscale-gateway-policy.py extract-plan-policy \
+      --plan-json - --side "$side" >"$destination"
+}
+
+tailscale_verify_planned_policy_hashes() {
+  local plan=$1 expected_before_sha=$2 expected_after_sha=$3
+  local planned_before planned_after planned_before_sha planned_after_sha
+  planned_before=$(mktemp "${TMPDIR:-/tmp}/tailscale-planned-before.XXXXXX")
+  planned_after=$(mktemp "${TMPDIR:-/tmp}/tailscale-planned-after.XXXXXX")
+  chmod 0600 "$planned_before" "$planned_after"
+  tailscale_planned_policy "$plan" before "$planned_before"
+  tailscale_planned_policy "$plan" after "$planned_after"
+  planned_before_sha=$(sha256_file "$planned_before")
+  planned_after_sha=$(sha256_file "$planned_after")
+  rm -f "$planned_before" "$planned_after"
+  [[ $planned_before_sha == "$expected_before_sha" && $planned_after_sha == "$expected_after_sha" ]] || {
+    echo "The saved Tailscale plan policies differ from the manifest." >&2
+    return 1
+  }
 }
 
 tailscale_apply_planned_policy() {
-  local plan=$1 expected_sha=$2 expected_etag=$3
-  local desired current_sha current_etag desired_sha access_token response after_sha after_etag
+  local plan=$1 expected_before_sha=$2 expected_after_sha=$3 expected_etag=$4
+  local desired current_sha current_etag desired_sha access_token response after_sha after_etag disposition
   desired=$(mktemp "${TMPDIR:-/tmp}/tailscale-policy-desired.XXXXXX")
   response=$(mktemp "${TMPDIR:-/tmp}/tailscale-policy-response.XXXXXX")
   chmod 0600 "$desired" "$response"
-  tailscale_planned_policy "$plan" "$desired"
+  tailscale_verify_planned_policy_hashes "$plan" "$expected_before_sha" "$expected_after_sha"
+  tailscale_planned_policy "$plan" after "$desired"
   desired_sha=$(sha256_file "$desired")
+  [[ $expected_before_sha =~ ^[0-9a-f]{64}$ && $expected_after_sha =~ ^[0-9a-f]{64}$ ]]
+  [[ $expected_etag =~ ^(W/)?\"[^\"[:cntrl:]]+\"$ ]]
+  [[ $desired_sha == "$expected_after_sha" && $expected_before_sha != "$expected_after_sha" ]]
   IFS=$'\t' read -r current_sha current_etag < <(tailscale_policy_identity)
-  if [[ $current_sha != "$desired_sha" ]]; then
-    [[ $current_sha == "$expected_sha" && $current_etag == "$expected_etag" ]] || {
-      echo "The live Tailscale policy changed after planning; refusing the saved plan." >&2
-      rm -f "$desired" "$response"
-      exit 1
-    }
+  disposition=$(python3 .github/scripts/tailscale-gateway-policy.py apply-disposition \
+    --current-sha "$current_sha" \
+    --current-etag "$current_etag" \
+    --planned-before-sha "$expected_before_sha" \
+    --planned-after-sha "$expected_after_sha" \
+    --planned-etag "$expected_etag")
+  if [[ $disposition == post ]]; then
     access_token=$(tailscale_access_token)
     curl --fail --silent --show-error \
       -H "Authorization: Bearer $access_token" \
@@ -359,6 +409,18 @@ tailscale_apply_planned_policy() {
       "https://api.tailscale.com/api/v2/tailnet/${TAILSCALE_TAILNET:--}/acl/validate" \
       -o "$response"
     jq -e '((.errors // []) | length) == 0 and ((.warnings // []) | length) == 0' "$response" >/dev/null
+    IFS=$'\t' read -r current_sha current_etag < <(tailscale_policy_identity)
+    disposition=$(python3 .github/scripts/tailscale-gateway-policy.py apply-disposition \
+      --current-sha "$current_sha" \
+      --current-etag "$current_etag" \
+      --planned-before-sha "$expected_before_sha" \
+      --planned-after-sha "$expected_after_sha" \
+      --planned-etag "$expected_etag")
+    [[ $disposition == post ]] || {
+      echo "The live Tailscale policy changed during validation; refusing POST." >&2
+      rm -f "$desired" "$response"
+      exit 1
+    }
     curl --fail --silent --show-error -X POST \
       -H "Authorization: Bearer $access_token" \
       -H 'Content-Type: application/json' \
@@ -367,6 +429,10 @@ tailscale_apply_planned_policy() {
       "https://api.tailscale.com/api/v2/tailnet/${TAILSCALE_TAILNET:--}/acl" \
       -o "$response"
     unset access_token
+  else
+    # Recovery is idempotent only for a saved plan that proves a distinct before
+    # policy and whose live policy already equals that plan's exact after hash.
+    [[ $disposition == recovered && $expected_before_sha != "$desired_sha" ]]
   fi
   IFS=$'\t' read -r after_sha after_etag < <(tailscale_policy_identity)
   [[ $after_sha == "$desired_sha" && -n $after_etag ]]
@@ -429,6 +495,9 @@ policy_args() {
   if [[ $ct_operation == true && $root == proxmox-legacy ]]; then
     mode="ct-$ct_retirement_operation"
   fi
+  if [[ $tailscale_gateway_lifecycle == true && $root == tailscale ]]; then
+    mode="ct-gateway-$tailscale_gateway_operation"
+  fi
   if [[ $root == omada && $omada_qualification_operation != none ]]; then
     mode=qualification
   fi
@@ -471,15 +540,17 @@ plan_all() {
   ./scripts/validate-contract
   ./scripts/validate-provider-locks
 
-  local root plan exit_code tailscale_policy_sha256 tailscale_policy_etag tailscale_policy_changed desired_policy desired_policy_sha256
-  local compose_hash retirement_stage
+  local root plan exit_code tailscale_live_policy_sha256 tailscale_policy_before_sha256 tailscale_policy_after_sha256 tailscale_policy_etag tailscale_policy_changed
+  local planned_before_policy planned_after_policy compose_hash retirement_stage tailscale_gateway_policy_stage
   for root in "${roots[@]}"; do
     echo "Planning OpenTofu root: $root"
     backend_init "$root"
-    tailscale_policy_sha256=""
+    tailscale_live_policy_sha256=""
+    tailscale_policy_before_sha256=""
+    tailscale_policy_after_sha256=""
     tailscale_policy_etag=""
     if [[ $root == tailscale && ${TF_VAR_tailscale_enable_management:-false} == true ]]; then
-      IFS=$'\t' read -r tailscale_policy_sha256 tailscale_policy_etag < <(tailscale_policy_identity)
+      IFS=$'\t' read -r tailscale_live_policy_sha256 tailscale_policy_etag < <(tailscale_policy_identity)
     fi
     plan="$plan_dir/$root.tfplan"
     mapfile -d '' -t plan_args < <(root_plan_args "$root")
@@ -492,12 +563,20 @@ plan_all() {
     assert_plan_excludes_credentials "$plan"
     tailscale_policy_changed=false
     if [[ $root == tailscale && ${TF_VAR_tailscale_enable_management:-false} == true ]]; then
-      desired_policy=$(mktemp "${TMPDIR:-/tmp}/tailscale-planned-policy.XXXXXX")
-      chmod 0600 "$desired_policy"
-      tailscale_planned_policy "$plan" "$desired_policy"
-      desired_policy_sha256=$(sha256_file "$desired_policy")
-      [[ $desired_policy_sha256 == "$tailscale_policy_sha256" ]] || tailscale_policy_changed=true
-      rm -f "$desired_policy"
+      planned_before_policy=$(mktemp "${TMPDIR:-/tmp}/tailscale-planned-before.XXXXXX")
+      planned_after_policy=$(mktemp "${TMPDIR:-/tmp}/tailscale-planned-after.XXXXXX")
+      chmod 0600 "$planned_before_policy" "$planned_after_policy"
+      tailscale_planned_policy "$plan" before "$planned_before_policy"
+      tailscale_planned_policy "$plan" after "$planned_after_policy"
+      tailscale_policy_before_sha256=$(sha256_file "$planned_before_policy")
+      tailscale_policy_after_sha256=$(sha256_file "$planned_after_policy")
+      rm -f "$planned_before_policy" "$planned_after_policy"
+      if [[ $tailscale_gateway_lifecycle == true ]]; then
+        python3 .github/scripts/tailscale-gateway-policy.py validate-before-identity \
+          --planned-before-sha "$tailscale_policy_before_sha256" \
+          --live-before-sha "$tailscale_live_policy_sha256"
+      fi
+      [[ $tailscale_policy_after_sha256 == "$tailscale_policy_before_sha256" ]] || tailscale_policy_changed=true
     fi
 
     mapfile -d '' -t inspect_args < <(policy_args "$root")
@@ -506,11 +585,13 @@ plan_all() {
       --arg root "$root" \
       --arg file "$(basename "$plan")" \
       --arg sha256 "$(sha256_file "$plan")" \
-      --arg tailscale_policy_sha256 "$tailscale_policy_sha256" \
+      --arg tailscale_policy_before_sha256 "$tailscale_policy_before_sha256" \
+      --arg tailscale_policy_after_sha256 "$tailscale_policy_after_sha256" \
       --arg tailscale_policy_etag "$tailscale_policy_etag" \
       --argjson changed "$([[ $exit_code == 2 || $tailscale_policy_changed == true ]] && echo true || echo false)" \
       '{root: $root, file: $file, sha256: $sha256, changed: $changed,
-        tailscale_policy_sha256: $tailscale_policy_sha256,
+        tailscale_policy_before_sha256: $tailscale_policy_before_sha256,
+        tailscale_policy_after_sha256: $tailscale_policy_after_sha256,
         tailscale_policy_etag: $tailscale_policy_etag}' >>"$records"
   done
 
@@ -520,6 +601,15 @@ plan_all() {
       (map(select(.root != "proxmox-legacy" and .changed == true)) | length == 0)
     ' "$records" >/dev/null || {
       echo "CT operations require every other OpenTofu root to be a no-op." >&2
+      exit 1
+    }
+  fi
+  if [[ $tailscale_gateway_lifecycle == true ]]; then
+    jq -s -e '
+      (map(select(.root == "tailscale" and .changed == true)) | length == 1) and
+      (map(select(.root != "tailscale" and .changed == true)) | length == 0)
+    ' "$records" >/dev/null || {
+      echo "Tailscale gateway-policy operations require every other OpenTofu root to be a no-op." >&2
       exit 1
     }
   fi
@@ -535,16 +625,21 @@ plan_all() {
 
   compose_hash=$(python3 scripts/compose-artifact.py hash)
   retirement_stage=$(contract_value proxmox.legacy_container.retirement_stage)
+  tailscale_gateway_policy_stage=$(contract_value tailscale.gateway_policy_stage)
   jq -s \
     --arg commit "$commit" \
     --arg phase "$phase" \
     --arg ct_retirement_operation "$ct_retirement_operation" \
     --arg retirement_stage "$retirement_stage" \
+    --arg tailscale_gateway_operation "$tailscale_gateway_operation" \
+    --arg tailscale_gateway_policy_stage "$tailscale_gateway_policy_stage" \
     --argjson network_migration "$network_migration" \
     --arg backend_bucket "$backend_bucket" \
     --arg compose_hash "$compose_hash" \
     '{version: 2, commit: $commit, phase: $phase,
       ct_retirement_operation: $ct_retirement_operation, retirement_stage: $retirement_stage,
+      tailscale_gateway_operation: $tailscale_gateway_operation,
+      tailscale_gateway_policy_stage: $tailscale_gateway_policy_stage,
       network_migration: $network_migration, backend_bucket: $backend_bucket,
       compose_artifact_sha256: $compose_hash, plans: .}' \
     "$records" >"$plan_dir/manifest.json"
@@ -594,6 +689,10 @@ verify_manifest() {
     --manifest "$manifest" \
     --contract infrastructure/contract/home-lab.yml \
     --operation "$ct_retirement_operation"
+  python3 .github/scripts/tailscale-gateway-policy.py verify-manifest \
+    --manifest "$manifest" \
+    --contract infrastructure/contract/home-lab.yml \
+    --operation "$tailscale_gateway_operation"
   [[ $(jq -r .commit "$manifest") == "$commit" ]]
   [[ $(jq -r .phase "$manifest") == "$phase" ]]
   [[ $(jq -r .network_migration "$manifest") == "$network_migration" ]]
@@ -608,16 +707,31 @@ verify_manifest() {
     all(.plans[];
       .file == (.root + ".tfplan") and
       (.sha256 | test("^[0-9a-f]{64}$")) and
-      (.changed | type) == "boolean")
+      (.changed | type) == "boolean" and
+      if .root == "tailscale" then
+        (.tailscale_policy_before_sha256 | test("^[0-9a-f]{64}$")) and
+        (.tailscale_policy_after_sha256 | test("^[0-9a-f]{64}$")) and
+        (.tailscale_policy_etag | test("^(W/)?\\\"[^\\\"[:cntrl:]]+\\\"$"))
+      else
+        .tailscale_policy_before_sha256 == "" and
+        .tailscale_policy_after_sha256 == "" and
+        .tailscale_policy_etag == ""
+      end)
   ' "$manifest" >/dev/null || {
     echo "saved-plan manifest root set, paths, or hashes are invalid" >&2
     exit 66
   }
 
-  local root file expected
+  local root file expected expected_policy_before_sha256 expected_policy_after_sha256
   while IFS=$'\t' read -r root file expected; do
     [[ -f $plan_dir/$file ]]
     [[ $(sha256_file "$plan_dir/$file") == "$expected" ]]
+    if [[ $root == tailscale ]]; then
+      expected_policy_before_sha256=$(jq -r '.plans[] | select(.root == "tailscale") | .tailscale_policy_before_sha256' "$manifest")
+      expected_policy_after_sha256=$(jq -r '.plans[] | select(.root == "tailscale") | .tailscale_policy_after_sha256' "$manifest")
+      tailscale_verify_planned_policy_hashes "$plan_dir/$file" \
+        "$expected_policy_before_sha256" "$expected_policy_after_sha256"
+    fi
     backend_init "$root"
     mapfile -d '' -t inspect_args < <(policy_args "$root")
     TOFU_PLAN_CHDIR="infrastructure/tofu/$root" ./scripts/inspect-tofu-plan "$plan_dir/$file" "${inspect_args[@]}"
@@ -630,7 +744,7 @@ apply_root() {
     echo "Skipping disabled OpenTofu root: $root"
     return
   fi
-  local plan_file changed expected_policy_sha256 expected_policy_etag
+  local plan_file changed expected_policy_before_sha256 expected_policy_after_sha256 expected_policy_etag
   local old_proxmox=${PROXMOX_VE_API_TOKEN:-}
   local old_omada_username=${OMADA_USERNAME:-}
   local old_omada_password=${OMADA_PASSWORD:-}
@@ -675,10 +789,12 @@ apply_root() {
       ;;
   esac
   if [[ $root == tailscale ]]; then
-    expected_policy_sha256=$(jq -r --arg root "$root" '.plans[] | select(.root == $root) | .tailscale_policy_sha256' "$plan_dir/manifest.json")
+    expected_policy_before_sha256=$(jq -r --arg root "$root" '.plans[] | select(.root == $root) | .tailscale_policy_before_sha256' "$plan_dir/manifest.json")
+    expected_policy_after_sha256=$(jq -r --arg root "$root" '.plans[] | select(.root == $root) | .tailscale_policy_after_sha256' "$plan_dir/manifest.json")
     expected_policy_etag=$(jq -r --arg root "$root" '.plans[] | select(.root == $root) | .tailscale_policy_etag' "$plan_dir/manifest.json")
-    if [[ -n $expected_policy_sha256 && -n $expected_policy_etag ]]; then
-      tailscale_apply_planned_policy "$plan_dir/$plan_file" "$expected_policy_sha256" "$expected_policy_etag"
+    if [[ $expected_policy_before_sha256 != "$expected_policy_after_sha256" ]]; then
+      tailscale_apply_planned_policy "$plan_dir/$plan_file" \
+        "$expected_policy_before_sha256" "$expected_policy_after_sha256" "$expected_policy_etag"
     fi
   fi
   echo "Applying exact saved OpenTofu plan: $root"
@@ -916,6 +1032,15 @@ apply_ct_retirement() {
   verify_all
 }
 
+apply_tailscale_gateway_lifecycle() {
+  local root
+  for root in aws-foundation proxmox-legacy proxmox omada github; do
+    apply_root "$root"
+  done
+  apply_root tailscale
+  verify_all
+}
+
 apply_network_migration() {
   local root tag
   for root in aws-foundation proxmox-legacy omada tailscale github; do
@@ -950,6 +1075,10 @@ case "$action" in
     fi
     if [[ $ct_operation == true ]]; then
       apply_ct_retirement
+      exit 0
+    fi
+    if [[ $tailscale_gateway_lifecycle == true ]]; then
+      apply_tailscale_gateway_lifecycle
       exit 0
     fi
     if [[ $network_migration == true ]]; then
