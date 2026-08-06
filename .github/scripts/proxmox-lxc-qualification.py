@@ -473,6 +473,13 @@ def validate_state(state: Any, mode: str) -> None:
     )
 
 
+def proxmox_ssl_context() -> ssl.SSLContext:
+    context = ssl.create_default_context()
+    # Proxmox's generated CA predates the CA key-usage requirement enabled by
+    # Python/OpenSSL strict verification. Keep chain and hostname verification.
+    context.verify_flags &= ~ssl.VERIFY_X509_STRICT
+    return context
+
 def api_get(path: str, query: dict[str, str] | None = None) -> Any:
     endpoint = normalize_endpoint(os.environ.get("TF_VAR_proxmox_endpoint", ""))
     token = os.environ.get("PROXMOX_VE_API_TOKEN", "")
@@ -483,7 +490,7 @@ def api_get(path: str, query: dict[str, str] | None = None) -> Any:
         url = f"{url}?{parse.urlencode(query)}"
     api_request = request.Request(url, headers={"Authorization": f"PVEAPIToken={token}", "Accept": "application/json"})
     try:
-        with request.urlopen(api_request, timeout=20, context=ssl.create_default_context()) as response:
+        with request.urlopen(api_request, timeout=20, context=proxmox_ssl_context()) as response:
             document = json.load(response)
     except Exception as error:
         raise QualificationError("protected read-only Proxmox API validation failed") from error
