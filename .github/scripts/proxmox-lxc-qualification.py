@@ -253,8 +253,10 @@ def validate_identity(
             raise QualificationError(f"qualification {name} capability is forbidden")
     if normalized.get("environment_variables") not in (None, {}) or normalized.get("tags") not in (None, []):
         raise QualificationError("qualification mappings or tags are forbidden")
-    if normalized.get("hook_script_file_id") is not None or normalized.get("pool_id") is not None:
+    if normalized.get("hook_script_file_id") not in (None, "") or normalized.get("pool_id") not in (None, ""):
         raise QualificationError("qualification hooks or pool mappings are forbidden")
+    normalized["hook_script_file_id"] = None
+    normalized["pool_id"] = None
     expected_timeouts = {
         "timeout_clone": 1800,
         "timeout_create": 1800,

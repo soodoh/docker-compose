@@ -256,6 +256,11 @@ class QualificationEvidenceTests(unittest.TestCase):
         with self.env():
             qualification.validate_state(self.state(), "protected")
             qualification.validate_state(self.state(False), "unprotected")
+            provider_defaults = self.state()
+            provider_attributes = provider_defaults["resources"][0]["instances"][0]["attributes"]
+            provider_attributes["hook_script_file_id"] = ""
+            provider_attributes["pool_id"] = ""
+            qualification.validate_state(provider_defaults, "protected")
             qualification.validate_state({"resources": []}, "empty")
             with self.assertRaises(qualification.QualificationError):
                 qualification.validate_state(self.state(), "empty")
