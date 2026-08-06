@@ -4,6 +4,7 @@
 from argparse import ArgumentParser
 import os
 from pathlib import Path, PurePosixPath
+import re
 import shutil
 import tarfile
 
@@ -20,6 +21,11 @@ MAX_EXPANDED_BYTES = 200 * 1024 * 1024 * 1024
 
 
 def fail(reason: str) -> None:
+    status_file = os.environ.get("RECOVERY_STATUS_FILE", "")
+    if re.fullmatch(r"/run/home-lab-recovery-[a-z0-9-]+", status_file):
+        status_path = Path(status_file)
+        status_path.write_text(f"recovery_restore=failed stage=extract reason={reason}\n")
+        status_path.chmod(0o600)
     raise SystemExit(f"critical_restore=failed reason={reason}")
 
 

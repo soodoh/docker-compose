@@ -75,7 +75,9 @@ cleanup() {
     if ((status == 0)); then
       printf 'recovery_restore=verified stage=complete\n' >"$status_file" || true
     else
-      printf 'recovery_restore=failed stage=%s\n' "$stage" >"$status_file" || true
+      if [[ ! -f $status_file ]] || ! grep -Eq '^recovery_restore=failed stage=extract reason=[a-z_]+$' "$status_file"; then
+        printf 'recovery_restore=failed stage=%s\n' "$stage" >"$status_file" || true
+      fi
     fi
     chmod 0600 "$status_file" 2>/dev/null || true
   fi
