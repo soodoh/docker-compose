@@ -210,6 +210,16 @@ def main() -> int:
                 failures.append(f"{address}: CT mode permits only staged unprotection or deletion of unprotected CT 101")
             continue
 
+        retired_branch_policy_delete = (
+            address
+            == 'github_repository_environment_deployment_policy.apply["feat/infrastructure-reconciliation"]'
+            and actions == ["delete"]
+            and (change.get("before") or {}).get("branch_pattern") == "feat/infrastructure-reconciliation"
+            and change.get("after") is None
+        )
+        if retired_branch_policy_delete:
+            continue
+
         if "delete" in actions:
             failures.append(f"{address}: delete or replacement is forbidden")
             continue
