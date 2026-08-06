@@ -301,6 +301,11 @@ def validate_identity(
         raise QualificationError("qualification root disk identity is invalid")
     initialization = singleton_block(normalized.get("initialization"), "initialization")
     exact_keys(initialization, {"dns", "entrypoint", "hostname", "ip_config", "user_account"}, "initialization")
+    for empty_block in ("dns", "ip_config", "user_account"):
+        if initialization.get(empty_block) is None:
+            initialization[empty_block] = []
+    if initialization.get("entrypoint") == "":
+        initialization["entrypoint"] = None
     if initialization != {
         "dns": [], "entrypoint": None, "hostname": MARKER, "ip_config": [], "user_account": []
     }:
