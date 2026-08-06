@@ -253,7 +253,18 @@ backend_lock_count() {
   aws s3api list-objects-v2 \
     --bucket "$TF_BACKEND_BUCKET" \
     --prefix "${backend_key}.tflock" \
-    --query 'KeyCount' --output text 2>"$work/backend-lock.log"
+    --output json >"$work/backend-list.json" 2>"$work/backend-lock.log" || return 1
+  BACKEND_LOCK_KEY="${backend_key}.tflock" python3 - "$work/backend-list.json" <<'PY'
+import json
+import os
+from pathlib import Path
+import sys
+value = json.loads(Path(sys.argv[1]).read_text())
+contents = value.get("Contents", [])
+if not isinstance(contents, list):
+    raise SystemExit(1)
+print(sum(isinstance(item, dict) and item.get("Key") == os.environ["BACKEND_LOCK_KEY"] for item in contents))
+PY
 }
 
 verify_backend_lock_absent() {

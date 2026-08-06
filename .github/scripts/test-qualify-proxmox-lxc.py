@@ -137,7 +137,11 @@ class QualificationOrchestrationTests(unittest.TestCase):
                 #!/usr/bin/env bash
                 echo "aws $*" >>"$FAKE_LOG"
                 if [[ " $* " == *" s3api list-objects-v2 "* ]]; then
-                  echo "$FAKE_LOCK_COUNT"
+                  case "$FAKE_LOCK_COUNT" in
+                    0) echo '{"Contents":[]}' ;;
+                    1) echo '{"Contents":[{"Key":"home-lab/proxmox-lxc-qualification/tofu.tfstate.tflock"}]}' ;;
+                    *) echo '{"Contents":[{"Key":"home-lab/proxmox-lxc-qualification/tofu.tfstate.tflock"},{"Key":"home-lab/proxmox-lxc-qualification/tofu.tfstate.tflock.old"}]}' ;;
+                  esac
                 elif [[ " $* " == *" s3api get-object "* ]]; then
                   destination=${!#}
                   printf '{"ID":"%s","Operation":"%s","Info":"%s","Who":"%s","Version":"%s","Created":"%s","Path":"%s"}\n' "$FAKE_LOCK_ID" "$FAKE_LOCK_OPERATION" "$FAKE_LOCK_INFO" "$FAKE_LOCK_WHO" "$FAKE_LOCK_VERSION" "$FAKE_LOCK_CREATED" "$FAKE_LOCK_PATH" >"$destination"
