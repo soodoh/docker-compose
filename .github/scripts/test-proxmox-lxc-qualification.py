@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import ssl
 import tempfile
 import unittest
 from unittest import mock
@@ -343,6 +344,12 @@ class QualificationEvidenceTests(unittest.TestCase):
         for endpoint in ("http://proxmox/api2/json", "https://user@proxmox/api2/json", "https://proxmox", "https://proxmox/api?secret=x"):
             with self.subTest(endpoint=endpoint), self.assertRaises(qualification.QualificationError):
                 qualification.normalize_endpoint(endpoint)
+
+    def test_proxmox_ssl_context_preserves_chain_and_hostname_verification(self) -> None:
+        context = qualification.proxmox_ssl_context()
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(context.check_hostname)
+        self.assertFalse(context.verify_flags & ssl.VERIFY_X509_STRICT)
 
     def test_live_checks_bind_exact_config_volume_absence_and_template(self) -> None:
         for kind in ("vm", "subvol"):
