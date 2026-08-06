@@ -427,9 +427,12 @@ class QualificationEvidenceTests(unittest.TestCase):
                     self.assertEqual(qualification.recovery_classification(state, live), expected)
             invalid = self.state()
             invalid["resources"][0]["instances"][0]["attributes"]["tags"] = ["forbidden"]
-            self.assertEqual(qualification.recovery_classification(invalid, True), "state-identity-mismatch")
+            self.assertEqual(
+                qualification.recovery_classification(invalid, True),
+                "state-identity-mismatch:qualification-mappings-or-tags-are-forbidden",
+            )
         with mock.patch.object(qualification, "live_identity", side_effect=qualification.QualificationError("test")):
-            self.assertEqual(qualification.inspect_recovery(self.state()), "live-identity-mismatch")
+            self.assertEqual(qualification.inspect_recovery(self.state()), "live-identity-mismatch:test")
 
     def run_evidence(self) -> dict[str, object]:
         source, version = qualification.locked_provider()
