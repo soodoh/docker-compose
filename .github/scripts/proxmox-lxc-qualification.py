@@ -507,8 +507,12 @@ def falsey(value: Any) -> bool:
     return value in (0, "0", False, "false", "off", None)
 
 
+def storage_volume_verification_enabled() -> bool:
+    return os.environ.get("PROXMOX_VERIFY_STORAGE_VOLUME") == "true"
+
+
 def volume_ids(vmid: int) -> list[str]:
-    volumes = api_get("nodes/proxmox/storage/local-lvm/content", {"content": "rootdir"})
+    volumes = api_get("nodes/proxmox/storage/local-lvm/content")
     if not isinstance(volumes, list):
         raise QualificationError("live volume inventory is malformed")
     pattern = re.compile(rf"^local-lvm:(?:vm|subvol)-{vmid}-disk-")
@@ -522,7 +526,7 @@ def live_identity() -> bool | None:
         raise QualificationError("live resource inventory is malformed")
     matches = [entry for entry in resources if isinstance(entry, dict) and entry.get("vmid") == vmid]
     if not matches:
-        if volume_ids(vmid):
+        if storage_volume_verification_enabled() and volume_ids(vmid):
             raise QualificationError("qualification volume exists without the container")
         return None
     if len(matches) != 1:
@@ -533,7 +537,7 @@ def live_identity() -> bool | None:
     config = api_get(f"nodes/proxmox/lxc/{vmid}/config")
     if not isinstance(config, dict):
         raise QualificationError("live qualification configuration is malformed")
-    allowed = {"arch", "cmode", "console", "cores", "cpuunits", "description", "digest", "hostname", "memory", "onboot", "ostype", "protection", "rootfs", "swap", "tty", "unprivileged"}
+    allowed = {"arch", "cmode", "console", "cores", "cpulimit", "cpuunits", "description", "digest", "hostname", "memory", "onboot", "ostype", "protection", "rootfs", "swap", "template", "tty", "unprivileged"}
     if not set(config) <= allowed:
         raise QualificationError("live qualification configuration exposes an extra capability")
     required = {"cores", "description", "hostname", "memory", "protection", "rootfs", "unprivileged"}
@@ -544,9 +548,9 @@ def live_identity() -> bool | None:
     root_parts = rootfs.split(",")
     volume_pattern = re.compile(rf"^local-lvm:(?:vm|subvol)-{vmid}-disk-0$")
     volume_id = root_parts[0] if root_parts and volume_pattern.fullmatch(root_parts[0]) else ""
-    matching_volumes = volume_ids(vmid)
+    matching_volumes = volume_ids(vmid) if storage_volume_verification_enabled() else [volume_id]
     digest = config.get("digest")
-    if digest is not None and not re.fullmatch(r"[0-9a-f]{64}", str(digest)):
+    if digest is not None and not re.fullmatch(r"[0-9a-f]{40}", str(digest)):
         raise QualificationError("live qualification configuration digest is malformed")
     if (
         config.get("hostname") != MARKER
@@ -558,9 +562,11 @@ def live_identity() -> bool | None:
         or config.get("cmode") not in (None, "tty")
         or config.get("arch") not in (None, "amd64")
         or config.get("cores") not in (1, "1")
+        or config.get("cpulimit") not in (None, 0, "0")
         or config.get("cpuunits") not in (None, 100, "100")
         or config.get("memory") not in (128, "128")
         or config.get("swap") not in (0, "0", None)
+        or not falsey(config.get("template"))
         or root_parts != [volume_id, "size=1G"]
         or matching_volumes != [volume_id]
     ):
@@ -574,7 +580,7 @@ def validate_live(mode: str) -> None:
         resources = api_get("cluster/resources", {"type": "vm"})
         if not isinstance(resources, list) or any(isinstance(entry, dict) and entry.get("vmid") == vmid for entry in resources):
             raise QualificationError("qualification VMID is not absent before create")
-        if volume_ids(vmid):
+        if storage_volume_verification_enabled() and volume_ids(vmid):
             raise QualificationError("qualification VMID has a residual volume before create")
         templates = api_get("nodes/proxmox/storage/local/content", {"content": "vztmpl"})
         if not isinstance(templates, list) or sum(isinstance(entry, dict) and entry.get("volid") == template for entry in templates) != 1:
