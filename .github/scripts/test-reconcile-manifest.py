@@ -46,6 +46,12 @@ class ManifestVerificationTests(unittest.TestCase):
             stdout=subprocess.PIPE,
         ).stdout.strip()
         policy_hash = hashlib.sha256(POLICY.encode()).hexdigest()
+        gateway_stage = next(
+            line.split(":", 1)[1].strip()
+            for line in (REPOSITORY / "infrastructure/contract/home-lab.yml").read_text().splitlines()
+            if line.strip().startswith("gateway_policy_stage:")
+        )
+        self.assertIn(gateway_stage, {"active", "detached", "retired"})
 
         with tempfile.TemporaryDirectory(dir=reconcile_root) as directory:
             temporary = Path(directory)
@@ -85,7 +91,7 @@ class ManifestVerificationTests(unittest.TestCase):
                 "ct_retirement_operation": "none",
                 "retirement_stage": "protected",
                 "tailscale_gateway_operation": "none",
-                "tailscale_gateway_policy_stage": "active",
+                "tailscale_gateway_policy_stage": gateway_stage,
                 "network_migration": False,
                 "backend_bucket": "test-state-bucket",
                 "compose_artifact_sha256": compose_hash,
