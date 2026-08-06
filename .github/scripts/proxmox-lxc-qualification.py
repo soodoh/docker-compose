@@ -603,11 +603,11 @@ def recovery_classification(state: Any, live_protection: bool | None) -> str:
         else:
             protection = attributes.get("protection")
             if not isinstance(protection, bool):
-                return "identity-mismatch"
+                return "state-identity-mismatch"
             validate_identity(attributes, protection, require_disk_path=True)
             state_protection = protection
     except QualificationError:
-        return "identity-mismatch"
+        return "state-identity-mismatch"
     if state_protection is None and live_protection is None:
         return "aligned-empty"
     if state_protection is None:
@@ -623,7 +623,7 @@ def inspect_recovery(state: Any) -> str:
     try:
         live_protection = live_identity()
     except QualificationError:
-        return "identity-mismatch"
+        return "live-identity-mismatch"
     return recovery_classification(state, live_protection)
 
 
