@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -13,6 +14,7 @@ import unittest
 
 REPOSITORY = Path(__file__).resolve().parents[2]
 DRIVER = REPOSITORY / "scripts/qualify-proxmox-lxc"
+FAKE_LOCK_DOCUMENT = '{"ID":"11111111-1111-4111-8111-111111111111","Operation":"OperationTypeApply","Info":"","Who":"runner@test","Version":"1.12.5","Created":"2026-08-06T12:51:00Z","Path":"test-bucket/home-lab/proxmox-lxc-qualification/tofu.tfstate"}\n'
 
 
 class QualificationOrchestrationTests(unittest.TestCase):
@@ -49,6 +51,23 @@ class QualificationOrchestrationTests(unittest.TestCase):
             "FAKE_COUNTER": str(self.repo / "api-counter"),
             "FAKE_APPLY_RESULT": "success",
             "FAKE_LOCK_COUNT": "0",
+            "FAKE_DDB_MARKER": str(self.repo / "ddb-deleted"),
+            "GITHUB_REPOSITORY": "example/home-lab",
+            "PROXMOX_LXC_QUALIFICATION_RECOVERY_RUN_ID": "12345",
+            "FAKE_FAILED_COMMIT": "926899dec1d5511f668339c8ef040e2cbfe0724f",
+            "FAKE_LOCK_PATH": "test-bucket/home-lab/proxmox-lxc-qualification/tofu.tfstate",
+            "FAKE_LOCK_CREATED": "2026-08-06T12:51:00Z",
+            "FAKE_LOCK_VERSION": "1.12.5",
+            "FAKE_LEASE_COMMIT": "926899dec1d5511f668339c8ef040e2cbfe0724f",
+            "FAKE_RUN_HEAD": "926899dec1d5511f668339c8ef040e2cbfe0724f",
+            "FAKE_RECOVERY_OPERATION": "create",
+            "FAKE_LOG_STEP": "Apply one exact operation and prove the postcondition",
+            "FAKE_LOG_JOB": "Apply exact qualification plan and prove identity",
+            "PROXMOX_LXC_QUALIFICATION_RECOVERY_LOCK_SHA256": hashlib.sha256(FAKE_LOCK_DOCUMENT.encode()).hexdigest(),
+            "FAKE_LOCK_ID": "11111111-1111-4111-8111-111111111111",
+            "FAKE_LOCK_OPERATION": "OperationTypeApply",
+            "FAKE_LOCK_INFO": "",
+            "FAKE_LOCK_WHO": "runner@test",
         }
 
     def _executable(self, name: str, content: str) -> None:
@@ -80,6 +99,8 @@ class QualificationOrchestrationTests(unittest.TestCase):
                     if os.environ.get("FAKE_RESIDUAL") == "1" and mode == "absent":
                         raise SystemExit(1)
                 if command == "inspect-recovery":
+                    if os.environ.get("FAKE_STORAGE_FAILURE") == "1" and os.environ.get("PROXMOX_VERIFY_STORAGE_VOLUME") == "true":
+                        raise SystemExit(1)
                     print(os.environ.get("FAKE_INSPECT_CLASS", "aligned-empty"))
                 """
             )
@@ -117,6 +138,35 @@ class QualificationOrchestrationTests(unittest.TestCase):
                 echo "aws $*" >>"$FAKE_LOG"
                 if [[ " $* " == *" s3api list-objects-v2 "* ]]; then
                   echo "$FAKE_LOCK_COUNT"
+                elif [[ " $* " == *" s3api get-object "* ]]; then
+                  destination=${!#}
+                  printf '{"ID":"%s","Operation":"%s","Info":"%s","Who":"%s","Version":"%s","Created":"%s","Path":"%s"}\n' "$FAKE_LOCK_ID" "$FAKE_LOCK_OPERATION" "$FAKE_LOCK_INFO" "$FAKE_LOCK_WHO" "$FAKE_LOCK_VERSION" "$FAKE_LOCK_CREATED" "$FAKE_LOCK_PATH" >"$destination"
+                elif [[ " $* " == *" dynamodb get-item "* ]]; then
+                  if [[ -e $FAKE_DDB_MARKER ]]; then
+                    echo '{}'
+                  else
+                    printf '{"Item":{"LeaseName":{"S":"home-lab-production"},"Owner":{"S":"%s:lxc-qualification:123:%s"},"ExpiresAt":{"N":"9999999999"}}}\n' "$PROXMOX_LXC_QUALIFICATION_RECOVERY_RUN_ID" "$FAKE_LEASE_COMMIT"
+                  fi
+                elif [[ " $* " == *" dynamodb delete-item "* ]]; then
+                  [[ ${FAKE_DELETE_FAILURE:-0} != 1 ]] || exit 1
+                  : >"$FAKE_DDB_MARKER"
+                fi
+                """
+            ),
+        )
+        self._executable(
+            "gh",
+            textwrap.dedent(
+                """\
+                #!/usr/bin/env bash
+                if [[ $1 == api && " $* " == *"jobs?filter=all"* ]]; then
+                  printf '{"jobs":[{"name":"Apply exact qualification plan and prove identity","run_id":%s,"conclusion":"failure","steps":[{"name":"Apply one exact operation and prove the postcondition","conclusion":"failure","started_at":"2026-08-06T12:50:58Z","completed_at":"2026-08-06T12:51:13Z"}]}]}\n' "$PROXMOX_LXC_QUALIFICATION_RECOVERY_RUN_ID"
+                elif [[ $1 == api ]]; then
+                  printf '{"id":%s,"status":"completed","conclusion":"failure","head_sha":"%s","event":"workflow_dispatch","path":".github/workflows/proxmox-lxc-qualification.yml"}\n' "$PROXMOX_LXC_QUALIFICATION_RECOVERY_RUN_ID" "$FAKE_RUN_HEAD"
+                elif [[ $1 == run ]]; then
+                  printf '%s\n' "$FAKE_LOG_JOB\t$FAKE_LOG_STEP\t./scripts/qualify-proxmox-lxc apply '$FAKE_RECOVERY_OPERATION'" "$FAKE_LOG_JOB\t$FAKE_LOG_STEP\texact qualification saved plan applied" "$FAKE_LOG_JOB\t$FAKE_LOG_STEP\tLXC qualification validation failed: live qualification inventory identity is invalid" "$FAKE_LOG_JOB\t$FAKE_LOG_STEP\tqualification failed closed with the mutation lease retained"
+                else
+                  exit 1
                 fi
                 """
             ),
@@ -221,7 +271,10 @@ class QualificationOrchestrationTests(unittest.TestCase):
         self.log.unlink(missing_ok=True)
         result = self.run_driver("inspect-recovery", extra_env={"FAKE_LOCK_COUNT": "1"})
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), "lock-present")
+        self.assertEqual(
+            result.stdout.strip(),
+            f"lock-present sha256={hashlib.sha256(FAKE_LOCK_DOCUMENT.encode()).hexdigest()}",
+        )
         self.assertNotIn("helper inspect-recovery", self.commands())
 
         self.log.unlink(missing_ok=True)
@@ -229,6 +282,55 @@ class QualificationOrchestrationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), "identity-mismatch")
         self.assertEqual(result.stderr, "")
+
+    def test_recover_lock_binds_failed_run_proves_alignment_and_releases_exact_lease(self) -> None:
+        Path(self.env["FAKE_DDB_MARKER"]).unlink(missing_ok=True)
+        result = self.run_driver("recover-lock", extra_env={"FAKE_INSPECT_CLASS": "aligned-protected"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("reviewed stale locks removed", result.stdout)
+        commands = self.commands()
+        self.assertIn("force-unlock -force", commands)
+        self.assertIn("dynamodb delete-item", commands)
+
+    def test_recover_lock_retains_mutation_lease_without_aligned_protected_proof(self) -> None:
+        self.log.unlink(missing_ok=True)
+        Path(self.env["FAKE_DDB_MARKER"]).unlink(missing_ok=True)
+        result = self.run_driver("recover-lock", extra_env={"FAKE_INSPECT_CLASS": "identity-mismatch"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("dynamodb delete-item", self.commands())
+
+    def test_recover_lock_rejects_mismatched_run_lock_lease_and_operation_before_unlock(self) -> None:
+        cases = (
+            {"FAKE_RUN_HEAD": "a" * 40},
+            {"FAKE_RECOVERY_OPERATION": "delete"},
+            {"FAKE_LOG_STEP": "Set up job"},
+            {"FAKE_LOG_JOB": "Validate infrastructure"},
+            {"FAKE_LOCK_PATH": "other-bucket/other-key"},
+            {"FAKE_LOCK_CREATED": "2026-08-06T12:40:00Z"},
+            {"FAKE_LOCK_VERSION": "1.12.4"},
+            {"FAKE_LOCK_ID": "22222222-2222-4222-8222-222222222222"},
+            {"FAKE_LOCK_WHO": "runner@different"},
+            {"FAKE_LOCK_OPERATION": "OperationTypePlan"},
+            {"FAKE_LOCK_INFO": "different"},
+            {"FAKE_LEASE_COMMIT": "a" * 40},
+        )
+        for extra_env in cases:
+            with self.subTest(extra_env=extra_env):
+                self.log.unlink(missing_ok=True)
+                Path(self.env["FAKE_DDB_MARKER"]).unlink(missing_ok=True)
+                result = self.run_driver("recover-lock", extra_env=extra_env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn("force-unlock -force", self.commands())
+                self.assertNotIn("dynamodb delete-item", self.commands())
+
+    def test_recover_lock_retains_lease_on_volume_or_conditional_delete_failure(self) -> None:
+        for extra_env in ({"FAKE_STORAGE_FAILURE": "1"}, {"FAKE_DELETE_FAILURE": "1"}):
+            with self.subTest(extra_env=extra_env):
+                self.log.unlink(missing_ok=True)
+                Path(self.env["FAKE_DDB_MARKER"]).unlink(missing_ok=True)
+                result = self.run_driver("recover-lock", extra_env=extra_env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(Path(self.env["FAKE_DDB_MARKER"]).exists())
 
 
 if __name__ == "__main__":

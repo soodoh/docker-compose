@@ -29,6 +29,7 @@ class QualificationWorkflowTests(unittest.TestCase):
             "verify-empty",
             "reprotect",
             "inspect-recovery",
+            "recover-lock",
         ):
             self.assertIn(f"          - {operation}\n", trigger)
         self.assertGreaterEqual(self.workflow.count("github.ref == 'refs/heads/main'"), 3)
@@ -41,6 +42,10 @@ class QualificationWorkflowTests(unittest.TestCase):
         self.assertIn("./scripts/qualify-proxmox-lxc plan '${{ inputs.operation }}'", self.workflow)
         self.assertIn("./scripts/qualify-proxmox-lxc apply '${{ inputs.operation }}'", self.workflow)
         self.assertIn("./scripts/qualify-proxmox-lxc inspect-recovery", self.workflow)
+        self.assertIn("./scripts/qualify-proxmox-lxc recover-lock", self.workflow)
+        self.assertIn("PROXMOX_LXC_QUALIFICATION_RECOVERY_RUN_ID", self.workflow)
+        self.assertIn("PROXMOX_LXC_QUALIFICATION_RECOVERY_LOCK_SHA256", self.workflow)
+        self.assertIn("actions: read", self.workflow)
         self.assertIn("group: infrastructure-production", self.workflow)
         self.assertIn("cancel-in-progress: false", self.workflow)
 

@@ -36,6 +36,7 @@ def environment() -> dict[str, str]:
         "TF_VAR_proxmox_endpoint": ENDPOINT,
         "TF_BACKEND_BUCKET": "protected-backend-bucket",
         "PROXMOX_CA_PEM": "-----BEGIN CERTIFICATE-----\nprotected\n-----END CERTIFICATE-----\n",
+        "PROXMOX_VERIFY_STORAGE_VOLUME": "true",
     }
 
 
@@ -220,9 +221,10 @@ class QualificationEvidenceTests(unittest.TestCase):
             "cmode": "tty",
             "console": 0,
             "cores": 1,
+            "cpulimit": 0,
             "cpuunits": 100,
             "description": f"{qualification.MARKER}\n",
-            "digest": "a" * 64,
+            "digest": "a" * 40,
             "hostname": qualification.MARKER,
             "memory": 128,
             "onboot": 0,
@@ -230,6 +232,7 @@ class QualificationEvidenceTests(unittest.TestCase):
             "protection": int(protected),
             "rootfs": f"local-lvm:vm-{VMID}-disk-0,size=1G",
             "swap": 0,
+            "template": 0,
             "tty": 0,
             "unprivileged": 1,
         }
@@ -367,6 +370,18 @@ class QualificationEvidenceTests(unittest.TestCase):
         with self.env(), mock.patch.object(qualification, "api_get", side_effect=[[], []]):
             qualification.validate_live("absent")
 
+        for key, value in (("cpulimit", 1), ("template", 1)):
+            config = self.live_config()
+            config[key] = value
+            with self.subTest(key=key), self.env(), mock.patch.object(
+                qualification, "api_get", side_effect=[self.inventory(), config, self.volumes()]
+            ), self.assertRaises(qualification.QualificationError):
+                qualification.validate_live("protected")
+
+    def test_volume_inventory_uses_unfiltered_storage_query(self) -> None:
+        with mock.patch.object(qualification, "api_get", return_value=[]) as api_get:
+            self.assertEqual(qualification.volume_ids(int(VMID)), [])
+        api_get.assert_called_once_with("nodes/proxmox/storage/local-lvm/content")
     def test_live_rejects_every_extra_capability_and_residual_volume(self) -> None:
         for key, value in (("mp0", "local-lvm:vm-9020-disk-1,mp=/mnt"), ("net0", "name=eth0"), ("features", "nesting=1"), ("hookscript", "local:snippets/x"), ("tags", "x"), ("startup", "order=1")):
             config = self.live_config()
