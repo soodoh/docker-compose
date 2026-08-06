@@ -44,7 +44,7 @@ age_binary_sha256: 2e305637f2a0555305e21c17fb74446acbb39b53135d43d4b744e50c28713
 age_keygen_binary_sha256: c56ef69834e18ca4d3b953117f4481522c35fb6862a5d2871685aa4685893664
 
 compose_project_name: docker-compose
-iac_apply_lock_path: /var/lib/iac-ansible-production.lock
+apply_lock_path: /var/lib/iac-ansible-production.lock
 compose_home_dir: /home/docker
 compose_deployment_root: /srv/docker-compose
 compose_current_dir: /srv/docker-compose/current
@@ -68,6 +68,8 @@ compose_runtime_cli:
   - "{{ compose_current_dir }}/docker-compose.yml"
 compose_staged_inventory_path: /var/lib/docker-compose/staged-model.json
 compose_runtime_inventory_path: /var/lib/docker-compose/runtime-model.json
+maintenance_compose_current_image_lock_path: /var/lib/docker-compose/current-images.json
+maintenance_compose_previous_image_lock_path: /var/lib/docker-compose/previous-images.json
 compose_canary_service: flaresolverr
 compose_canary_path: services/servarr.yml
 
@@ -108,8 +110,8 @@ audit_expected_devices:
   - /dev/dri
   - /dev/dri/renderD128
   - /dev/net/tun
-  - /dev/ttyUSB0
-  - /dev/ttyUSB1
+  - /dev/zigbee
+  - /dev/zwave
   - /dev/uhid
   - /dev/uinput
 
@@ -133,13 +135,19 @@ audit_expected_dkms_kernel: 7.1.5-arch1-2
 audit_root_cron_path: /var/spool/cron/root
 
 # Phase 3 routine desired state. Management-plane changes use bootstrap.yml only.
-iac_allowed_apply_tags:
+apply_guard_allowed_tags:
   - host_files
   - base
   - maintenance
   - storage
+  - hardware
   - docker
   - compose
+  - ssh
+  - sops_age
+  - arch_network
+  - tailscale
+  - coral
 bootstrap_allowed_apply_tags:
   - management_plane
 
@@ -154,7 +162,7 @@ docker_packages:
 docker_services:
   - docker.service
 
-maintenance_manage_root_cron: false
+maintenance_manage_root_cron: true
 
 # Phase 4 management-plane plan. The auth key is controller environment only and
 # must be a short-lived, preauthorized, one-use key with tag:docker-host.

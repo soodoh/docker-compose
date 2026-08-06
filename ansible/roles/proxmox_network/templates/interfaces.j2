@@ -1,0 +1,14 @@
+# Managed by Ansible. Keep console/LAN rollback available during changes.
+auto lo
+iface lo inet loopback
+
+auto {{ network.bridge_port }}
+iface {{ network.bridge_port }} inet manual
+
+auto {{ network.bridge }}
+iface {{ network.bridge }} inet static
+  address {{ network.proxmox.ipv4 }}
+  gateway {{ network.gateway }}
+  bridge-ports {{ network.bridge_port }}
+  bridge-stp off
+  bridge-fd 0

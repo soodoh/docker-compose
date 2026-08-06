@@ -4,6 +4,7 @@
   gather_facts: true
   any_errors_fatal: true
   vars_files:
+    - "{{ playbook_dir }}/../../infrastructure/contract/home-lab.yml"
     - "{{ playbook_dir }}/../group_vars/docker_host.yml"
   pre_tasks:
     - name: Enforce the apply safety contract
@@ -16,28 +17,60 @@
       ansible.builtin.import_role:
         name: apply_lock
       vars:
-        iac_apply_lock_action: acquire
+        apply_lock_action: acquire
       tags:
         - always
   roles:
-    - role: host_files
+    - role: arch_packages
       tags:
-        - host_files
+        - base
     - role: base
       tags:
         - base
-    - role: maintenance
+    - role: arch_network
       tags:
-        - maintenance
+        - arch_network
+    - role: tailscale
+      tags:
+        - tailscale
+    - role: arch_mounts
+      tags:
+        - storage
     - role: storage
       tags:
         - storage
-    - role: hardware
-      tags:
-        - hardware
     - role: docker
       tags:
         - docker
+    - role: sops_age
+      tags:
+        - sops_age
+    - role: arch_hardware
+      tags:
+        - hardware
+    - role: hardware
+      tags:
+        - hardware
+    - role: coral
+      tags:
+        - coral
+    - role: ssh
+      vars:
+        ssh_service_name: sshd.service
+        ssh_password_authentication: false
+        ssh_access_proven: "{{ arch_ssh_access_proven | default(false) }}"
+        ssh_allow_users:
+          - docker
+          - ansible-plan
+          - ansible-deploy
+      tags:
+        - ssh
+    - role: host_files
+      tags:
+        - host_files
+    - role: maintenance
+      tags:
+        - maintenance
     - role: compose
       tags:
         - compose
@@ -49,6 +82,6 @@
       ansible.builtin.import_role:
         name: apply_lock
       vars:
-        iac_apply_lock_action: release
+        apply_lock_action: release
       tags:
         - always

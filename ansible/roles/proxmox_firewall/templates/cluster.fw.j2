@@ -1,0 +1,12 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+
+[RULES]
+IN ACCEPT -source {{ network.cidr }} -p tcp -dport 22 -log nolog
+IN ACCEPT -source {{ network.cidr }} -p tcp -dport 8006 -log nolog
+IN ACCEPT -source {{ network.arch.ipv4.split('/')[0] }}/32 -p tcp -dport 2049 -log nolog
+IN ACCEPT -source 100.64.0.0/10 -p udp -dport 41641 -log nolog
+IN ACCEPT -source 100.64.0.0/10 -p tcp -dport 22 -log nolog
+IN ACCEPT -source 100.64.0.0/10 -p tcp -dport 8006 -log nolog

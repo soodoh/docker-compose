@@ -11,7 +11,7 @@
       ansible.builtin.import_role:
         name: apply_guard
       vars:
-        iac_allowed_apply_tags: "{{ bootstrap_allowed_apply_tags }}"
+        apply_guard_allowed_tags: "{{ bootstrap_allowed_apply_tags }}"
       tags:
         - always
         - management_plane

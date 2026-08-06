@@ -1,0 +1,210 @@
+---
+- name: Require immutable Coral artifact identity
+  ansible.builtin.assert:
+    that:
+      - arch.coral.artifact_digest is string
+      - arch.coral.artifact_digest is match('^sha256:[0-9a-f]{64}$')
+      - arch.coral.package_sha256 is string
+      - arch.coral.package_sha256 is match('^[0-9a-f]{64}$')
+    fail_msg: "Build, sign, and record the immutable Coral package artifact first."
+
+- name: Read installed Coral package version
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/pacman
+      - -Q
+      - gasket-dkms-git
+  register: coral_installed_package
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+- name: Install exact signed Coral package artifact
+  when: coral_installed_package.stdout != 'gasket-dkms-git ' ~ arch.coral.package_version
+  block:
+    - name: Verify the keyless artifact signature
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/cosign
+          - verify
+          - --certificate-identity
+          - "{{ coral_cosign_identity }}"
+          - --certificate-oidc-issuer
+          - https://token.actions.githubusercontent.com
+          - "{{ arch.coral.artifact_repository }}@{{ arch.coral.artifact_digest }}"
+      changed_when: false
+
+    - name: Remove any interrupted Coral extraction container
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/docker
+          - rm
+          - --force
+          - home-lab-coral-artifact
+      failed_when: false
+      changed_when: false
+
+    - name: Pull only the exact Coral artifact digest
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/docker
+          - pull
+          - "{{ arch.coral.artifact_repository }}@{{ arch.coral.artifact_digest }}"
+      register: coral_pull
+      changed_when: "'Downloaded newer image' in coral_pull.stdout"
+
+    - name: Create a stopped Coral extraction container
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/docker
+          - create
+          - --name
+          - home-lab-coral-artifact
+          - "{{ arch.coral.artifact_repository }}@{{ arch.coral.artifact_digest }}"
+      changed_when: true
+
+    - name: Copy the exact package from the stopped artifact
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/docker
+          - cp
+          - home-lab-coral-artifact:/artifact/gasket-dkms-git-r236.5815ee3-3-x86_64.pkg.tar.zst
+          - /var/tmp/gasket-dkms-git-r236.5815ee3-3-x86_64.pkg.tar.zst
+      changed_when: true
+
+    - name: Verify the package checksum
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/sha256sum
+          - --check
+          - --status
+      args:
+        stdin: "{{ arch.coral.package_sha256 }}  /var/tmp/gasket-dkms-git-r236.5815ee3-3-x86_64.pkg.tar.zst\n"
+      changed_when: false
+
+    - name: Install the exact Coral package
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/pacman
+          - --upgrade
+          - --noconfirm
+          - /var/tmp/gasket-dkms-git-r236.5815ee3-3-x86_64.pkg.tar.zst
+      changed_when: true
+  always:
+    - name: Remove the Coral extraction container
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/docker
+          - rm
+          - --force
+          - home-lab-coral-artifact
+      failed_when: false
+      changed_when: false
+
+    - name: Remove the extracted Coral package
+      ansible.builtin.file:
+        path: /var/tmp/gasket-dkms-git-r236.5815ee3-3-x86_64.pkg.tar.zst
+        state: absent
+
+- name: Load the exact installed Coral modules
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/modprobe
+      - "{{ item }}"
+  loop:
+    - gasket
+    - apex
+  changed_when: false
+  when:
+    - not ansible_check_mode or coral_installed_package.stdout == 'gasket-dkms-git ' ~ arch.coral.package_version
+
+- name: Read installed Coral package version after reconciliation
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/pacman
+      - -Q
+      - gasket-dkms-git
+  register: coral_installed_package_after
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+- name: Read DKMS status for the running kernel
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/dkms
+      - status
+      - gasket/r236.5815ee3
+      - -k
+      - "{{ ansible_facts.kernel }}"
+  register: coral_dkms_status
+  changed_when: false
+  check_mode: false
+  when:
+    - not ansible_check_mode or coral_installed_package_after.stdout == 'gasket-dkms-git ' ~ arch.coral.package_version
+
+- name: Read apex module metadata
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/modinfo
+      - -F
+      - vermagic
+      - apex
+  register: coral_apex_vermagic
+  changed_when: false
+  check_mode: false
+  when:
+    - not ansible_check_mode or coral_installed_package_after.stdout == 'gasket-dkms-git ' ~ arch.coral.package_version
+
+- name: Read Coral PCI binding
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/lspci
+      - -Dnnk
+      - -d
+      - "{{ proxmox.vm.pci.coral.vendor_device }}"
+  register: coral_pci_binding
+  changed_when: false
+  check_mode: false
+  when:
+    - not ansible_check_mode or coral_installed_package_after.stdout == 'gasket-dkms-git ' ~ arch.coral.package_version
+
+- name: Read Coral device permissions
+  ansible.builtin.stat:
+    path: /dev/apex_0
+  register: coral_device
+  when:
+    - not ansible_check_mode or coral_installed_package_after.stdout == 'gasket-dkms-git ' ~ arch.coral.package_version
+
+- name: Verify exact Coral runtime state
+  ansible.builtin.assert:
+    that:
+      - coral_installed_package_after.stdout == 'gasket-dkms-git ' ~ arch.coral.package_version
+      - "'installed' in coral_dkms_status.stdout"
+      - ansible_facts.kernel in coral_apex_vermagic.stdout
+      - "'Kernel driver in use: apex' in coral_pci_binding.stdout"
+      - coral_device.stat.exists
+      - coral_device.stat.gr_name == 'apex'
+      - coral_device.stat.mode == '0660'
+    fail_msg: "Coral package, DKMS build, binding, vermagic, or permissions differ."
+  when:
+    - not ansible_check_mode or coral_installed_package_after.stdout == 'gasket-dkms-git ' ~ arch.coral.package_version
+
+- name: Verify Frigate remains healthy with Coral access
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/docker
+      - inspect
+      - --format
+      - "{% raw %}{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}{% endraw %}"
+      - frigate
+  register: coral_frigate_health
+  changed_when: false
+  check_mode: false
+  when: coral_verify_frigate | bool
+
+- name: Assert Frigate health
+  ansible.builtin.assert:
+    that:
+      - coral_frigate_health.stdout == 'healthy'
+  when: coral_verify_frigate | bool

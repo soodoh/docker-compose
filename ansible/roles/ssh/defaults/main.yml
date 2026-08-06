@@ -1,0 +1,5 @@
+---
+ssh_service_name: sshd.service
+ssh_password_authentication: false
+ssh_access_proven: false
+ssh_allow_users: []

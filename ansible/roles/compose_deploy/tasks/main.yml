@@ -143,12 +143,16 @@
 - name: Select changes permitted by the requested deployment lane
   ansible.builtin.set_fact:
     compose_deploy_effective_changes: >-
-      {{ compose_deploy_plan.has_changes and
-         (((compose_deploy_artifact_only | default(false) | ansible.builtin.bool) and
+      {{
+        (compose_deploy_plan.has_changes or compose_deploy_plan.recreate_services | length > 0) and
+        (
+          ((compose_deploy_artifact_only | default(false) | ansible.builtin.bool) and
            compose_deploy_plan.artifact_only_eligible) or
           (not (compose_deploy_artifact_only | default(false) | ansible.builtin.bool) and
            (not (compose_deploy_canary_only | default(false) | ansible.builtin.bool) or
-            compose_deploy_plan.canary_eligible))) }}
+            compose_deploy_plan.canary_eligible))
+        )
+      }}
 
 - name: Display only the secret-free deployment plan
   ansible.builtin.debug:
@@ -185,19 +189,33 @@
     - not ansible_check_mode
     - compose_deploy_effective_changes
   block:
-    - name: Pull only changed service images without starting containers
+    - name: Capture the active image set for rollback before pulls
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/python
+          - "{{ compose_staging_root }}/{{ compose_artifact_hash }}/scripts/compose-image-lock.py"
+          - capture
+          - --project
+          - "{{ compose_project_name }}"
+          - --output
+          - /run/docker-compose-previous-images.json
+      become: true
+      changed_when: true
+      no_log: true
+    - name: Reuse the prefetched changed-service images without refreshing tags
       ansible.builtin.command:
         argv: >-
           {{ ['/usr/bin/docker', 'compose', '--project-name', compose_project_name,
               '--project-directory', compose_staging_root ~ '/' ~ compose_artifact_hash,
               '--env-file', compose_staged_env_path,
               '--file', compose_staging_root ~ '/' ~ compose_artifact_hash ~ '/docker-compose.yml',
-              'pull', '--policy', 'always', '--ignore-buildable'] + compose_deploy_plan.image_services }}
+              'pull', '--policy', 'missing', '--ignore-buildable'] + compose_deploy_plan.image_services }}
       become: true
       environment:
         HOME: "{{ compose_home_dir }}"
       no_log: true
       when: compose_deploy_plan.image_services | length > 0
+      changed_when: true
 
     - name: Create an incoming current artifact directory
       ansible.builtin.tempfile:
@@ -264,6 +282,7 @@
               - "{{ compose_current_dir }}"
               - "{{ compose_previous_dir }}"
           become: true
+          changed_when: true
 
         - name: Publish the incoming artifact as current
           ansible.builtin.command:
@@ -273,6 +292,7 @@
               - "{{ compose_deploy_incoming.path }}"
               - "{{ compose_current_dir }}"
           become: true
+          changed_when: true
       rescue:
         - name: Inspect current after interrupted pre-Docker artifact rotation
           ansible.builtin.stat:
@@ -289,6 +309,7 @@
               - "{{ compose_current_dir }}"
           become: true
           when: not (compose_deploy_rescue_current.stat.exists | default(false))
+          changed_when: true
 
         - name: Stop after pre-Docker artifact rotation failure
           ansible.builtin.fail:
@@ -315,6 +336,7 @@
         HOME: "{{ compose_home_dir }}"
       no_log: true
       when: compose_deploy_plan.recreate_services | length > 0
+      changed_when: true
 
     - name: Produce the root-only post-deployment action plan
       ansible.builtin.script:
@@ -359,4 +381,46 @@
           - compose_deploy_post_plan.recreate_services | length == 0
           - compose_deploy_post_plan.forbidden_actions | length == 0
         fail_msg: "Post-deployment Compose plan still proposes convergence."
+      no_log: true
+
+    - name: Create the protected image-lock directory
+      ansible.builtin.file:
+        path: "{{ maintenance_compose_current_image_lock_path | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+      become: true
+
+    - name: Retain the exact pre-deployment image set
+      ansible.builtin.copy:
+        src: /run/docker-compose-previous-images.json
+        dest: "{{ maintenance_compose_previous_image_lock_path }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      become: true
+      no_log: true
+
+    - name: Capture the exact converged image set
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/python
+          - "{{ compose_current_dir }}/scripts/compose-image-lock.py"
+          - capture
+          - --project
+          - "{{ compose_project_name }}"
+          - --output
+          - "{{ maintenance_compose_current_image_lock_path }}"
+      become: true
+      changed_when: true
+      no_log: true
+
+    - name: Remove transient pre-deployment image state
+      ansible.builtin.file:
+        path: /run/docker-compose-previous-images.json
+        state: absent
+      become: true
+      changed_when: false
       no_log: true

@@ -36,7 +36,13 @@
 - name: Assert required hardware device paths exist
   ansible.builtin.assert:
     that:
-      - item.stat.exists
+      - >-
+        item.stat.exists or
+        (
+          ansible_check_mode and
+          (arch_hardware_usb_rules.changed | default(false)) and
+          item.item in ['/dev/zigbee', '/dev/zwave']
+        )
     fail_msg: "Required device {{ item.item }} is missing; refusing convergence."
   loop: "{{ hardware_device_results.results }}"
   loop_control:

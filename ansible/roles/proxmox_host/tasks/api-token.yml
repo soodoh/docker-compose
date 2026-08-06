@@ -1,0 +1,55 @@
+---
+- name: Inspect existing API tokens without displaying values
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/pveum
+      - user
+      - token
+      - list
+      - "{{ proxmox_host_api_account.user }}"
+      - --output-format
+      - json
+  register: proxmox_host_api_tokens
+  changed_when: false
+  no_log: true
+
+- name: Create the provider API token once
+  when: >-
+    proxmox_host_api_account.token_name not in
+    (proxmox_host_api_tokens.stdout | from_json | map(attribute='tokenid') | list)
+  no_log: true
+  block:
+    - name: Generate the privilege-separated API token
+      ansible.builtin.command:
+        argv:
+          - /usr/sbin/pveum
+          - user
+          - token
+          - add
+          - "{{ proxmox_host_api_account.user }}"
+          - "{{ proxmox_host_api_account.token_name }}"
+          - --privsep
+          - "1"
+          - --output-format
+          - json
+      register: proxmox_host_new_api_token
+      changed_when: true
+
+    - name: Create the root-only credential directory
+      ansible.builtin.file:
+        path: "{{ proxmox_host_api_account.token_path | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Store the one-time API token for manual escrow
+      ansible.builtin.copy:
+        dest: "{{ proxmox_host_api_account.token_path }}"
+        owner: root
+        group: root
+        mode: "0600"
+        content: >-
+          PROXMOX_VE_API_TOKEN={{ (proxmox_host_new_api_token.stdout |
+          from_json)['full-tokenid'] }}={{ (proxmox_host_new_api_token.stdout |
+          from_json).value }}

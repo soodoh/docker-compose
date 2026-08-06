@@ -6,7 +6,7 @@ all:
     docker_host:
       hosts:
         docker-host-production:
-          ansible_host: 100.111.210.72
+          ansible_host: docker-host
           ansible_user: ansible-deploy
           ansible_python_interpreter: /usr/bin/python
           # The workflow learns the SSH host key only after joining the authenticated

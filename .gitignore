@@ -17,3 +17,16 @@ pnpm-debug.log*
 
 # local worktrees
 .worktrees/
+
+# generated infrastructure state, plans, credentials, and controller exports
+.local/
+.reconcile/
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+**/backend.generated.tf
+infrastructure/tofu/aws-foundation/.local-state/
+infrastructure/omada-export.json
+recovery-bundle*
+!infrastructure/policy/fixtures/*.json

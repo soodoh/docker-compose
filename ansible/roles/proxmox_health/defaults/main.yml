@@ -1,0 +1,2 @@
+---
+proxmox_health_require_vm: true

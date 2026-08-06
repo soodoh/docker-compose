@@ -1,0 +1,32 @@
+---
+- name: Derive the secret-free first-deployment recovery plan
+  ansible.builtin.script:
+    cmd: >-
+      {{ role_path }}/../../../scripts/compose-recovery-plan.py
+      --artifact-hash {{ compose_artifact_hash | quote }}
+      --backup-id {{ recovery_backup_id | quote }}
+      --backup-sha256 {{ recovery_backup_sha256 | quote }}
+      --backup-version-id {{ recovery_backup_version_id | quote }}
+      --target {{ recovery_target | quote }}
+      --current-dir {{ compose_current_dir | quote }}
+      --runtime-env {{ compose_runtime_env_path | quote }}
+      --staged-dir {{ (compose_staging_root ~ '/' ~ compose_artifact_hash) | quote }}
+      --staged-env {{ compose_staged_env_path | quote }}
+      --project {{ compose_project_name | quote }}
+      {{ '--retain-existing-binds' if (recovery_retain_existing_bind_data | default(false) | bool) else '' }}
+      {{ '--retained-bind-review-confirmed' if (recovery_retained_bind_review_confirmed | default(false) | bool) else '' }}
+    executable: /usr/bin/python
+  register: compose_recovery_preflight_result
+  changed_when: false
+  no_log: true
+
+- name: Retain only the secret-free recovery plan identity
+  ansible.builtin.set_fact:
+    compose_recovery_preflight_plan_sha256: >-
+      {{ compose_recovery_preflight_result.stdout |
+         regex_search('compose_recovery_plan_sha256=([0-9a-f]{64})', '\\1') | first }}
+  no_log: true
+
+- name: Report the reviewed recovery plan identity
+  ansible.builtin.debug:
+    msg: "compose_recovery_plan_sha256={{ compose_recovery_preflight_plan_sha256 }}"

@@ -1,108 +1,31 @@
 # Home lab
 
+## Infrastructure reconciliation and recovery
+
+The authoritative desired-state contract is [`infrastructure/contract/home-lab.yml`](infrastructure/contract/home-lab.yml). Independent OpenTofu roots keep AWS foundation, Proxmox VM 100, protected legacy CT 101, Omada, Tailscale, and GitHub state isolated. [`scripts/reconcile-infrastructure`](scripts/reconcile-infrastructure) creates policy-inspected saved plans, applies those exact plans under the DynamoDB mutation lease, runs reproducible Ansible checks, deploys the exact Compose artifact, and requires post-apply no-op/audit results.
+
+No apply is implicit. Storage imports, network/firewall changes, passthrough mapping migrations, critical-data restore, and CT decommission each retain dedicated confirmation gates. See [`recovery/README.md`](recovery/README.md) for the fresh-Proxmox recovery order and unresolved operational inputs.
+Hardware mapping conversion is a dedicated migration: run the reconciler with `--phase steady --network-migration`, require every non-Proxmox root and all Ansible/Compose checks to be no-ops, then retain `PROXMOX_HARDWARE_MAPPINGS_ENABLED=true` for subsequent steady plans.
+
 ## Coral Edge TPU driver on Linux 7.1+
 
-Frigate uses a PCIe Coral Edge TPU passed through from Proxmox to this Arch Linux VM. The Proxmox host only needs to bind the device to `vfio-pci`; the `gasket` and `apex` drivers are installed in this VM.
+Frigate uses a PCIe Coral passed through to the Arch VM. Proxmox binds the PCI function to `vfio-pci`; Arch loads `gasket` and `apex`. The exact upstream source commit and the three reviewed compatibility patches are tracked under [`recovery/coral`](recovery/coral):
 
-Linux 7.1 removed the exported `zap_vma_ptes()` API used by Google's archived Gasket driver. When the VM first booted Linux 7.1, DKMS failed with:
+- Linux 6.13+ quoted `DMA_BUF` namespace import;
+- Linux 6.0+ removal of `no_llseek`; and
+- Linux 7.1+ replacement of `zap_vma_ptes()` with `zap_special_vma_range()`.
 
-```text
-gasket_core.c:923:9: error: implicit declaration of function ‘zap_vma_ptes’
-```
+[`coral-package.yml`](.github/workflows/coral-package.yml) builds `gasket-dkms-git r236.5815ee3-3` in a digest-pinned Arch environment, publishes the package as an OCI artifact, and keylessly signs its immutable digest. Recovery remains blocked until that digest and the package SHA-256 are recorded in the contract. Ansible verifies both the Sigstore identity and package checksum before installation, then checks DKMS status, running-kernel vermagic, PCI binding, `/dev/apex_0` ownership/mode, and Frigate health.
 
-The fix is to patch the driver to use the exported `zap_special_vma_range()` replacement on Linux 7.1 and newer.
-
-### Build the patched Arch package
-
-Install the build dependencies for the running kernel:
+Do not reinstall the mutable AUR package or use `SKIP` checksums. To verify the converged runtime:
 
 ```sh
-sudo pacman -S --needed base-devel git dkms linux-headers
+dkms status gasket/r236.5815ee3 -k "$(uname -r)"
+modinfo -F vermagic apex
+lspci -Dnnk -d 1ac1:089a
+stat -c '%U %G %a' /dev/apex_0
+docker inspect frigate
 ```
-
-Clone the AUR package as a regular user:
-
-```sh
-git clone https://aur.archlinux.org/gasket-dkms-git.git
-cd gasket-dkms-git
-```
-
-Download the Linux 7.1 compatibility patch:
-
-```sh
-curl -fsSL \
-  https://gist.githubusercontent.com/flocke/0757c03608e386809c86e2d564b90916/raw/linux-7.1-compat.patch \
-  -o linux-7.1-compat.patch
-```
-
-Update `PKGBUILD`:
-
-1. Increment `pkgrel` so the patched package supersedes the unpatched package:
-
-   ```sh
-   pkgrel=3
-   ```
-
-2. Add the compatibility patch to the `source` and `sha256sums` arrays:
-
-   ```sh
-   source+=("linux-7.1-compat.patch")
-   sha256sums+=("SKIP")
-   ```
-
-3. Replace `prepare()` with the following. Using `$srcdir` avoids path-resolution problems seen with some `makepkg` versions:
-
-   ```sh
-   prepare() {
-     cd gasket-driver
-     patch -Np1 -i "$srcdir/4b2a1464f3b619daaf0f6c664c954a42c4b7ce00.patch" # Linux 6.12+
-     patch -Np1 -i "$srcdir/6fbf8f8f8bcbc0ac9c9bef7a56f495a2c9872652.patch" # Linux 6.13+
-     patch -Np1 -i "$srcdir/linux-7.1-compat.patch" # Linux 7.1+
-   }
-   ```
-
-Build the package as a regular user, then install it as root:
-
-```sh
-makepkg --cleanbuild --force --noconfirm
-package=$(find . -maxdepth 1 -name 'gasket-dkms-git-*.pkg.tar.zst' -print -quit)
-sudo pacman -U "$package"
-```
-
-### Load and verify the driver
-
-```sh
-sudo modprobe gasket
-sudo modprobe apex
-
-dkms status
-lsmod | grep -E '^(gasket|apex)'
-ls -l /dev/apex_0
-lspci -nnk -d 1ac1:089a
-```
-
-Expected results:
-
-- DKMS reports `gasket` as `installed` for the running kernel.
-- `/dev/apex_0` exists.
-- The Coral PCI device reports `Kernel driver in use: apex`.
-
-Recreate Frigate so the restored device is attached to the container:
-
-```sh
-docker compose up -d --force-recreate frigate
-docker compose logs -f frigate
-```
-
-Frigate should log `TPU found`, become healthy, and remain at zero restarts.
-
-The patched DKMS source remains installed under `/usr/src`, so DKMS will rebuild it during future kernel upgrades. Reapply this local package patch if `gasket-dkms-git` is reinstalled before the AUR package includes Linux 7.1 support.
-
-References:
-
-- [AUR `gasket-dkms-git`](https://aur.archlinux.org/packages/gasket-dkms-git)
-- [Linux 7.1 compatibility patch](https://gist.github.com/flocke/0757c03608e386809c86e2d564b90916)
-- [Linux 7.1 Gasket build issue](https://github.com/NixOS/nixpkgs/issues/535359)
 
 ## Wolf game streaming
 
@@ -149,16 +72,12 @@ The startup log should report VA-API H.264, H.265, and AV1 encoders and an AMD z
 
 Wolf has read-write access to the Docker socket so it can create application containers. Keep its ports restricted to the trusted LAN.
 
-## Cronjobs
+## Rollback-safe image cleanup
+
+Ansible manages the weekly prune command only after both the current and previous Compose image-lock documents exist. The helper verifies every locked image locally, resolves its registry digest, and creates temporary stopped container references so Docker cannot prune either rollback set. Compose deployment captures the pre-change and converged image sets; rollback verifies and exchanges both locks with the artifacts.
+
+Never run an unrestricted `docker system prune`. Use the managed helper after reviewing its verification output:
 
 ```sh
-sudo pacman -Syu cronie
-sudo systemctl enable --now cronie.service
-sudo crontab -e
-```
-
-Then, add this to the root's crontab (it will clean up old docker images, running every Sunday at 4AM machine local time).
-
-```cron
-0 4 * * 0 { date; /usr/bin/docker system df; /usr/bin/docker system prune --all --force --filter "until=168h"; /usr/bin/docker system df; } >> /var/log/docker-prune.log 2>&1
+sudo /usr/local/sbin/home-lab-safe-image-prune
 ```

@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+mkdir "$work/valid-target" "$work/unsafe-target" "$work/missing-target" "$work/safe-symlink-target"
+
+WORK="$work" python3 - <<'PY'
+import io
+import os
+from pathlib import Path
+import tarfile
+
+root = Path(os.environ["WORK"])
+required = (
+    "vaultwarden-data/data",
+    "omada-data/data",
+    "hass-data/data",
+    "wolf/cfg/config",
+    ".env",
+    ".ssh/key",
+)
+
+
+def add_required(archive: tarfile.TarFile) -> None:
+    for name in required:
+        data = b"verified fixture"
+        member = tarfile.TarInfo(f"backup/{name}")
+        member.size = len(data)
+        member.uid = os.getuid()
+        member.gid = os.getgid()
+        member.mode = 0o6600
+        archive.addfile(member, io.BytesIO(data))
+
+
+with tarfile.open(root / "valid.tar.gz", "w:gz") as archive:
+    add_required(archive)
+
+with tarfile.open(root / "unsafe.tar.gz", "w:gz") as archive:
+    member = tarfile.TarInfo("../escape")
+    member.size = 1
+    archive.addfile(member, io.BytesIO(b"x"))
+
+with tarfile.open(root / "missing.tar.gz", "w:gz") as archive:
+    data = b"not a required class"
+    member = tarfile.TarInfo("backup/not-vaultwarden-data/data")
+    member.size = len(data)
+    archive.addfile(member, io.BytesIO(data))
+
+with tarfile.open(root / "hardlink.tar.gz", "w:gz") as archive:
+    add_required(archive)
+    member = tarfile.TarInfo("backup/hass-data/hardlink")
+    member.type = tarfile.LNKTYPE
+    member.linkname = "backup/hass-data/data"
+    archive.addfile(member)
+
+with tarfile.open(root / "device.tar.gz", "w:gz") as archive:
+    add_required(archive)
+    member = tarfile.TarInfo("backup/hass-data/device")
+    member.type = tarfile.CHRTYPE
+    archive.addfile(member)
+
+with tarfile.open(root / "unsafe-symlink.tar.gz", "w:gz") as archive:
+    add_required(archive)
+    member = tarfile.TarInfo("backup/hass-data/link")
+    member.type = tarfile.SYMTYPE
+    member.linkname = "../../escape"
+    archive.addfile(member)
+
+with tarfile.open(root / "safe-symlink.tar.gz", "w:gz") as archive:
+    add_required(archive)
+    member = tarfile.TarInfo("backup/hass-data/link")
+    member.type = tarfile.SYMTYPE
+    member.linkname = "../vaultwarden-data/data"
+    member.uid = os.getuid()
+    member.gid = os.getgid()
+    archive.addfile(member)
+
+with tarfile.open(root / "duplicate.tar.gz", "w:gz") as archive:
+    add_required(archive)
+    data = b"duplicate"
+    member = tarfile.TarInfo("backup/.env")
+    member.size = len(data)
+    archive.addfile(member, io.BytesIO(data))
+PY
+
+valid_output=$(python3 "$repo_root/scripts/restore-critical-archive.py" \
+  --archive "$work/valid.tar.gz" --target "$work/valid-target")
+grep -q '^critical_restore=verified ' <<<"$valid_output"
+mode=$(stat -c '%a' "$work/valid-target/backup/.env" 2>/dev/null || stat -f '%Mp%Lp' "$work/valid-target/backup/.env")
+[[ ${mode#0} == 600 ]]
+
+symlink_output=$(python3 "$repo_root/scripts/restore-critical-archive.py" \
+  --archive "$work/safe-symlink.tar.gz" --target "$work/safe-symlink-target")
+grep -q '^critical_restore=verified ' <<<"$symlink_output"
+[[ -L $work/safe-symlink-target/backup/hass-data/link ]]
+
+reject_archive() {
+  local name=$1 target="$work/reject-$1"
+  mkdir "$target"
+  if python3 "$repo_root/scripts/restore-critical-archive.py" \
+    --archive "$work/$name.tar.gz" --target "$target" >/dev/null 2>&1; then
+    echo "unsafe $name archive unexpectedly passed" >&2
+    exit 1
+  fi
+}
+
+unsafe_symlink_target="$work/skipped-unsafe-symlink"
+mkdir "$unsafe_symlink_target"
+unsafe_symlink_output=$(python3 "$repo_root/scripts/restore-critical-archive.py" \
+  --archive "$work/unsafe-symlink.tar.gz" --target "$unsafe_symlink_target")
+grep -q 'skipped_unsafe_symlinks=1$' <<<"$unsafe_symlink_output"
+[[ ! -e $unsafe_symlink_target/backup/hass-data/link ]]
+
+for name in unsafe missing hardlink device duplicate; do
+  reject_archive "$name"
+done
+[[ ! -e $work/escape ]]
+
+WORK="$work" REPO_ROOT="$repo_root" python3 - <<'PY'
+import importlib.util
+import io
+import os
+from pathlib import Path
+import sys
+import tarfile
+
+repo = Path(os.environ["REPO_ROOT"])
+root = Path(os.environ["WORK"])
+spec = importlib.util.spec_from_file_location("restore_critical_archive", repo / "scripts/restore-critical-archive.py")
+module = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+spec.loader.exec_module(module)
+
+
+def expect_limit(name: str, *, member_limit: int, byte_limit: int) -> None:
+    archive_path = root / f"{name}.tar.gz"
+    with tarfile.open(archive_path, "w:gz") as archive:
+        for index in range(2):
+            data = b"xx"
+            member = tarfile.TarInfo(f"backup/item-{index}")
+            member.size = len(data)
+            archive.addfile(member, io.BytesIO(data))
+    target = root / f"{name}-target"
+    target.mkdir()
+    module.MAX_ARCHIVE_MEMBERS = member_limit
+    module.MAX_EXPANDED_BYTES = byte_limit
+    sys.argv = ["restore-critical-archive.py", "--archive", str(archive_path), "--target", str(target)]
+    try:
+        module.main()
+    except SystemExit:
+        return
+    raise SystemExit(f"{name} limit unexpectedly passed")
+
+
+expect_limit("member-limit", member_limit=1, byte_limit=100)
+expect_limit("byte-limit", member_limit=10, byte_limit=3)
+PY
+
+echo "recovery tool safety fixtures passed"

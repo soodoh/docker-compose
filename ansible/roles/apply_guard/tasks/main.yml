@@ -12,7 +12,7 @@
 - name: Require one explicitly selected convergence tag for a normal run
   ansible.builtin.assert:
     that:
-      - iac_apply_tag | default('') in iac_allowed_apply_tags
+      - iac_apply_tag | default('') in apply_guard_allowed_tags
       - ansible_run_tags | length == 1
       - iac_apply_tag == ansible_run_tags | first
     fail_msg: >-

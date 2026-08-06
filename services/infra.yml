@@ -143,35 +143,38 @@ services:
       - proxy
 
   daily-local-backup:
-    image: ghcr.io/offen/docker-volume-backup:v2.48.2
+    image: ghcr.io/offen/docker-volume-backup:v2.48.2@sha256:19102d8e59eb1d598cf8c647c2b21100abaadc5a1c808ac643fa612e323c3013
     container_name: daily-local-backup
+    restart: unless-stopped
     logging: *default-logging
     environment:
       <<: *backup-env
-      BACKUP_FILENAME: daily-backup-%Y-%m-%dT%H-%M-%S.tar.gz
-      BACKUP_PRUNING_PREFIX: daily-backup-
-      # Every day at 6AM, except Sunday, since weekly-remote-backup will run then
-      BACKUP_CRON_EXPRESSION: "0 6 * * 1-6"
-      BACKUP_RETENTION_DAYS: 5
+      BACKUP_FILENAME: daily-local-backup-%Y-%m-%dT%H-%M-%S.tar.gz
+      BACKUP_PRUNING_PREFIX: daily-local-backup-
+      # Run before the daily off-site copy to avoid simultaneous volume quiescence.
+      BACKUP_CRON_EXPRESSION: "0 5 * * *"
+      BACKUP_RETENTION_DAYS: 14
     volumes: *backup-volumes
     networks:
       - infra
 
+  # Legacy service/container ID retained; this job now enforces the daily off-site RPO.
   weekly-remote-backup:
-    image: ghcr.io/offen/docker-volume-backup:v2.48.2
+    image: ghcr.io/offen/docker-volume-backup:v2.48.2@sha256:19102d8e59eb1d598cf8c647c2b21100abaadc5a1c808ac643fa612e323c3013
     container_name: weekly-remote-backup
+    restart: unless-stopped
     logging: *default-logging
     environment:
       <<: *backup-env
-      BACKUP_FILENAME: weekly-backup-%Y-%m-%dT%H-%M-%S.tar.gz
-      BACKUP_PRUNING_PREFIX: weekly-backup-
-      # The directory does not exist, so the local backend is skipped for weekly backups.
+      BACKUP_FILENAME: daily-remote-backup-%Y-%m-%dT%H-%M-%S.tar.gz
+      BACKUP_PRUNING_PREFIX: daily-remote-backup-
+      # The directory does not exist, so the local backend is skipped for off-site backups.
       BACKUP_ARCHIVE: /archive-disabled
       AWS_S3_BUCKET_NAME: $AWS_S3_BUCKET_NAME
       AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
       AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
-      BACKUP_CRON_EXPRESSION: "0 6 * * 0" # Every Sunday at 6AM
-      BACKUP_RETENTION_DAYS: 14 # Only saving once a week
+      BACKUP_CRON_EXPRESSION: "0 6 * * *"
+      BACKUP_RETENTION_DAYS: 14
     volumes: *backup-volumes
     networks:
       - infra

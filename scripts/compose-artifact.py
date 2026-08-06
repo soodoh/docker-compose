@@ -16,6 +16,7 @@ EXPLICIT_PATHS = {
     "docker-compose.yml",
     "scripts/check-sops-env.py",
     "scripts/compose-artifact.py",
+    "scripts/compose-image-lock.py",
     "scripts/compose-model-inventory.py",
     "scripts/restore-dotenv-layout.py",
     "secrets/production.env.keys",

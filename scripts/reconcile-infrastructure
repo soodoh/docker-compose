@@ -1,0 +1,963 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$repo_root"
+
+usage() {
+  cat >&2 <<'EOF'
+usage: scripts/reconcile-infrastructure <validate|bootstrap|adopt|plan|apply|recover|verify> [options]
+
+Compatibility commands are deliberately plan-only:
+  bootstrap                           Plan the recovery/bootstrap phase
+  adopt                               Plan the import-only adoption phase
+  recover --backup-id <exact-id>      Plan recovery bound to the exact protected input
+
+Options:
+  --phase <adoption|steady|recovery>  Desired Proxmox phase (plan/apply/verify only; default: steady)
+  --backup-id <exact-id>              Required by recover; must match the protected extra-vars file
+  --plan-dir <path>                   Protected saved-plan directory
+  --proxmox-inventory <path>          Proxmox Ansible inventory
+  --arch-inventory <path>             Arch Ansible inventory
+  --arch-bootstrap-inventory <path>   Temporary Arch recovery inventory
+  --ct-decommission                   Plan/apply only qualified CT 101 deletion
+  --ct-unprotect                      Plan/apply only qualified CT 101 unprotection
+  --network-migration                 Permit only the reviewed hardware-mapping migration
+
+Required environment:
+  TF_BACKEND_BUCKET                   Existing encrypted OpenTofu state bucket
+  AWS credentials and provider TF_VAR_* credentials for every enabled root
+
+Apply additionally requires a clean checkout at the manifest commit and the
+DynamoDB mutation lease from the infrastructure contract. Recovery gates are
+supplied only through RECONCILE_ANSIBLE_EXTRA_VARS_FILE (an ignored root-only
+YAML file); they are never accepted as shell text. Proxmox host bootstrap must
+already have been run locally with console/LAN fallback before recovery apply.
+EOF
+  exit 64
+}
+
+(($# >= 1)) || usage
+requested_action=$1
+shift
+phase=steady
+compatibility_action=false
+case "$requested_action" in
+  bootstrap)
+    action=plan
+    phase=recovery
+    compatibility_action=true
+    ;;
+  adopt)
+    action=plan
+    phase=adoption
+    compatibility_action=true
+    ;;
+  recover)
+    action=plan
+    phase=recovery
+    compatibility_action=true
+    ;;
+  validate|plan|apply|verify)
+    action=$requested_action
+    ;;
+  *) usage ;;
+esac
+plan_dir="$repo_root/.reconcile/plans"
+proxmox_inventory=inventory/infrastructure.yml
+arch_inventory=inventory/production.yml
+arch_bootstrap_inventory=inventory/arch-recovery.yml
+recovery_backup_id=
+ct_decommission=false
+ct_unprotect=false
+network_migration=false
+
+while (($#)); do
+  case "$1" in
+    --phase)
+      (($# >= 2)) || usage
+      [[ $compatibility_action == false ]] || usage
+      phase=$2
+      shift 2
+      ;;
+    --backup-id)
+      (($# >= 2)) || usage
+      recovery_backup_id=$2
+      shift 2
+      ;;
+    --plan-dir)
+      (($# >= 2)) || usage
+      plan_dir=$2
+      shift 2
+      ;;
+    --proxmox-inventory)
+      (($# >= 2)) || usage
+      proxmox_inventory=$2
+      shift 2
+      ;;
+    --arch-inventory)
+      (($# >= 2)) || usage
+      arch_inventory=$2
+      shift 2
+      ;;
+    --arch-bootstrap-inventory)
+      (($# >= 2)) || usage
+      arch_bootstrap_inventory=$2
+      shift 2
+      ;;
+    --ct-decommission)
+      ct_decommission=true
+      shift
+      ;;
+    --ct-unprotect)
+      ct_unprotect=true
+      shift
+      ;;
+    --network-migration)
+      network_migration=true
+      shift
+      ;;
+    *) usage ;;
+  esac
+done
+
+case "$action" in validate|plan|apply|verify) ;; *) usage ;; esac
+case "$phase" in adoption|steady|recovery) ;; *) usage ;; esac
+if [[ $phase == adoption ]]; then
+  export TF_VAR_adoption_mode=true
+else
+  export TF_VAR_adoption_mode=false
+fi
+omada_qualification_operation=${OMADA_QUALIFICATION_OPERATION:-none}
+omada_qualification_mode=false
+omada_qualification_enabled=false
+case "$omada_qualification_operation" in
+  none) ;;
+  create)
+    omada_qualification_mode=true
+    omada_qualification_enabled=true
+    ;;
+  remove) omada_qualification_mode=true ;;
+  *) usage ;;
+esac
+if [[ $omada_qualification_operation != none && $phase != steady ]]; then
+  echo "Omada qualification requires steady phase." >&2
+  exit 64
+fi
+if [[ $requested_action == recover ]]; then
+  [[ $recovery_backup_id =~ ^(daily-remote-backup|weekly-backup)-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}\.tar\.gz\.gpg$ ]] || usage
+elif [[ -n $recovery_backup_id ]]; then
+  usage
+fi
+ct_operation=false
+if [[ $ct_decommission == true || $ct_unprotect == true ]]; then ct_operation=true; fi
+if [[ $ct_operation == true && $phase != steady ]]; then
+  echo "CT operations require steady phase." >&2
+  exit 64
+fi
+if [[ $ct_decommission == true && $ct_unprotect == true ]]; then
+  echo "Select exactly one CT operation." >&2
+  exit 64
+fi
+if [[ $network_migration == true && ($phase != steady || $ct_operation == true) ]]; then
+  echo "Network migration requires steady phase and cannot be combined with CT operations." >&2
+  exit 64
+fi
+if [[ $omada_qualification_operation != none && ($network_migration == true || $ct_operation == true) ]]; then
+  echo "Omada qualification cannot be combined with another special operation." >&2
+  exit 64
+fi
+case "$plan_dir" in
+  "$repo_root/.reconcile/"*) ;;
+  *) echo "plan directory must remain under $repo_root/.reconcile" >&2; exit 64 ;;
+esac
+[[ $plan_dir != *"/../"* && $plan_dir != */.. ]] || exit 64
+
+if [[ $action == validate ]]; then
+  for command in tofu python3 shellcheck ansible-lint ansible-playbook docker; do
+    command -v "$command" >/dev/null || {
+      echo "required validation command is unavailable: $command" >&2
+      exit 69
+    }
+  done
+  scripts/validate-contract
+  scripts/validate-provider-locks
+  infrastructure/policy/test-policy.sh
+  scripts/test-recovery-tools
+  python3 -m py_compile scripts/*.py .github/scripts/*.py
+  shellcheck scripts/reconcile-infrastructure scripts/bootstrap-aws-state scripts/bootstrap-tailscale-state \
+    scripts/bootstrap-proxmox-host scripts/build-recovery-bundle \
+    scripts/collect-proxmox-protected-inputs scripts/migrate-proxmox-zfs-stack \
+    scripts/migrate-sops-recipients \
+    scripts/prepare-omada-plan-input scripts/publish-wolf-images \
+    scripts/rehearse-recovery scripts/restore-critical-backup \
+    scripts/test-recovery-tools .github/scripts/prepare-ansible-controller.sh
+  tofu fmt -check -recursive infrastructure/tofu
+  for root in aws-foundation proxmox-legacy proxmox omada tailscale github; do
+    tofu -chdir="infrastructure/tofu/$root" init -backend=false -input=false >/dev/null
+    tofu -chdir="infrastructure/tofu/$root" validate
+  done
+  (
+    cd ansible
+    ansible-lint -c ../.ansible-lint playbooks roles
+    for playbook in playbooks/*.yml; do
+      ansible-playbook -i inventory/infrastructure.yml --syntax-check "$playbook"
+    done
+  )
+  docker compose config --no-interpolate --quiet
+  git diff --check
+  echo "infrastructure_validation=passed live_qualification=not_run"
+  exit 0
+fi
+
+for command in tofu node python3 jq git aws ansible ansible-playbook curl; do
+  command -v "$command" >/dev/null || {
+    echo "required command is unavailable: $command" >&2
+    exit 69
+  }
+done
+
+export TF_IN_AUTOMATION=1
+export TF_INPUT=0
+
+contract_value() {
+  local expression=$1
+  EXPRESSION="$expression" node --input-type=module - <<'NODE'
+import fs from "node:fs";
+import yaml from "js-yaml";
+const document = yaml.load(fs.readFileSync("infrastructure/contract/home-lab.yml", "utf8"));
+let value = document;
+for (const segment of process.env.EXPRESSION.split(".")) value = value?.[segment];
+if (value === null || value === undefined || value === "") process.exit(1);
+process.stdout.write(String(value));
+NODE
+}
+
+backend_bucket=${TF_BACKEND_BUCKET:-}
+if [[ -z $backend_bucket ]]; then
+  backend_bucket=$(contract_value aws.state_bucket) || {
+    echo "TF_BACKEND_BUCKET is required until aws.state_bucket is populated." >&2
+    exit 65
+  }
+fi
+aws_region=${AWS_REGION:-$(contract_value aws.region)}
+lease_table=$(contract_value aws.mutation_lease_table)
+commit=$(git rev-parse HEAD)
+
+roots=(aws-foundation proxmox omada tailscale github)
+if [[ $phase != recovery ]]; then
+  roots=(aws-foundation proxmox-legacy proxmox omada tailscale github)
+fi
+enabled_roots=()
+for root in "${roots[@]}"; do
+  case "$root" in
+    omada) [[ ${TF_VAR_omada_enable_management:-false} == true ]] || continue ;;
+    tailscale) [[ ${TF_VAR_tailscale_enable_management:-false} == true ]] || continue ;;
+    github) [[ ${TF_VAR_github_enable_management:-false} == true ]] || continue ;;
+  esac
+  enabled_roots+=("$root")
+done
+roots=("${enabled_roots[@]}")
+unset enabled_roots
+sha256_file() {
+  if command -v sha256sum >/dev/null; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+
+tailscale_access_token() {
+  local token_response oidc_response oidc_token encoded_audience
+  if [[ -n ${TAILSCALE_OAUTH_CLIENT_SECRET:-} ]]; then
+    token_response=$(curl --fail --silent --show-error \
+      -d "client_id=$TAILSCALE_OAUTH_CLIENT_ID" \
+      -d "client_secret=$TAILSCALE_OAUTH_CLIENT_SECRET" \
+      https://api.tailscale.com/api/v2/oauth/token)
+  else
+    : "${TAILSCALE_AUDIENCE:?TAILSCALE_AUDIENCE is required for federated access}"
+    : "${ACTIONS_ID_TOKEN_REQUEST_URL:?GitHub OIDC request URL is unavailable}"
+    : "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:?GitHub OIDC request token is unavailable}"
+    encoded_audience=$(jq -rn --arg value "$TAILSCALE_AUDIENCE" '$value | @uri')
+    oidc_response=$(curl --fail --silent --show-error \
+      -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+      "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")
+    oidc_token=$(jq -er '.value' <<<"$oidc_response")
+    token_response=$(curl --fail --silent --show-error \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -d "client_id=$TAILSCALE_OAUTH_CLIENT_ID" \
+      -d "jwt=$oidc_token" \
+      https://api.tailscale.com/api/v2/oauth/token-exchange)
+  fi
+  jq -er '.access_token' <<<"$token_response"
+}
+
+tailscale_policy_identity() {
+  local access_token headers body canonical etag identity
+  : "${TAILSCALE_OAUTH_CLIENT_ID:?TAILSCALE_OAUTH_CLIENT_ID is required}"
+  access_token=$(tailscale_access_token)
+  headers=$(mktemp "${TMPDIR:-/tmp}/tailscale-policy-headers.XXXXXX")
+  body=$(mktemp "${TMPDIR:-/tmp}/tailscale-policy-body.XXXXXX")
+  canonical=$(mktemp "${TMPDIR:-/tmp}/tailscale-policy-canonical.XXXXXX")
+  chmod 0600 "$headers" "$body" "$canonical"
+  curl --fail --silent --show-error \
+    -D "$headers" \
+    -H "Authorization: Bearer $access_token" \
+    -H 'Accept: application/json' \
+    "https://api.tailscale.com/api/v2/tailnet/${TAILSCALE_TAILNET:--}/acl" \
+    -o "$body"
+  jq -cS -e . "$body" >"$canonical"
+  etag=$(awk 'tolower($1) == "etag:" {gsub(/\r/, ""); sub(/^[^:]+:[[:space:]]*/, ""); print; exit}' "$headers")
+  [[ -n $etag ]]
+  identity="$(sha256_file "$canonical")"$'\t'"$etag"
+  rm -f "$headers" "$body" "$canonical"
+  unset access_token
+  printf '%s\n' "$identity"
+}
+
+tailscale_planned_policy() {
+  local plan=$1 destination=$2
+  tofu -chdir=infrastructure/tofu/tailscale show -json "$plan" | jq -er '
+    .resource_changes[] |
+    select(.address == "terraform_data.tailscale_policy[0]") |
+    .change.after.input.policy_json |
+    fromjson
+  ' | jq -cS . >"$destination"
+}
+
+tailscale_apply_planned_policy() {
+  local plan=$1 expected_sha=$2 expected_etag=$3
+  local desired current_sha current_etag desired_sha access_token response after_sha after_etag
+  desired=$(mktemp "${TMPDIR:-/tmp}/tailscale-policy-desired.XXXXXX")
+  response=$(mktemp "${TMPDIR:-/tmp}/tailscale-policy-response.XXXXXX")
+  chmod 0600 "$desired" "$response"
+  tailscale_planned_policy "$plan" "$desired"
+  desired_sha=$(sha256_file "$desired")
+  IFS=$'\t' read -r current_sha current_etag < <(tailscale_policy_identity)
+  if [[ $current_sha != "$desired_sha" ]]; then
+    [[ $current_sha == "$expected_sha" && $current_etag == "$expected_etag" ]] || {
+      echo "The live Tailscale policy changed after planning; refusing the saved plan." >&2
+      rm -f "$desired" "$response"
+      exit 1
+    }
+    access_token=$(tailscale_access_token)
+    curl --fail --silent --show-error \
+      -H "Authorization: Bearer $access_token" \
+      -H 'Content-Type: application/json' \
+      --data-binary @"$desired" \
+      "https://api.tailscale.com/api/v2/tailnet/${TAILSCALE_TAILNET:--}/acl/validate" \
+      -o "$response"
+    jq -e '((.errors // []) | length) == 0 and ((.warnings // []) | length) == 0' "$response" >/dev/null
+    curl --fail --silent --show-error -X POST \
+      -H "Authorization: Bearer $access_token" \
+      -H 'Content-Type: application/json' \
+      -H "If-Match: $expected_etag" \
+      --data-binary @"$desired" \
+      "https://api.tailscale.com/api/v2/tailnet/${TAILSCALE_TAILNET:--}/acl" \
+      -o "$response"
+    unset access_token
+  fi
+  IFS=$'\t' read -r after_sha after_etag < <(tailscale_policy_identity)
+  [[ $after_sha == "$desired_sha" && -n $after_etag ]]
+  rm -f "$desired" "$response"
+}
+
+tailscale_verify_state_policy() {
+  local expected current_sha current_etag expected_sha
+  expected=$(mktemp "${TMPDIR:-/tmp}/tailscale-state-policy.XXXXXX")
+  chmod 0600 "$expected"
+  tofu -chdir=infrastructure/tofu/tailscale state pull | jq -er '
+    .resources[] |
+    select(.type == "terraform_data" and .name == "tailscale_policy") |
+    .instances[].attributes.input.value.policy_json |
+    fromjson
+  ' | jq -cS . >"$expected"
+  expected_sha=$(sha256_file "$expected")
+  IFS=$'\t' read -r current_sha current_etag < <(tailscale_policy_identity)
+  [[ $current_sha == "$expected_sha" && -n $current_etag ]]
+  rm -f "$expected"
+}
+
+assert_plan_excludes_credentials() {
+  local plan=$1 variable value
+  for variable in AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN PROXMOX_VE_API_TOKEN \
+    OMADA_PASSWORD GITHUB_TOKEN TAILSCALE_OAUTH_CLIENT_SECRET; do
+    value=${!variable:-}
+    [[ -z $value ]] && continue
+    PLAN_FILE="$plan" SECRET_VALUE="$value" python3 - <<'PY'
+import os
+from pathlib import Path
+
+if os.environ["SECRET_VALUE"].encode() in Path(os.environ["PLAN_FILE"]).read_bytes():
+    raise SystemExit("saved plan contains a provider credential")
+PY
+  done
+}
+
+backend_init() {
+  local root=$1
+  tofu -chdir="infrastructure/tofu/$root" init -input=false -reconfigure \
+    -backend-config="bucket=$backend_bucket" \
+    -backend-config="region=$aws_region" \
+    -backend-config="encrypt=true" \
+    -backend-config="use_lockfile=true" >/dev/null
+}
+
+policy_args() {
+  local root=$1 mode=normal
+  if [[ $phase == adoption && ($root == proxmox || $root == proxmox-legacy || $root == omada || $root == tailscale || $root == github) ]]; then
+    mode=adopt-or-noop
+  fi
+  if [[ $phase == recovery && $root == proxmox ]]; then
+    mode=recovery
+  fi
+  if [[ $network_migration == true && $root == proxmox ]]; then
+    mode=network-migration
+  fi
+  if [[ $ct_operation == true && $root == proxmox-legacy ]]; then
+    mode=ct-decommission
+  fi
+  if [[ $root == omada && $omada_qualification_operation != none ]]; then
+    mode=qualification
+  fi
+  printf '%s\0' --mode "$mode"
+  if [[ -f infrastructure/policy/allow/$root.txt ]]; then
+    printf '%s\0' --allow-change-file "$repo_root/infrastructure/policy/allow/$root.txt"
+  fi
+}
+
+root_plan_args() {
+  local root=$1 root_phase=$phase
+  if [[ $root == proxmox ]]; then
+    if [[ $phase == adoption ]] && tofu -chdir=infrastructure/tofu/proxmox state list 2>/dev/null |
+      grep -Fxq 'proxmox_virtual_environment_vm.arch'; then
+      root_phase=steady
+    fi
+    printf '%s\0' -var="phase=$root_phase"
+    if [[ $phase == recovery || $network_migration == true ]]; then
+      printf '%s\0' -var=use_hardware_mappings=true
+      printf '%s\0' -var=manage_hardware_mappings=true
+    fi
+  fi
+  if [[ $root == proxmox-legacy ]]; then
+    printf '%s\0' -var="decommission_legacy_ct=$ct_decommission"
+    printf '%s\0' -var="decommission_unprotect=$ct_unprotect"
+  fi
+  if [[ $root == omada && ${TF_VAR_omada_enable_management:-false} == true ]]; then
+    printf '%s\0' -var="omada_export_path=$repo_root/.local/omada/export.json"
+    printf '%s\0' -var="qualification_mode=$omada_qualification_mode"
+    printf '%s\0' -var="enable_qualification=$omada_qualification_enabled"
+  fi
+}
+
+plan_all() {
+  rm -rf "$plan_dir"
+  mkdir -p "$plan_dir"
+  chmod 0700 "$plan_dir"
+  local records="$plan_dir/records.ndjson"
+  : >"$records"
+
+  ./scripts/validate-contract
+  ./scripts/validate-provider-locks
+
+  local root plan exit_code tailscale_policy_sha256 tailscale_policy_etag tailscale_policy_changed desired_policy desired_policy_sha256
+  for root in "${roots[@]}"; do
+    echo "Planning OpenTofu root: $root"
+    backend_init "$root"
+    tailscale_policy_sha256=""
+    tailscale_policy_etag=""
+    if [[ $root == tailscale && ${TF_VAR_tailscale_enable_management:-false} == true ]]; then
+      IFS=$'\t' read -r tailscale_policy_sha256 tailscale_policy_etag < <(tailscale_policy_identity)
+    fi
+    plan="$plan_dir/$root.tfplan"
+    mapfile -d '' -t plan_args < <(root_plan_args "$root")
+    set +e
+    tofu -chdir="infrastructure/tofu/$root" plan -input=false -lock-timeout=5m \
+      -parallelism=1 -detailed-exitcode -out="$plan" "${plan_args[@]}"
+    exit_code=$?
+    set -e
+    [[ $exit_code == 0 || $exit_code == 2 ]] || exit "$exit_code"
+    assert_plan_excludes_credentials "$plan"
+    tailscale_policy_changed=false
+    if [[ $root == tailscale && ${TF_VAR_tailscale_enable_management:-false} == true ]]; then
+      desired_policy=$(mktemp "${TMPDIR:-/tmp}/tailscale-planned-policy.XXXXXX")
+      chmod 0600 "$desired_policy"
+      tailscale_planned_policy "$plan" "$desired_policy"
+      desired_policy_sha256=$(sha256_file "$desired_policy")
+      [[ $desired_policy_sha256 == "$tailscale_policy_sha256" ]] || tailscale_policy_changed=true
+      rm -f "$desired_policy"
+    fi
+
+    mapfile -d '' -t inspect_args < <(policy_args "$root")
+    TOFU_PLAN_CHDIR="infrastructure/tofu/$root" ./scripts/inspect-tofu-plan "$plan" "${inspect_args[@]}"
+    jq -cn \
+      --arg root "$root" \
+      --arg file "$(basename "$plan")" \
+      --arg sha256 "$(sha256_file "$plan")" \
+      --arg tailscale_policy_sha256 "$tailscale_policy_sha256" \
+      --arg tailscale_policy_etag "$tailscale_policy_etag" \
+      --argjson changed "$([[ $exit_code == 2 || $tailscale_policy_changed == true ]] && echo true || echo false)" \
+      '{root: $root, file: $file, sha256: $sha256, changed: $changed,
+        tailscale_policy_sha256: $tailscale_policy_sha256,
+        tailscale_policy_etag: $tailscale_policy_etag}' >>"$records"
+  done
+
+  if [[ $ct_operation == true ]]; then
+    jq -s -e '
+      (map(select(.root == "proxmox-legacy" and .changed == true)) | length == 1) and
+      (map(select(.root != "proxmox-legacy" and .changed == true)) | length == 0)
+    ' "$records" >/dev/null || {
+      echo "CT operations require every other OpenTofu root to be a no-op." >&2
+      exit 1
+    }
+  fi
+  if [[ $network_migration == true ]]; then
+    jq -s -e '
+      (map(select(.root == "proxmox" and .changed == true)) | length == 1) and
+      (map(select(.root != "proxmox" and .changed == true)) | length == 0)
+    ' "$records" >/dev/null || {
+      echo "Network migration requires every other OpenTofu root to be a no-op." >&2
+      exit 1
+    }
+  fi
+
+  compose_hash=$(python3 scripts/compose-artifact.py hash)
+  jq -s \
+    --arg commit "$commit" \
+    --arg phase "$phase" \
+    --argjson ct_decommission "$ct_decommission" \
+    --argjson ct_unprotect "$ct_unprotect" \
+    --argjson network_migration "$network_migration" \
+    --arg backend_bucket "$backend_bucket" \
+    --arg compose_hash "$compose_hash" \
+    '{version: 1, commit: $commit, phase: $phase, ct_decommission: $ct_decommission,
+      ct_unprotect: $ct_unprotect, network_migration: $network_migration,
+      backend_bucket: $backend_bucket, compose_artifact_sha256: $compose_hash, plans: .}' \
+    "$records" >"$plan_dir/manifest.json"
+  rm -f "$records"
+  chmod 0600 "$plan_dir"/*
+  echo "Saved reviewed plans and manifest under $plan_dir"
+}
+
+lease_owner="${GITHUB_RUN_ID:-local}:$$:$commit"
+lease_held=false
+release_lease() {
+  if [[ $lease_held == true ]]; then
+    aws dynamodb delete-item \
+      --region "$aws_region" \
+      --table-name "$lease_table" \
+      --key "{\"LeaseName\":{\"S\":\"home-lab-production\"}}" \
+      --condition-expression "#owner = :owner" \
+      --expression-attribute-names '{"#owner":"Owner"}' \
+      --expression-attribute-values "{\":owner\":{\"S\":\"$lease_owner\"}}" \
+      >/dev/null || echo "warning: global mutation lease release failed" >&2
+    lease_held=false
+  fi
+}
+trap release_lease EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+acquire_lease() {
+  local now expires
+  now=$(date +%s)
+  expires=$((now + 14400))
+  aws dynamodb put-item \
+    --region "$aws_region" \
+    --table-name "$lease_table" \
+    --item "{\"LeaseName\":{\"S\":\"home-lab-production\"},\"Owner\":{\"S\":\"$lease_owner\"},\"ExpiresAt\":{\"N\":\"$expires\"}}" \
+    --condition-expression "attribute_not_exists(LeaseName) OR #expires < :now" \
+    --expression-attribute-names '{"#expires":"ExpiresAt"}' \
+    --expression-attribute-values "{\":now\":{\"N\":\"$now\"}}" \
+    >/dev/null
+  lease_held=true
+}
+
+verify_manifest() {
+  local manifest="$plan_dir/manifest.json"
+  [[ -f $manifest ]] || { echo "saved-plan manifest is missing" >&2; exit 66; }
+  [[ $(jq -r .version "$manifest") == 1 ]]
+  [[ $(jq -r .commit "$manifest") == "$commit" ]]
+  [[ $(jq -r .phase "$manifest") == "$phase" ]]
+  [[ $(jq -r .ct_decommission "$manifest") == "$ct_decommission" ]]
+  [[ $(jq -r .ct_unprotect "$manifest") == "$ct_unprotect" ]]
+  [[ $(jq -r .network_migration "$manifest") == "$network_migration" ]]
+  [[ $(jq -r .backend_bucket "$manifest") == "$backend_bucket" ]]
+  [[ $(jq -r .compose_artifact_sha256 "$manifest") == "$(python3 scripts/compose-artifact.py hash)" ]]
+
+  local expected_roots
+  expected_roots=$(printf '%s\n' "${roots[@]}" | jq -R . | jq -s 'sort')
+  jq -e --argjson expected "$expected_roots" '
+    ([.plans[].root] | sort) == $expected and
+    ([.plans[].root] | length) == ([.plans[].root] | unique | length) and
+    all(.plans[];
+      .file == (.root + ".tfplan") and
+      (.sha256 | test("^[0-9a-f]{64}$")) and
+      (.changed | type) == "boolean")
+  ' "$manifest" >/dev/null || {
+    echo "saved-plan manifest root set, paths, or hashes are invalid" >&2
+    exit 66
+  }
+
+  local root file expected
+  while IFS=$'\t' read -r root file expected; do
+    [[ -f $plan_dir/$file ]]
+    [[ $(sha256_file "$plan_dir/$file") == "$expected" ]]
+    backend_init "$root"
+    mapfile -d '' -t inspect_args < <(policy_args "$root")
+    TOFU_PLAN_CHDIR="infrastructure/tofu/$root" ./scripts/inspect-tofu-plan "$plan_dir/$file" "${inspect_args[@]}"
+  done < <(jq -r '.plans[] | [.root, .file, .sha256] | @tsv' "$manifest")
+}
+
+apply_root() {
+  local root=$1
+  if ! jq -e --arg root "$root" 'any(.plans[]; .root == $root)' "$plan_dir/manifest.json" >/dev/null; then
+    echo "Skipping disabled OpenTofu root: $root"
+    return
+  fi
+  local plan_file changed expected_policy_sha256 expected_policy_etag
+  local old_proxmox=${PROXMOX_VE_API_TOKEN:-}
+  local old_omada_username=${OMADA_USERNAME:-}
+  local old_omada_password=${OMADA_PASSWORD:-}
+  local old_github_token=${GITHUB_TOKEN:-}
+  local old_tailscale_client_id=${TAILSCALE_OAUTH_CLIENT_ID:-}
+  local old_tailscale_audience=${TAILSCALE_AUDIENCE:-}
+  plan_file=$(jq -r --arg root "$root" '.plans[] | select(.root == $root) | .file' "$plan_dir/manifest.json")
+  changed=$(jq -r --arg root "$root" '.plans[] | select(.root == $root) | .changed' "$plan_dir/manifest.json")
+  backend_init "$root"
+  case "$root" in
+    proxmox|proxmox-legacy)
+      [[ $changed == false || -n ${PROXMOX_APPLY_API_TOKEN:-} ]] || {
+        echo "The separated Proxmox apply API token is required." >&2
+        exit 66
+      }
+      [[ -z ${PROXMOX_APPLY_API_TOKEN:-} ]] || export PROXMOX_VE_API_TOKEN=$PROXMOX_APPLY_API_TOKEN
+      ;;
+    omada)
+      [[ $changed == false || (-n ${OMADA_APPLY_USERNAME:-} && -n ${OMADA_APPLY_PASSWORD:-}) ]] || {
+        echo "Separated Omada apply credentials are required." >&2
+        exit 66
+      }
+      [[ -z ${OMADA_APPLY_USERNAME:-} ]] || export OMADA_USERNAME=$OMADA_APPLY_USERNAME
+      [[ -z ${OMADA_APPLY_PASSWORD:-} ]] || export OMADA_PASSWORD=$OMADA_APPLY_PASSWORD
+      ;;
+    github)
+      [[ $changed == false || -n ${GITHUB_APPLY_TOKEN:-} ]] || {
+        echo "The separated GitHub apply token is required." >&2
+        exit 66
+      }
+      [[ -z ${GITHUB_APPLY_TOKEN:-} ]] || export GITHUB_TOKEN=$GITHUB_APPLY_TOKEN
+      ;;
+    tailscale)
+      if [[ $changed == true && (-z ${TAILSCALE_APPLY_OAUTH_CLIENT_ID:-} || -z ${TAILSCALE_APPLY_AUDIENCE:-}) ]]; then
+        [[ -n ${TAILSCALE_OAUTH_CLIENT_SECRET:-} && ${TAILSCALE_BOOTSTRAP_CONFIRMED:-} == apply-reviewed-tailscale-bootstrap ]] || {
+          echo "The separated Tailscale apply workload identity or explicit temporary bootstrap credential is required." >&2
+          exit 66
+        }
+      fi
+      [[ -z ${TAILSCALE_APPLY_OAUTH_CLIENT_ID:-} ]] || export TAILSCALE_OAUTH_CLIENT_ID=$TAILSCALE_APPLY_OAUTH_CLIENT_ID
+      [[ -z ${TAILSCALE_APPLY_AUDIENCE:-} ]] || export TAILSCALE_AUDIENCE=$TAILSCALE_APPLY_AUDIENCE
+      ;;
+  esac
+  if [[ $root == tailscale ]]; then
+    expected_policy_sha256=$(jq -r --arg root "$root" '.plans[] | select(.root == $root) | .tailscale_policy_sha256' "$plan_dir/manifest.json")
+    expected_policy_etag=$(jq -r --arg root "$root" '.plans[] | select(.root == $root) | .tailscale_policy_etag' "$plan_dir/manifest.json")
+    if [[ -n $expected_policy_sha256 && -n $expected_policy_etag ]]; then
+      tailscale_apply_planned_policy "$plan_dir/$plan_file" "$expected_policy_sha256" "$expected_policy_etag"
+    fi
+  fi
+  echo "Applying exact saved OpenTofu plan: $root"
+  tofu -chdir="infrastructure/tofu/$root" apply -input=false -lock-timeout=5m \
+    -parallelism=1 -auto-approve "$plan_dir/$plan_file"
+  if [[ $root == tailscale && ${TF_VAR_tailscale_enable_management:-false} == true ]]; then
+    tailscale_verify_state_policy
+  fi
+  export PROXMOX_VE_API_TOKEN=$old_proxmox
+  export OMADA_USERNAME=$old_omada_username OMADA_PASSWORD=$old_omada_password
+  export GITHUB_TOKEN=$old_github_token
+  export TAILSCALE_OAUTH_CLIENT_ID=$old_tailscale_client_id
+  export TAILSCALE_AUDIENCE=$old_tailscale_audience
+}
+
+ansible_extra_args=()
+if [[ -n ${RECONCILE_ANSIBLE_EXTRA_VARS_FILE:-} ]]; then
+  if [[ $RECONCILE_ANSIBLE_EXTRA_VARS_FILE != /* ]]; then
+    RECONCILE_ANSIBLE_EXTRA_VARS_FILE="$repo_root/$RECONCILE_ANSIBLE_EXTRA_VARS_FILE"
+  fi
+  [[ -f $RECONCILE_ANSIBLE_EXTRA_VARS_FILE ]] || {
+    echo "RECONCILE_ANSIBLE_EXTRA_VARS_FILE does not exist" >&2
+    exit 66
+  }
+  ansible_extra_args+=(--extra-vars "@$RECONCILE_ANSIBLE_EXTRA_VARS_FILE")
+fi
+
+if [[ $requested_action == recover ]]; then
+  [[ -n ${RECONCILE_ANSIBLE_EXTRA_VARS_FILE:-} ]] || {
+    echo "recover requires RECONCILE_ANSIBLE_EXTRA_VARS_FILE" >&2
+    exit 66
+  }
+  protected_backup_id=$(EXTRA_VARS_FILE="$RECONCILE_ANSIBLE_EXTRA_VARS_FILE" node --input-type=module - <<'NODE'
+import fs from "node:fs";
+import yaml from "js-yaml";
+const document = yaml.load(fs.readFileSync(process.env.EXTRA_VARS_FILE, "utf8"));
+process.stdout.write(String(document?.recovery_backup_id ?? ""));
+NODE
+  )
+  [[ $protected_backup_id == "$recovery_backup_id" ]] || {
+    echo "recover backup ID differs from the protected extra-vars file" >&2
+    exit 66
+  }
+fi
+
+ansible_checked_apply() {
+  local inventory=$1 playbook=$2 label=$3 host=$4
+  shift 4
+  local first second first_normalized second_normalized postcheck planned_changes
+  first=$(mktemp)
+  second=$(mktemp)
+  first_normalized=$(mktemp)
+  second_normalized=$(mktemp)
+  ansible-inventory -i "$inventory" --list | jq -e --arg host "$host" '._meta.hostvars | has($host)' >/dev/null
+  ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" 2>&1 | tee "$first"
+  ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" 2>&1 | tee "$second"
+  python3 "$repo_root/.github/scripts/normalize-ansible-plan.py" "$first" >"$first_normalized"
+  python3 "$repo_root/.github/scripts/normalize-ansible-plan.py" "$second" >"$second_normalized"
+  if [[ $(sha256_file "$first_normalized") != "$(sha256_file "$second_normalized")" ]]; then
+    rm -f "$first" "$second" "$first_normalized" "$second_normalized"
+    echo "$label Ansible plan was not reproducible; refusing apply." >&2
+    exit 1
+  fi
+  planned_changes=$(python3 "$repo_root/.github/scripts/parse-ansible-recap.py" "$first" "$host" \
+    | jq -er 'select(.unreachable == 0 and .failed == 0) | .changed')
+  rm -f "$first" "$second" "$first_normalized" "$second_normalized"
+  if [[ $planned_changes == 0 ]]; then
+    echo "$label Ansible plan is already a no-op; skipping normal apply."
+    return
+  fi
+  ansible-playbook -i "$inventory" "$playbook" "${ansible_extra_args[@]}" "$@"
+  postcheck=$(mktemp)
+  ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" 2>&1 | tee "$postcheck"
+  python3 "$repo_root/.github/scripts/parse-ansible-recap.py" "$postcheck" "$host" \
+    | jq -e '.changed == 0 and .unreachable == 0 and .failed == 0' >/dev/null
+  rm -f "$postcheck"
+}
+
+ansible_require_noop() {
+  local inventory=$1 playbook=$2 host=$3
+  shift 3
+  local check_log
+  check_log=$(mktemp)
+  ansible-inventory -i "$inventory" --list | jq -e --arg host "$host" '._meta.hostvars | has($host)' >/dev/null
+  echo "Auditing Ansible no-op: $playbook host=$host"
+  ansible-playbook -i "$inventory" "$playbook" --check --diff "${ansible_extra_args[@]}" "$@" 2>&1 | tee "$check_log"
+  python3 "$repo_root/.github/scripts/parse-ansible-recap.py" "$check_log" "$host" \
+    | jq -e '.changed == 0 and .unreachable == 0 and .failed == 0' >/dev/null
+  rm -f "$check_log"
+}
+
+apply_arch_steady() {
+  local tag
+  echo "Deferring the separately gated Arch network migration and unpublished Coral artifact during routine steady convergence."
+  for tag in base tailscale ssh storage docker sops_age hardware host_files compose; do
+    ansible_checked_apply "$arch_inventory" playbooks/site.yml "Arch/$tag" docker-host-production \
+      --tags "$tag" -e iac_apply_confirmed=true -e "iac_apply_tag=$tag" \
+      -e arch_ssh_access_proven=true
+  done
+}
+
+compose_apply() {
+  local artifact_root artifact_hash plan_log plan_hash repeat_log repeat_hash postcheck_log
+  artifact_root=$(mktemp -d)
+  artifact_hash=$(python3 scripts/compose-artifact.py copy "$artifact_root")
+  pushd ansible >/dev/null
+  ansible-playbook -i "$arch_inventory" playbooks/stage-compose.yml \
+    -e "compose_artifact_hash=$artifact_hash" \
+    -e "compose_artifact_controller_dir=$artifact_root" \
+    -e compose_stage_confirmed=true "${ansible_extra_args[@]}"
+  plan_log=$(mktemp)
+  repeat_log=$(mktemp)
+  postcheck_log=$(mktemp)
+  ansible-playbook -i "$arch_inventory" playbooks/deploy-compose.yml --check --diff \
+    -e "compose_artifact_hash=$artifact_hash" "${ansible_extra_args[@]}" | tee "$plan_log"
+  plan_hash=$(grep -oE 'compose_deploy_plan_sha256=[0-9a-f]{64}' "$plan_log" | cut -d= -f2 | sort -u)
+  ansible-playbook -i "$arch_inventory" playbooks/deploy-compose.yml --check --diff \
+    -e "compose_artifact_hash=$artifact_hash" "${ansible_extra_args[@]}" | tee "$repeat_log"
+  repeat_hash=$(grep -oE 'compose_deploy_plan_sha256=[0-9a-f]{64}' "$repeat_log" | cut -d= -f2 | sort -u)
+  [[ $plan_hash =~ ^[0-9a-f]{64}$ && $plan_hash == "$repeat_hash" ]]
+  ansible-playbook -i "$arch_inventory" playbooks/deploy-compose.yml \
+    -e "compose_artifact_hash=$artifact_hash" \
+    -e compose_deploy_confirmed=true "${ansible_extra_args[@]}"
+  ansible-playbook -i "$arch_inventory" playbooks/deploy-compose.yml --check --diff \
+    -e "compose_artifact_hash=$artifact_hash" "${ansible_extra_args[@]}" | tee "$postcheck_log"
+  python3 "$repo_root/.github/scripts/parse-ansible-recap.py" "$postcheck_log" docker-host-production \
+    | jq -e '.changed == 0 and .unreachable == 0 and .failed == 0' >/dev/null
+  popd >/dev/null
+  rm -rf "$artifact_root" "$plan_log" "$repeat_log" "$postcheck_log"
+}
+
+compose_recovery_apply() {
+  local artifact_root artifact_hash first_log second_log first_hash second_hash
+  artifact_root=$(mktemp -d)
+  first_log=$(mktemp)
+  second_log=$(mktemp)
+  artifact_hash=$(python3 scripts/compose-artifact.py copy "$artifact_root")
+  pushd ansible >/dev/null
+  ansible-playbook -i "$arch_inventory" playbooks/stage-compose.yml \
+    -e "compose_artifact_hash=$artifact_hash" \
+    -e "compose_artifact_controller_dir=$artifact_root" \
+    -e compose_stage_confirmed=true \
+    -e compose_stage_fresh_recovery=true "${ansible_extra_args[@]}"
+  ansible-playbook -i "$arch_inventory" playbooks/disaster-recovery.yml \
+    "${ansible_extra_args[@]}"
+  ansible-playbook -i "$arch_inventory" playbooks/plan-compose-recovery.yml \
+    -e "compose_artifact_hash=$artifact_hash" "${ansible_extra_args[@]}" | tee "$first_log"
+  ansible-playbook -i "$arch_inventory" playbooks/plan-compose-recovery.yml \
+    -e "compose_artifact_hash=$artifact_hash" "${ansible_extra_args[@]}" | tee "$second_log"
+  first_hash=$(grep -oE 'compose_recovery_plan_sha256=[0-9a-f]{64}' "$first_log" | cut -d= -f2 | sort -u)
+  second_hash=$(grep -oE 'compose_recovery_plan_sha256=[0-9a-f]{64}' "$second_log" | cut -d= -f2 | sort -u)
+  [[ $first_hash =~ ^[0-9a-f]{64}$ && $first_hash == "$second_hash" ]]
+  ansible-playbook -i "$arch_inventory" playbooks/recover-compose.yml \
+    -e "compose_artifact_hash=$artifact_hash" \
+    -e "compose_recovery_expected_plan_sha256=$first_hash" \
+    -e compose_recovery_confirmed=true "${ansible_extra_args[@]}"
+  postcheck_log=$(mktemp)
+  ansible-playbook -i "$arch_inventory" playbooks/deploy-compose.yml --check --diff \
+    -e "compose_artifact_hash=$artifact_hash" "${ansible_extra_args[@]}" | tee "$postcheck_log"
+  python3 "$repo_root/.github/scripts/parse-ansible-recap.py" "$postcheck_log" docker-host-production \
+    | jq -e '.changed == 0 and .unreachable == 0 and .failed == 0' >/dev/null
+  rm -f "$postcheck_log"
+  popd >/dev/null
+  rm -rf "$artifact_root" "$first_log" "$second_log"
+}
+
+verify_all() {
+  local root exit_code
+  for root in "${roots[@]}"; do
+    backend_init "$root"
+    mapfile -d '' -t plan_args < <(root_plan_args "$root")
+    set +e
+    tofu -chdir="infrastructure/tofu/$root" plan -input=false -lock-timeout=5m \
+      -parallelism=1 -detailed-exitcode "${plan_args[@]}"
+    exit_code=$?
+    set -e
+    [[ $exit_code == 0 ]] || {
+      echo "OpenTofu root is not converged: $root" >&2
+      exit 1
+    }
+    if [[ $root == tailscale && ${TF_VAR_tailscale_enable_management:-false} == true ]]; then
+      tailscale_verify_state_policy
+    fi
+  done
+  pushd ansible >/dev/null
+  ansible_require_noop "$proxmox_inventory" playbooks/proxmox-site.yml proxmox \
+    -e proxmox_ssh_access_proven=true
+  ansible_require_noop "$arch_inventory" playbooks/audit.yml docker-host-production
+  if [[ $phase == recovery ]]; then
+    ansible_require_noop "$arch_inventory" playbooks/arch-bootstrap.yml docker-host-production
+  fi
+  popd >/dev/null
+}
+
+apply_ct_decommission() {
+  local root tag
+  for root in aws-foundation proxmox omada tailscale github; do
+    apply_root "$root"
+  done
+  pushd ansible >/dev/null
+  ansible_require_noop "$proxmox_inventory" playbooks/proxmox-site.yml proxmox -e proxmox_ssh_access_proven=true
+  for tag in base arch_network tailscale ssh storage docker sops_age hardware coral host_files compose maintenance; do
+    ansible_require_noop "$arch_inventory" playbooks/site.yml docker-host-production --tags "$tag"
+  done
+  ansible_require_noop "$arch_inventory" playbooks/audit.yml docker-host-production
+  popd >/dev/null
+  apply_root proxmox-legacy
+  verify_all
+}
+
+apply_network_migration() {
+  local root tag
+  for root in aws-foundation proxmox-legacy omada tailscale github; do
+    apply_root "$root"
+  done
+  pushd ansible >/dev/null
+  ansible_require_noop "$proxmox_inventory" playbooks/proxmox-site.yml proxmox -e proxmox_ssh_access_proven=true
+  for tag in base arch_network tailscale ssh storage docker sops_age hardware coral host_files compose maintenance; do
+    ansible_require_noop "$arch_inventory" playbooks/site.yml docker-host-production --tags "$tag"
+  done
+  ansible_require_noop "$arch_inventory" playbooks/audit.yml docker-host-production
+  popd >/dev/null
+  apply_root proxmox
+  verify_all
+}
+
+case "$action" in
+  plan)
+    plan_all
+    ;;
+  apply)
+    if [[ -n $(git status --porcelain --untracked-files=all) ]]; then
+      echo "apply requires a clean checkout" >&2
+      exit 65
+    fi
+    verify_manifest
+    acquire_lease
+    if [[ $phase == adoption ]]; then
+      for root in "${roots[@]}"; do apply_root "$root"; done
+      verify_all
+      exit 0
+    fi
+    if [[ $ct_operation == true ]]; then
+      apply_ct_decommission
+      exit 0
+    fi
+    if [[ $network_migration == true ]]; then
+      apply_network_migration
+      exit 0
+    fi
+    apply_root aws-foundation
+    if [[ $phase == recovery ]]; then
+      apply_root tailscale
+      pushd ansible >/dev/null
+      ansible -i "$proxmox_inventory" proxmox_hosts -m ansible.builtin.ping
+      ansible_checked_apply "$proxmox_inventory" playbooks/proxmox-site.yml Proxmox proxmox \
+        -e proxmox_ssh_access_proven=true \
+        -e proxmox_health_require_vm=false
+      popd >/dev/null
+      apply_root proxmox
+      pushd ansible >/dev/null
+      ansible_checked_apply "$arch_bootstrap_inventory" playbooks/arch-bootstrap.yml Arch-bootstrap docker-host-recovery
+      ansible -i "$arch_inventory" docker_host -m ansible.builtin.ping
+      ansible_checked_apply "$arch_inventory" playbooks/site.yml Arch/ssh docker-host-production \
+        --tags ssh -e iac_apply_confirmed=true -e iac_apply_tag=ssh \
+        -e arch_ssh_access_proven=true
+      popd >/dev/null
+    else
+      if [[ $ct_operation == false ]]; then apply_root proxmox-legacy; fi
+      apply_root proxmox
+      pushd ansible >/dev/null
+      ansible_checked_apply "$proxmox_inventory" playbooks/proxmox-site.yml Proxmox proxmox -e proxmox_ssh_access_proven=true
+      apply_arch_steady
+      popd >/dev/null
+    fi
+
+    apply_root omada
+    if [[ $phase != recovery ]]; then apply_root tailscale; fi
+    apply_root github
+    if [[ $ct_operation == true ]]; then apply_root proxmox-legacy; fi
+    if [[ $phase == recovery ]]; then compose_recovery_apply; else compose_apply; fi
+    pushd ansible >/dev/null
+    if [[ $phase == recovery ]]; then
+      ansible_checked_apply "$arch_inventory" playbooks/site.yml Arch/coral docker-host-production \
+        --tags coral -e iac_apply_confirmed=true -e iac_apply_tag=coral
+    fi
+    ansible_checked_apply "$arch_inventory" playbooks/site.yml Arch/maintenance docker-host-production \
+      --tags maintenance -e iac_apply_confirmed=true -e iac_apply_tag=maintenance
+    popd >/dev/null
+    verify_all
+    ;;
+  verify)
+    verify_all
+    ;;
+esac

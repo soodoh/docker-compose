@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://diloreto.com/schemas/home-lab-v1.json",
+  "title": "Home lab infrastructure contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "system_name", "recovery", "network", "proxmox", "storage", "arch", "omada", "tailscale", "github", "aws", "backups"],
+  "properties": {
+    "version": { "const": 1 },
+    "system_name": { "const": "home-lab" },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_max_age_days", "critical_rpo_hours", "critical_rto_hours", "recovery_age_recipient", "ci_age_recipient"],
+      "properties": {
+        "evidence_max_age_days": { "type": "integer", "minimum": 1, "maximum": 365 },
+        "critical_rpo_hours": { "type": "integer", "maximum": 24 },
+        "critical_rto_hours": { "type": "integer", "maximum": 8 },
+        "recovery_age_recipient": { "$ref": "#/$defs/ageRecipient" },
+        "ci_age_recipient": { "anyOf": [{ "$ref": "#/$defs/ageRecipient" }, { "type": "null" }] }
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cidr", "gateway", "dns", "bridge", "bridge_port", "proxmox", "arch"],
+      "properties": {
+        "cidr": { "$ref": "#/$defs/cidr" },
+        "gateway": { "$ref": "#/$defs/ipv4" },
+        "dns": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ipv4" } },
+        "bridge": { "type": "string", "minLength": 1 },
+        "bridge_port": { "type": "string", "minLength": 1 },
+        "proxmox": { "$ref": "#/$defs/host" },
+        "arch": { "$ref": "#/$defs/host" }
+      }
+    },
+    "proxmox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "api_endpoint", "vm", "legacy_container"],
+      "properties": {
+        "node": { "type": "string", "minLength": 1 },
+        "api_endpoint": { "type": "string", "pattern": "^https://" },
+        "vm": { "$ref": "#/$defs/vm" },
+        "legacy_container": { "$ref": "#/$defs/legacyContainer" }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["zfs", "nfs"],
+      "properties": {
+        "zfs": { "$ref": "#/$defs/zfs" },
+        "nfs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["export", "client", "mountpoint", "retain_no_root_squash"],
+          "properties": {
+            "export": { "type": "string", "pattern": "^/" },
+            "client": { "$ref": "#/$defs/cidr" },
+            "mountpoint": { "type": "string", "pattern": "^/" },
+            "retain_no_root_squash": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "arch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_interface", "user", "games_mountpoint", "repository_snapshot", "packages", "coral"],
+      "properties": {
+        "network_interface": { "type": "string", "minLength": 1 },
+        "user": { "type": "string", "minLength": 1 },
+        "games_mountpoint": { "type": "string", "pattern": "^/" },
+        "repository_snapshot": { "type": "string", "pattern": "^[0-9]{4}/[0-9]{2}/[0-9]{2}$" },
+        "packages": { "type": "object", "additionalProperties": { "type": "string" }, "minProperties": 4 },
+        "coral": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["package_version", "source_commit", "artifact_repository", "artifact_digest", "package_sha256"],
+          "properties": {
+            "package_version": { "type": "string" },
+            "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "artifact_repository": { "type": "string", "pattern": "^ghcr\\.io/" },
+            "artifact_digest": { "anyOf": [{ "$ref": "#/$defs/sha256Digest" }, { "type": "null" }] },
+            "package_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
+          }
+        }
+      }
+    },
+    "omada": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["controller_version", "endpoint", "export_path", "provider_qualified", "required_consecutive_noop_plans"],
+      "properties": {
+        "controller_version": { "type": "string" },
+        "endpoint": { "type": "string", "pattern": "^https://" },
+        "export_path": { "type": "string", "minLength": 1 },
+        "provider_qualified": { "type": "boolean" },
+        "required_consecutive_noop_plans": { "type": "integer", "minimum": 3 }
+      }
+    },
+    "tailscale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tags", "required_endpoints"],
+      "properties": {
+        "tags": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^tag:" }, "minProperties": 4 },
+        "required_endpoints": { "type": "array", "minItems": 4, "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "github": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "repository", "default_branch", "environments"],
+      "properties": {
+        "owner": { "type": "string", "minLength": 1 },
+        "repository": { "type": "string", "minLength": 1 },
+        "default_branch": { "type": "string", "minLength": 1 },
+        "environments": { "type": "object", "additionalProperties": false, "required": ["plan", "apply"], "properties": { "plan": { "type": "string" }, "apply": { "type": "string" } } }
+      }
+    },
+    "aws": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["region", "recovery_region", "state_bucket", "recovery_bucket", "mutation_lease_table", "kms_alias"],
+      "properties": {
+        "region": { "type": "string", "pattern": "^[a-z]{2}-[a-z]+-[0-9]+$" },
+        "recovery_region": { "type": "string", "pattern": "^[a-z]{2}-[a-z]+-[0-9]+$" },
+        "state_bucket": { "anyOf": [{ "$ref": "#/$defs/bucket" }, { "type": "null" }] },
+        "recovery_bucket": { "anyOf": [{ "$ref": "#/$defs/bucket" }, { "type": "null" }] },
+        "mutation_lease_table": { "type": "string", "minLength": 3 },
+        "kms_alias": { "type": "string", "pattern": "^alias/" }
+      }
+    },
+    "backups": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["critical_schedule", "remote_retention_days", "local_retention_days", "excluded_classes"],
+      "properties": {
+        "critical_schedule": { "type": "string", "minLength": 9 },
+        "remote_retention_days": { "type": "integer", "minimum": 2 },
+        "local_retention_days": { "type": "integer", "minimum": 2 },
+        "excluded_classes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    }
+  },
+  "$defs": {
+    "ipv4": { "type": "string", "pattern": "^(25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])(\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])){3}$" },
+    "cidr": { "type": "string", "pattern": "^[0-9]{1,3}(\\.[0-9]{1,3}){3}/(3[0-2]|[12]?[0-9])$" },
+    "mac": { "type": "string", "pattern": "^([0-9A-F]{2}:){5}[0-9A-F]{2}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sha256Digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "ageRecipient": { "type": "string", "pattern": "^age1[0-9a-z]{50,}$" },
+    "bucket": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$" },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hostname", "magicdns_name", "ipv4", "mac"],
+      "properties": {
+        "hostname": { "type": "string", "minLength": 1 },
+        "magicdns_name": { "type": "string", "minLength": 1 },
+        "ipv4": { "$ref": "#/$defs/cidr" },
+        "mac": { "$ref": "#/$defs/mac" }
+      }
+    },
+    "rootDisk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["datastore", "interface", "size_gb", "iothread"],
+      "properties": {
+        "datastore": { "type": "string", "minLength": 1 },
+        "interface": { "type": "string", "pattern": "^(scsi|sata|virtio|ide)[0-9]+$" },
+        "size_gb": { "type": "integer", "minimum": 1 },
+        "iothread": { "type": "boolean" }
+      }
+    },
+    "gamesDisk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interface", "by_id_secret_ref", "filesystem_uuid", "backup", "discard", "iothread", "ssd"],
+      "properties": {
+        "interface": { "type": "string", "pattern": "^(scsi|sata|virtio|ide)[0-9]+$" },
+        "by_id_secret_ref": { "const": "HOMELAB_GAMES_DISK_BY_ID" },
+        "filesystem_uuid": { "type": "string", "pattern": "^[0-9a-f-]{36}$" },
+        "backup": { "type": "boolean" },
+        "discard": { "type": "string", "enum": ["ignore", "on"] },
+        "iothread": { "type": "boolean" },
+        "ssd": { "type": "boolean" }
+      }
+    },
+    "pciDevice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bdf", "vendor_device", "mapping"],
+      "properties": {
+        "bdf": { "type": "string", "pattern": "^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$" },
+        "vendor_device": { "type": "string", "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$" },
+        "mapping": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]+$" },
+        "pcie": { "type": "boolean" },
+        "rom_file": { "type": "string" },
+        "xvga": { "type": "boolean" },
+        "required_driver": { "type": "string", "minLength": 1 }
+      }
+    },
+    "usbDevice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "vendor_device", "mapping"],
+      "properties": {
+        "host": { "type": "string", "minLength": 1 },
+        "vendor_device": { "type": "string", "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$" },
+        "mapping": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]+$" },
+        "serial_secret_ref": { "type": "string", "pattern": "^HOMELAB_[A-Z0-9_]+_USB_SERIAL$" },
+        "usb3": { "type": "boolean" }
+      }
+    },
+    "vm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vmid", "name", "observed_protection", "desired_protection", "on_boot", "started", "cpu", "memory_mb", "machine", "smbios_uuid", "root_disk", "games_disk", "pci", "usb", "cloud_image"],
+      "properties": {
+        "vmid": { "const": 100 },
+        "name": { "const": "arch" },
+        "observed_protection": { "type": "boolean" },
+        "desired_protection": { "const": true },
+        "on_boot": { "const": true },
+        "started": { "type": "boolean" },
+        "cpu": { "type": "object", "additionalProperties": false, "required": ["cores", "sockets", "type", "kvm_arguments"], "properties": { "cores": { "const": 24 }, "sockets": { "const": 1 }, "type": { "const": "host" }, "kvm_arguments": { "type": "string" } } },
+        "memory_mb": { "const": 65536 },
+        "machine": { "const": "q35" },
+        "smbios_uuid": { "type": "string" },
+        "root_disk": { "$ref": "#/$defs/rootDisk" },
+        "games_disk": { "$ref": "#/$defs/gamesDisk" },
+        "pci": { "type": "object", "additionalProperties": false, "required": ["coral", "gpu", "gpu_audio", "host_igpu"], "properties": { "coral": { "$ref": "#/$defs/pciDevice" }, "gpu": { "$ref": "#/$defs/pciDevice" }, "gpu_audio": { "$ref": "#/$defs/pciDevice" }, "host_igpu": { "$ref": "#/$defs/pciDevice" } } },
+        "usb": { "type": "object", "additionalProperties": false, "required": ["zigbee", "zwave", "bluetooth"], "properties": { "zigbee": { "$ref": "#/$defs/usbDevice" }, "zwave": { "$ref": "#/$defs/usbDevice" }, "bluetooth": { "$ref": "#/$defs/usbDevice" } } },
+        "cloud_image": { "type": "object", "additionalProperties": false, "required": ["version", "url", "sha256", "signature_url"], "properties": { "version": { "type": "string" }, "url": { "type": "string", "pattern": "^https://" }, "sha256": { "$ref": "#/$defs/sha256" }, "signature_url": { "type": "string", "pattern": "^https://" } } }
+      }
+    },
+    "legacyContainer": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["vmid", "name", "mac", "protected", "recreate_after_decommission"],
+      "properties": { "vmid": { "const": 101 }, "name": { "const": "tailscale-gateway" }, "mac": { "$ref": "#/$defs/mac" }, "protected": { "const": true }, "recreate_after_decommission": { "const": false } }
+    },
+    "zfs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pool", "pool_guid_secret_ref", "expected_health", "corrected_checksum_baseline", "dataset", "mountpoint", "members"],
+      "properties": {
+        "pool": { "const": "storage" },
+        "pool_guid_secret_ref": { "const": "HOMELAB_ZFS_POOL_GUID" },
+        "expected_health": { "const": "ONLINE" },
+        "corrected_checksum_baseline": { "type": "integer", "minimum": 0 },
+        "dataset": { "const": "storage/docker" },
+        "mountpoint": { "const": "/storage/docker" },
+        "members": { "type": "array", "minItems": 12, "maxItems": 12, "items": { "type": "object", "additionalProperties": false, "required": ["secret_ref", "mirror"], "properties": { "secret_ref": { "type": "string", "pattern": "^HOMELAB_ZFS_MEMBER_[0-9]{2}_BY_ID$" }, "mirror": { "type": "integer", "minimum": 0, "maximum": 5 } } } }
+      }
+    }
+  }
+}

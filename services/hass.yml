@@ -17,7 +17,7 @@ services:
         condition: service_healthy
     privileged: true
     devices:
-      - /dev/ttyUSB0:/dev/zigbee
+      - /dev/zigbee:/dev/zigbee
     environment:
       TZ: $TZ
     volumes:
@@ -35,7 +35,7 @@ services:
     tty: true
     stop_signal: SIGINT
     devices:
-      - /dev/ttyUSB1:/dev/zwave
+      - /dev/zwave:/dev/zwave
     volumes:
       - zwave-data:/usr/src/app/store
     environment:

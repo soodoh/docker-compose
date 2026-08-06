@@ -12,7 +12,7 @@ inputs:
     description: Tailscale tags assigned to the ephemeral controller
     required: true
   target-ip:
-    description: Stable Tailscale IP of the Docker host
+    description: Stable Tailscale MagicDNS name of the target host
     required: true
   host-key-fingerprint:
     description: Expected Docker ED25519 SSH host-key fingerprint
@@ -45,10 +45,10 @@ runs:
         tags: ${{ inputs.tags }}
         version: 1.98.10
         sha256sum: 52490ce0832b245857e2afef7426d6ae5a4b49fb391412833cc95729bd23f7de
-        args: --accept-dns=false --ssh=false
+        args: --accept-dns=true --ssh=false
         use-cache: "true"
 
-    - name: Verify controller restrictions and Docker identity
+    - name: Verify controller restrictions and target identity
       shell: bash
       run: >-
         "${{ github.action_path }}/../../scripts/prepare-ansible-controller.sh"
