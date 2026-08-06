@@ -72,7 +72,7 @@ with tarfile.open(root / "safe-symlink.tar.gz", "w:gz") as archive:
     add_required(archive)
     member = tarfile.TarInfo("backup/hass-data/link")
     member.type = tarfile.SYMTYPE
-    member.linkname = "data"
+    member.linkname = "../vaultwarden-data/data"
     member.uid = os.getuid()
     member.gid = os.getgid()
     archive.addfile(member)

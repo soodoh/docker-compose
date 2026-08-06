@@ -3,6 +3,7 @@
 
 from argparse import ArgumentParser
 import os
+import posixpath
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -82,7 +83,15 @@ def main() -> None:
                         written.add(relative_name)
                     if member.issym():
                         link = PurePosixPath(member.linkname)
-                        if link.is_absolute() or ".." in link.parts:
+                        normalized_target = PurePosixPath(
+                            posixpath.normpath((relative.parent / link).as_posix())
+                        )
+                        if (
+                            link.is_absolute()
+                            or not normalized_target.parts
+                            or normalized_target.parts[0] != "backup"
+                            or ".." in normalized_target.parts
+                        ):
                             fail("unsafe_symlink")
                     elif not member.isdir() and not member.isfile():
                         fail("unsupported_archive_member")
