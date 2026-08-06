@@ -21,6 +21,7 @@ variable "decommission_confirmation" {
   validation {
     condition = (
       local.operation_matches_stage &&
+      (var.retirement_operation == "none" || local.legacy.lxc_provider_qualified) &&
       !local.legacy.recreate_after_decommission &&
       (
         (local.retirement_stage == "protected" && var.retirement_operation == "none") ||

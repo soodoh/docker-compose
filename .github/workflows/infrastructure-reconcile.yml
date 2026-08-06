@@ -10,6 +10,7 @@ on:
       - .github/requirements-ansible-controller.lock
       - .github/scripts/**
       - .github/workflows/infrastructure-reconcile.yml
+      - .github/workflows/proxmox-lxc-qualification.yml
       - ansible/**
       - infrastructure/**
       - scripts/**
@@ -21,6 +22,7 @@ on:
       - .github/requirements-ansible-controller.lock
       - .github/scripts/**
       - .github/workflows/infrastructure-reconcile.yml
+      - .github/workflows/proxmox-lxc-qualification.yml
       - ansible/**
       - infrastructure/**
       - scripts/**
@@ -127,6 +129,9 @@ jobs:
           ./scripts/validate-provider-locks
           ./infrastructure/policy/test-policy.sh
           python .github/scripts/test-ct-retirement.py
+          python .github/scripts/test-proxmox-lxc-qualification.py
+          python .github/scripts/test-proxmox-lxc-workflow.py
+          python .github/scripts/test-qualify-proxmox-lxc.py
           python .github/scripts/test-ct-compose-precheck.py
           python .github/scripts/test-reconcile-manifest.py
           ./scripts/test-recovery-tools
@@ -136,21 +141,21 @@ jobs:
             scripts/collect-proxmox-protected-inputs scripts/migrate-proxmox-zfs-stack \
             scripts/migrate-sops-recipients \
             scripts/prepare-omada-plan-input scripts/prepare-provider-ca-bundle scripts/publish-wolf-images \
-            scripts/rehearse-recovery scripts/restore-critical-backup \
+            scripts/qualify-proxmox-lxc scripts/rehearse-recovery scripts/restore-critical-backup \
             scripts/test-recovery-tools .github/scripts/prepare-ansible-controller.sh
           bash -n scripts/reconcile-infrastructure scripts/bootstrap-aws-state scripts/bootstrap-tailscale-state \
             scripts/bootstrap-proxmox-host scripts/build-recovery-bundle \
             scripts/collect-proxmox-protected-inputs scripts/migrate-proxmox-zfs-stack \
             scripts/migrate-sops-recipients \
             scripts/prepare-omada-plan-input scripts/prepare-provider-ca-bundle scripts/publish-wolf-images \
-            scripts/rehearse-recovery scripts/restore-critical-backup \
+            scripts/qualify-proxmox-lxc scripts/rehearse-recovery scripts/restore-critical-backup \
             scripts/test-recovery-tools
 
       - name: Validate every OpenTofu root offline from its backend
         run: |
           set -euo pipefail
           tofu fmt -check -recursive infrastructure/tofu
-          for root in aws-foundation proxmox-legacy proxmox omada tailscale github; do
+          for root in aws-foundation proxmox-legacy proxmox proxmox-lxc-qualification omada tailscale github; do
             tofu -chdir="infrastructure/tofu/$root" init -backend=false -input=false
             tofu -chdir="infrastructure/tofu/$root" validate
           done
@@ -212,7 +217,9 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.pull_request.base.sha }}
           path: .local/ct-retirement-base
-          sparse-checkout: infrastructure/contract/home-lab.yml
+          sparse-checkout: |
+            infrastructure/contract/home-lab.yml
+            infrastructure/tofu/proxmox-lxc-qualification/.terraform.lock.hcl
           sparse-checkout-cone-mode: false
 
       - name: Select the reviewed CT retirement preview policy
@@ -226,6 +233,9 @@ jobs:
           python .github/scripts/ct-retirement.py transition \
             --base-contract .local/ct-retirement-base/infrastructure/contract/home-lab.yml \
             --head-contract infrastructure/contract/home-lab.yml \
+            --qualification-tooling-commit "$BASE_SHA" \
+            --qualification-provider-lock \
+              .local/ct-retirement-base/infrastructure/tofu/proxmox-lxc-qualification/.terraform.lock.hcl \
             --github-output "$GITHUB_OUTPUT"
 
       - name: Select the reviewed Tailscale gateway-policy preview

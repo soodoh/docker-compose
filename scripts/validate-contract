@@ -3,18 +3,24 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 const yaml = require("js-yaml");
 const Ajv2020 = require("ajv/dist/2020");
 
 const root = path.resolve(__dirname, "..");
 const contractPath = path.join(root, "infrastructure/contract/home-lab.yml");
 const schemaPath = path.join(root, "infrastructure/contract/schema.json");
+const qualificationEvidencePath = path.join(root, "infrastructure/evidence/proxmox-lxc-qualification.json");
+const qualificationEvidenceSchemaPath = path.join(root, "infrastructure/evidence/proxmox-lxc-qualification.schema.json");
+const qualificationValidatorPath = path.join(root, ".github/scripts/proxmox-lxc-qualification.py");
 const operational = process.argv.includes("--operational");
 
 const contract = yaml.load(fs.readFileSync(contractPath, "utf8"));
 const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
+const qualificationEvidenceSchema = JSON.parse(fs.readFileSync(qualificationEvidenceSchemaPath, "utf8"));
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validate = ajv.compile(schema);
+const validateQualificationEvidence = ajv.compile(qualificationEvidenceSchema);
 
 if (!validate(contract)) {
   for (const error of validate.errors || []) {
@@ -38,6 +44,23 @@ if (contract.tailscale.gateway_policy_stage === "retired" && contract.proxmox.le
 }
 if (contract.tailscale.gateway_policy_stage === "active" && contract.proxmox.legacy_container.retirement_stage === "retired") {
   failures.push("active Tailscale gateway policy is forbidden after CT 101 retirement");
+}
+
+if (contract.proxmox.legacy_container.lxc_provider_qualified) {
+  if (!fs.existsSync(qualificationEvidencePath)) {
+    failures.push("qualified LXC provider requires infrastructure/evidence/proxmox-lxc-qualification.json");
+  } else {
+    const evidence = JSON.parse(fs.readFileSync(qualificationEvidencePath, "utf8"));
+    if (!validateQualificationEvidence(evidence)) failures.push("LXC qualification evidence does not match its schema");
+    const result = spawnSync(
+      "python3",
+      [qualificationValidatorPath, "validate-run-evidence", "--evidence-json", qualificationEvidencePath],
+      { cwd: root, encoding: "utf8" },
+    );
+    if (result.status !== 0) failures.push("LXC qualification evidence validator rejected the tracked evidence");
+  }
+} else if (fs.existsSync(qualificationEvidencePath)) {
+  failures.push("LXC qualification evidence must remain absent while lxc_provider_qualified is false");
 }
 
 if (operational) {
