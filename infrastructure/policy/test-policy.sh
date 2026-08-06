@@ -23,6 +23,8 @@ python3 "$policy" "$fixtures/protection-enable.json"
 python3 "$policy" "$fixtures/retired-branch-policy-delete.json"
 python3 "$policy" "$fixtures/qualification-create.json" --mode qualification
 python3 "$policy" "$fixtures/qualification-delete.json" --mode qualification
+python3 "$root/../../.github/scripts/test-tailscale-gateway-policy.py"
+python3 "$root/../../.github/scripts/test-reconcile-apply-source.py"
 
 for fixture in delete replace protection-disable ct-create ct-recreate; do
   expect_rejection "$fixture" normal

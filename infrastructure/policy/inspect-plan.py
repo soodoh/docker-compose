@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 import json
 from pathlib import Path
 import sys
@@ -50,6 +51,8 @@ def parse_args() -> argparse.Namespace:
             "recovery",
             "ct-unprotect",
             "ct-delete",
+            "ct-gateway-detach",
+            "ct-gateway-retire",
             "network-migration",
             "qualification",
         ),
@@ -79,6 +82,95 @@ def value_at_path(value: Any, path: tuple[str, ...]) -> Any:
         else:
             return None
     return current
+
+
+def contains_exact(value: Any, needle: str) -> bool:
+    if isinstance(value, dict):
+        return any(key == needle or contains_exact(entry, needle) for key, entry in value.items())
+    if isinstance(value, list):
+        return any(contains_exact(entry, needle) for entry in value)
+    return value == needle
+
+
+def unique_index(entries: Any, expected: Any, label: str) -> int:
+    if not isinstance(entries, list):
+        raise ValueError(f"{label} is not a list")
+    indexes = [index for index, entry in enumerate(entries) if entry == expected]
+    if len(indexes) != 1:
+        raise ValueError(f"{label} must occur exactly once")
+    return indexes[0]
+
+
+def detached_gateway_policy(active: Any) -> Any:
+    if not isinstance(active, dict):
+        raise ValueError("managed policy is not an object")
+    policy = deepcopy(active)
+    owners = policy.get("tagOwners")
+    if not isinstance(owners, dict) or owners.get("tag:ci") != ["autogroup:admin"]:
+        raise ValueError("legacy tag owner is missing or malformed")
+    del owners["tag:ci"]
+    expected_approvers = {
+        "routes": {
+            "192.168.0.100/32": ["tag:infra-router"],
+            "192.168.0.123/32": ["tag:infra-router"],
+        }
+    }
+    if policy.get("autoApprovers") != expected_approvers:
+        raise ValueError("gateway route auto-approvers are missing or malformed")
+    del policy["autoApprovers"]
+
+    grants = policy.get("grants")
+    for grant in (
+        {"src": ["autogroup:admin", "tag:ci"], "dst": ["192.168.0.123"], "ip": ["tcp:8006"]},
+        {"src": ["autogroup:admin", "tag:ci"], "dst": ["192.168.0.100"], "ip": ["tcp:22"]},
+    ):
+        del grants[unique_index(grants, grant, "routed LAN grant")]
+    docker_candidates = [
+        index for index, grant in enumerate(grants)
+        if isinstance(grant, dict) and grant.get("dst") == ["tag:docker-host"] and grant.get("ip") == ["tcp:22"]
+    ]
+    if len(docker_candidates) != 1:
+        raise ValueError("direct Docker grant must occur exactly once")
+    docker_grant = grants[docker_candidates[0]]
+    if not isinstance(docker_grant.get("src"), list) or docker_grant["src"].count("tag:ci") != 1:
+        raise ValueError("direct Docker grant has the wrong legacy-tag occurrence")
+    docker_grant["src"] = [source for source in docker_grant["src"] if source != "tag:ci"]
+
+    ssh = policy.get("ssh")
+    deploy_candidates = [
+        index for index, rule in enumerate(ssh)
+        if isinstance(rule, dict) and rule.get("dst") == ["tag:docker-host"] and rule.get("users") == ["ansible-deploy"]
+    ] if isinstance(ssh, list) else []
+    if len(deploy_candidates) != 1:
+        raise ValueError("ansible-deploy SSH rule must occur exactly once")
+    deploy_rule = ssh[deploy_candidates[0]]
+    if not isinstance(deploy_rule.get("src"), list) or deploy_rule["src"].count("tag:ci") != 1:
+        raise ValueError("ansible-deploy SSH rule has the wrong legacy-tag occurrence")
+    deploy_rule["src"] = [source for source in deploy_rule["src"] if source != "tag:ci"]
+    if contains_exact(policy, "tag:ci"):
+        raise ValueError("an unreviewed legacy tag occurrence remains")
+    return policy
+
+
+def retired_gateway_policy(detached: Any) -> Any:
+    policy = deepcopy(detached)
+    owners = policy.get("tagOwners") if isinstance(policy, dict) else None
+    if not isinstance(owners, dict) or owners.get("tag:infra-router") != ["autogroup:admin"]:
+        raise ValueError("infra-router tag owner is missing or malformed")
+    del owners["tag:infra-router"]
+    grant = {"src": ["autogroup:admin"], "dst": ["tag:infra-router"], "ip": ["*"]}
+    grants = policy.get("grants")
+    del grants[unique_index(grants, grant, "infra-router admin grant")]
+    if contains_exact(policy, "tag:infra-router"):
+        raise ValueError("an unreviewed infra-router tag occurrence remains")
+    return policy
+
+
+def policy_json(change: Any, side: str) -> Any:
+    value = (change.get(side) or {}).get("input", {}).get("policy_json")
+    if not isinstance(value, str):
+        raise ValueError(f"managed policy {side} JSON is missing")
+    return json.loads(value)
 
 
 def safe_protection_enable(before: Any, after: Any, path: tuple[str, ...]) -> bool:
@@ -197,6 +289,28 @@ def main() -> int:
                 failures.append(f"{address}: migration permits only the complete VM 100 host-device mapping transition")
             continue
 
+        if args.mode in {"ct-gateway-detach", "ct-gateway-retire"}:
+            try:
+                before_policy = policy_json(change, "before")
+                after_policy = policy_json(change, "after")
+                if args.mode == "ct-gateway-detach":
+                    expected_policy = detached_gateway_policy(before_policy)
+                    message = "gateway detach mode permits only the exact active-to-detached policy transformation"
+                else:
+                    expected_policy = retired_gateway_policy(before_policy)
+                    message = "gateway retire mode permits only the exact detached-to-retired policy transformation"
+                valid_change = (
+                    address == "terraform_data.tailscale_policy[0]"
+                    and actions == ["update"]
+                    and after_policy == expected_policy
+                )
+            except (AttributeError, json.JSONDecodeError, TypeError, ValueError):
+                valid_change = False
+                message = "gateway lifecycle policy is missing, malformed, or has the wrong source occurrences"
+            if not valid_change:
+                failures.append(f"{address}: {message}")
+            continue
+
         if args.mode in {"ct-unprotect", "ct-delete"}:
             target = "proxmox_virtual_environment_container.tailscale_gateway[0]"
             before = change.get("before") or {}
@@ -223,6 +337,17 @@ def main() -> int:
                 message = "CT delete mode permits only deletion of unprotected CT 101"
             if not valid_change:
                 failures.append(f"{address}: {message}")
+            continue
+
+        if address == "terraform_data.tailscale_policy[0]":
+            try:
+                before_policy = policy_json(change, "before")
+                after_policy = policy_json(change, "after")
+                rollback = before_policy == detached_gateway_policy(after_policy)
+            except (AttributeError, json.JSONDecodeError, TypeError, ValueError):
+                rollback = False
+            if not rollback:
+                failures.append(f"{address}: gateway-policy mutation requires its exact lifecycle operation")
             continue
 
         legacy_container = "proxmox_virtual_environment_container.tailscale_gateway[0]"
@@ -274,6 +399,11 @@ def main() -> int:
         and observed_addresses != MAPPING_ADDRESSES | {"proxmox_virtual_environment_vm.arch"}
     ):
         failures.append("hardware migration plan must contain all mappings and the VM transition")
+    if args.mode in {"ct-gateway-detach", "ct-gateway-retire"} and (
+        observed_actions != 1
+        or observed_addresses != {"terraform_data.tailscale_policy[0]"}
+    ):
+        failures.append("gateway lifecycle plan must contain exactly one complete policy update")
     if args.mode in {"ct-unprotect", "ct-delete"} and (
         observed_actions != 1
         or observed_addresses != {"proxmox_virtual_environment_container.tailscale_gateway[0]"}

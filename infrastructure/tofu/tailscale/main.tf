@@ -43,7 +43,9 @@ locals {
   tags                  = local.contract.tailscale.tags
   github_subject_prefix = "repo:${local.contract.github.owner}@${var.github_owner_id}/${local.contract.github.repository}@${var.github_repository_id}"
 
-  policy = {
+  gateway_policy_stage = local.contract.tailscale.gateway_policy_stage
+
+  active_policy = {
     tagOwners = {
       (local.tags.arch)         = ["autogroup:admin"]
       (local.tags.proxmox)      = ["autogroup:admin"]
@@ -214,14 +216,53 @@ locals {
       },
     ]
   }
+
+  detached_policy = merge(
+    { for key, value in local.active_policy : key => value if key != "autoApprovers" },
+    {
+      tagOwners = {
+        for tag, owners in local.active_policy.tagOwners : tag => owners
+        if tag != local.tags.ci_legacy
+      }
+      grants = concat(
+        [local.active_policy.grants[0]],
+        [merge(local.active_policy.grants[3], {
+          src = [for source in local.active_policy.grants[3].src : source if source != local.tags.ci_legacy]
+        })],
+        slice(local.active_policy.grants, 4, length(local.active_policy.grants)),
+      )
+      ssh = concat(
+        [local.active_policy.ssh[0]],
+        [merge(local.active_policy.ssh[1], {
+          src = [for source in local.active_policy.ssh[1].src : source if source != local.tags.ci_legacy]
+        })],
+        slice(local.active_policy.ssh, 2, length(local.active_policy.ssh)),
+      )
+    },
+  )
+
+  retired_policy = merge(local.detached_policy, {
+    tagOwners = {
+      for tag, owners in local.detached_policy.tagOwners : tag => owners
+      if tag != local.tags.infra_router
+    }
+    grants = slice(local.detached_policy.grants, 1, length(local.detached_policy.grants))
+  })
+
+  policy_json_by_stage = {
+    active   = jsonencode(local.active_policy)
+    detached = jsonencode(local.detached_policy)
+    retired  = jsonencode(local.retired_policy)
+  }
+  policy_json = local.policy_json_by_stage[local.gateway_policy_stage]
 }
 
 resource "terraform_data" "tailscale_policy" {
   count = var.tailscale_enable_management ? 1 : 0
 
   input = {
-    policy_json   = jsonencode(local.policy)
-    policy_sha256 = sha256(jsonencode(local.policy))
+    policy_json   = local.policy_json
+    policy_sha256 = sha256(local.policy_json)
   }
 
   lifecycle {

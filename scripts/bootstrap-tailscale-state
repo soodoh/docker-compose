@@ -97,7 +97,11 @@ tailscale_policy_identity() {
     -o "$body"
   jq -cS -e . "$body" >"$canonical"
   etag=$(awk 'tolower($1) == "etag:" {gsub(/\r/, ""); sub(/^[^:]+:[[:space:]]*/, ""); print; exit}' "$headers")
-  [[ -n $etag ]]
+  [[ $etag =~ ^(W/)?\"[^\"[:cntrl:]]+\"$ ]] || {
+    echo "The Tailscale policy response is missing a valid ETag." >&2
+    rm -f "$headers" "$body" "$canonical"
+    return 1
+  }
   printf '%s\t%s\n' "$(sha256_file "$canonical")" "$etag"
   rm -f "$headers" "$body" "$canonical"
   unset access_token
@@ -121,6 +125,7 @@ apply_planned_policy() {
   chmod 0600 "$desired" "$response"
   tailscale_planned_policy "$plan" "$desired"
   desired_sha=$(sha256_file "$desired")
+  [[ $expected_sha =~ ^[0-9a-f]{64}$ && $expected_etag =~ ^(W/)?\"[^\"[:cntrl:]]+\"$ ]]
   IFS=$'\t' read -r current_sha current_etag < <(tailscale_policy_identity)
   if [[ $current_sha != "$desired_sha" ]]; then
     [[ $current_sha == "$expected_sha" && $current_etag == "$expected_etag" ]] || {
@@ -136,6 +141,12 @@ apply_planned_policy() {
       "https://api.tailscale.com/api/v2/tailnet/$TAILSCALE_TAILNET/acl/validate" \
       -o "$response"
     jq -e '((.errors // []) | length) == 0 and ((.warnings // []) | length) == 0' "$response" >/dev/null
+    IFS=$'\t' read -r current_sha current_etag < <(tailscale_policy_identity)
+    [[ $current_sha == "$expected_sha" && $current_etag == "$expected_etag" ]] || {
+      echo "The live Tailscale policy changed during validation; refusing POST." >&2
+      rm -f "$desired" "$response"
+      exit 1
+    }
     curl --fail --silent --show-error -X POST \
       -H "Authorization: Bearer $access_token" \
       -H 'Content-Type: application/json' \

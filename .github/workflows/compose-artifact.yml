@@ -62,6 +62,9 @@ jobs:
             python3 .github/scripts/ct-retirement.py transition \
               --base-contract .local/ct-retirement-base/infrastructure/contract/home-lab.yml \
               --head-contract infrastructure/contract/home-lab.yml >/dev/null
+            python3 .github/scripts/tailscale-gateway-policy.py transition \
+              --base-contract .local/ct-retirement-base/infrastructure/contract/home-lab.yml \
+              --head-contract infrastructure/contract/home-lab.yml >/dev/null
           fi
 
       - name: Prove deterministic artifact selection and copy

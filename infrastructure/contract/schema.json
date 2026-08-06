@@ -103,9 +103,22 @@
     "tailscale": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["tags", "required_endpoints"],
+      "required": ["gateway_policy_stage", "tags", "required_endpoints"],
       "properties": {
-        "tags": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^tag:" }, "minProperties": 4 },
+        "gateway_policy_stage": { "type": "string", "enum": ["active", "detached", "retired"] },
+        "tags": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "pattern": "^tag:" },
+          "required": ["arch", "proxmox", "infra_router", "ci_legacy", "ci_plan", "ci_apply"],
+          "properties": {
+            "arch": { "type": "string", "pattern": "^tag:" },
+            "proxmox": { "type": "string", "pattern": "^tag:" },
+            "infra_router": { "const": "tag:infra-router" },
+            "ci_legacy": { "const": "tag:ci" },
+            "ci_plan": { "type": "string", "pattern": "^tag:" },
+            "ci_apply": { "type": "string", "pattern": "^tag:" }
+          }
+        },
         "required_endpoints": { "type": "array", "minItems": 4, "items": { "type": "string" }, "uniqueItems": true }
       }
     },

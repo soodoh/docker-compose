@@ -10,11 +10,28 @@ scripts/reconcile-infrastructure plan --phase steady
 scripts/reconcile-infrastructure apply --phase steady
 ```
 
-`bootstrap` and `adopt` are plan-only compatibility commands. Adoption deliberately stops after generating policy-inspected plans. Apply consumes saved plans rather than replanning, serializes OpenTofu operations with `-parallelism=1`, acquires the DynamoDB mutation lease, and requires post-apply no-op checks.
+`bootstrap` and `adopt` are plan-only compatibility commands. Adoption deliberately stops after generating policy-inspected plans. Apply consumes saved plans rather than replanning, serializes OpenTofu operations with `-parallelism=1`, acquires the DynamoDB mutation lease, and requires post-apply no-op checks. CT and Tailscale gateway lifecycle applies are main-only: GitHub requires exact `refs/heads/main` at `GITHUB_SHA`; local execution requires an attached `main` checkout at the existing `origin/main` commit. Plans and PR previews remain branch-safe.
 
 Plan credentials must be read-only. Apply credentials are loaded only after the plan boundary has passed. Never pass provider secrets as command arguments, artifacts, manifests, or logs. The CT confirmation is supplied only as the environment-scoped `PROXMOX_CT_DECOMMISSION_CONFIRMATION` GitHub secret. The reconciler verifies it without printing it, then exports it only as the sensitive, ephemeral `TF_VAR_decommission_confirmation` environment variable; it is never a CLI argument or manifest field and OpenTofu does not persist it in plan or state. OpenTofu independently validates its SHA-256 identity and fails planning when it is missing or invalid for an unprotected or retired durable stage, including steady operation `none`. The apply environment must supply it again so the independent hard gate remains active when consuming a saved plan.
 
-Special modes (`recovery`, network migration, CT retirement, and Omada qualification) have narrower policy allowlists and dedicated gates. They cannot be combined. A successful static plan is not proof that a provider can perform a live operation.
+Special modes (`recovery`, network migration, CT retirement, Tailscale gateway-policy lifecycle, and Omada qualification) have narrower policy allowlists and dedicated gates. They cannot be combined. A successful static plan is not proof that a provider can perform a live operation.
+
+## Tailscale gateway-policy lifecycle
+
+The durable `tailscale.gateway_policy_stage` is `active`, `detached`, or `retired`. `active` renders the historical complete policy. `detached` removes every legacy `tag:ci` use, route auto-approvers, and the two routed LAN grants while retaining the infra-router owner/admin grant for the live node. `retired` additionally removes that final owner and grant, and is allowed only after the CT contract stage is already `retired` and device absence has separate operator approval.
+
+PR comparison permits steady states, `active -> detached`, pre-CT-retirement `detached -> active` rollback, and `detached -> retired` only with an already retired CT. It rejects skips, transitions out of retired, and simultaneous CT/gateway transitions. The universally required Compose validation and infrastructure preview both run this comparison.
+
+After merging a stage transition to `main`, dispatch exactly the matching `tailscale_gateway` operation, or use:
+
+```sh
+scripts/reconcile-infrastructure plan --phase steady --tailscale-gateway-operation detach
+scripts/reconcile-infrastructure apply --phase steady --tailscale-gateway-operation detach
+```
+
+The saved-plan manifest binds operation, stage, the exact saved plan's canonical before/after policy SHA-256 values, and the live plan-time ETag. Planning fails unless the saved plan's canonical before SHA equals the live policy SHA captured with that ETag. Missing, duplicate-key, or otherwise noncanonicalizable before policy JSON fails closed. The dedicated plan policy permits only `terraform_data.tailscale_policy[0]` to update and requires all other roots, including all four federated identities, to be no-op. Apply re-extracts both policy identities from the hash-bound saved plan, validates through the single complete-policy endpoint, rechecks live SHA and ETag against that exact saved-plan before identity immediately before an `If-Match` POST, applies the exact state plan, proves live policy equals state, and finishes with a normal no-op. Exact-after partial recovery remains idempotent; unrelated live drift is never overwritten. Repeating a lifecycle operation is rejected at planning.
+
+Retirement additionally fails closed unless `TAILSCALE_GATEWAY_DEVICE_ABSENCE_APPROVED` is exactly `true` in both protected plan and apply environments. Set this temporary variable only after explicit device-deletion approval and read-only verification that the device is absent; it does not authorize device deletion. Remove it from both environments immediately after the retired no-op proof. Detach does not use this approval.
 
 ## CT 101 retirement lifecycle
 

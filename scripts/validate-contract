@@ -33,6 +33,12 @@ for (let mirror = 0; mirror < 6; mirror += 1) {
 }
 if (contract.network.proxmox.ipv4 === contract.network.arch.ipv4) failures.push("host addresses must differ");
 if (contract.network.proxmox.mac === contract.network.arch.mac) failures.push("host MAC addresses must differ");
+if (contract.tailscale.gateway_policy_stage === "retired" && contract.proxmox.legacy_container.retirement_stage !== "retired") {
+  failures.push("retired Tailscale gateway policy requires retired CT 101");
+}
+if (contract.tailscale.gateway_policy_stage === "active" && contract.proxmox.legacy_container.retirement_stage === "retired") {
+  failures.push("active Tailscale gateway policy is forbidden after CT 101 retirement");
+}
 
 if (operational) {
   const required = [
