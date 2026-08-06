@@ -8,6 +8,7 @@ on:
     branches:
       - main
     paths:
+      - .github/scripts/**
       - .github/workflows/compose-artifact.yml
       - .sops.yaml
       - docker-compose.yml
@@ -33,6 +34,35 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Check out only the exact PR base contract
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .local/ct-retirement-base
+          sparse-checkout: infrastructure/contract/home-lab.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Validate the CT retirement lifecycle helper
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/test-ct-retirement.py
+          if [[ $GITHUB_EVENT_NAME == pull_request ]]; then
+            [[ $BASE_SHA =~ ^[0-9a-f]{40}$ ]]
+            [[ $HEAD_SHA =~ ^[0-9a-f]{40}$ ]]
+            [[ $(git rev-parse HEAD) == "$HEAD_SHA" ]]
+            [[ $(git -C .local/ct-retirement-base rev-parse HEAD) == "$BASE_SHA" ]]
+            python3 .github/scripts/ct-retirement.py transition \
+              --base-contract .local/ct-retirement-base/infrastructure/contract/home-lab.yml \
+              --head-contract infrastructure/contract/home-lab.yml >/dev/null
+          fi
 
       - name: Prove deterministic artifact selection and copy
         id: artifact

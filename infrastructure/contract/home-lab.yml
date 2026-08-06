@@ -102,7 +102,7 @@ proxmox:
     vmid: 101
     name: tailscale-gateway
     mac: BC:24:11:FD:4C:5C
-    protected: true
+    retirement_stage: protected
     recreate_after_decommission: false
     root_datastore: local-lvm
     root_size_gb: 4

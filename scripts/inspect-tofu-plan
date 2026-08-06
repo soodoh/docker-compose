@@ -11,9 +11,10 @@ plan=$1
 plan="$(cd "$(dirname "$plan")" && pwd)/$(basename "$plan")"
 shift
 tofu_chdir=${TOFU_PLAN_CHDIR:-}
-json=$(mktemp)
-trap 'rm -f "$json"' EXIT
 umask 077
+json=$(mktemp)
+chmod 0600 "$json"
+trap 'rm -f "$json"' EXIT
 
 if [[ -n $tofu_chdir ]]; then
   tofu -chdir="$tofu_chdir" show -json "$plan" >"$json"

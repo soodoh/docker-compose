@@ -43,7 +43,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("plan_json", type=Path)
     parser.add_argument(
         "--mode",
-        choices=("normal", "adopt", "adopt-or-noop", "recovery", "ct-decommission", "network-migration", "qualification"),
+        choices=(
+            "normal",
+            "adopt",
+            "adopt-or-noop",
+            "recovery",
+            "ct-unprotect",
+            "ct-delete",
+            "network-migration",
+            "qualification",
+        ),
         default="normal",
     )
     parser.add_argument("--allow-change-file", type=Path)
@@ -188,26 +197,37 @@ def main() -> int:
                 failures.append(f"{address}: migration permits only the complete VM 100 host-device mapping transition")
             continue
 
-        if args.mode == "ct-decommission":
-            is_target = address == "proxmox_virtual_environment_container.tailscale_gateway[0]"
+        if args.mode in {"ct-unprotect", "ct-delete"}:
+            target = "proxmox_virtual_environment_container.tailscale_gateway[0]"
             before = change.get("before") or {}
             after = change.get("after") or {}
-            is_unprotect = (
-                actions == ["update"]
-                and before.get("vm_id") == 101
-                and after.get("vm_id") == 101
-                and changed_keys(before, after) == {("protection",)}
-                and before.get("protection") is True
-                and after.get("protection") is False
-            )
-            is_delete = (
-                actions == ["delete"]
-                and before.get("vm_id") == 101
-                and before.get("protection") is False
-                and change.get("after") is None
-            )
-            if not is_target or not (is_delete or is_unprotect):
-                failures.append(f"{address}: CT mode permits only staged unprotection or deletion of unprotected CT 101")
+            if args.mode == "ct-unprotect":
+                valid_change = (
+                    address == target
+                    and actions == ["update"]
+                    and before.get("vm_id") == 101
+                    and after.get("vm_id") == 101
+                    and before.get("protection") is True
+                    and after.get("protection") is False
+                    and changed_keys(before, after) == {("protection",)}
+                )
+                message = "CT unprotect mode permits only the exact protection update for CT 101"
+            else:
+                valid_change = (
+                    address == target
+                    and actions == ["delete"]
+                    and before.get("vm_id") == 101
+                    and before.get("protection") is False
+                    and change.get("after") is None
+                )
+                message = "CT delete mode permits only deletion of unprotected CT 101"
+            if not valid_change:
+                failures.append(f"{address}: {message}")
+            continue
+
+        legacy_container = "proxmox_virtual_environment_container.tailscale_gateway[0]"
+        if address == legacy_container and "create" in actions:
+            failures.append(f"{address}: creating or recreating retired CT 101 is forbidden")
             continue
 
         retired_branch_policy_delete = (
@@ -254,6 +274,11 @@ def main() -> int:
         and observed_addresses != MAPPING_ADDRESSES | {"proxmox_virtual_environment_vm.arch"}
     ):
         failures.append("hardware migration plan must contain all mappings and the VM transition")
+    if args.mode in {"ct-unprotect", "ct-delete"} and (
+        observed_actions != 1
+        or observed_addresses != {"proxmox_virtual_environment_container.tailscale_gateway[0]"}
+    ):
+        failures.append("CT retirement plan must contain exactly one complete target action")
 
     if failures:
         for failure in sorted(set(failures)):
